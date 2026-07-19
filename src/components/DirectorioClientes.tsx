@@ -1,3 +1,4 @@
+// src/components/DirectorioClientes.tsx
 import { useState, useMemo, useEffect } from "react";
 import {
   Search,
@@ -6,12 +7,22 @@ import {
   ChevronLeft,
   ChevronRight,
   Pencil,
+  Trash2,
 } from "lucide-react";
 
-import { RUTAS } from "../data/mockRutas";
-import { misClientes } from "../data/mockClients";
+interface Props {
+  clientes: any[];
+  rutas: any[]; // <--- 1. Recibimos las rutas reales de Firebase
+  onEdit: (cliente: any) => void;
+  onDelete: (id: string) => Promise<void>;
+}
 
-export default function DirectorioClientes() {
+export default function DirectorioClientes({
+  clientes,
+  rutas,
+  onEdit,
+  onDelete,
+}: Props) {
   const [busquedaNombre, setBusquedaNombre] = useState("");
   const [filtroRuta, setFiltroRuta] = useState("");
 
@@ -19,14 +30,20 @@ export default function DirectorioClientes() {
   const ITEMS_POR_PAGINA = 13;
 
   const clientesFiltrados = useMemo(() => {
-    return misClientes.filter((cliente) => {
-      const coincideNombre = cliente.nombre
+    return clientes.filter((cliente) => {
+      // 2. Búsqueda segura (evita errores si el cliente no tiene nombre o ruta guardada)
+      const nombreSeguro = cliente.nombre || "";
+      const rutaSegura = cliente.ruta || "";
+
+      const coincideNombre = nombreSeguro
         .toLowerCase()
         .includes(busquedaNombre.toLowerCase());
-      const coincideRuta = filtroRuta === "" || cliente.ruta === filtroRuta;
+
+      const coincideRuta = filtroRuta === "" || rutaSegura === filtroRuta;
+
       return coincideNombre && coincideRuta;
     });
-  }, [busquedaNombre, filtroRuta]);
+  }, [busquedaNombre, filtroRuta, clientes]);
 
   useEffect(() => {
     setPaginaActual(1);
@@ -38,11 +55,6 @@ export default function DirectorioClientes() {
     (paginaActual - 1) * ITEMS_POR_PAGINA,
     paginaActual * ITEMS_POR_PAGINA,
   );
-
-  const handleEdit = (id: string) => {
-    console.log("Editando cliente:", id);
-    alert(`Editar cliente ID: ${id}`);
-  };
 
   return (
     <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full">
@@ -77,9 +89,10 @@ export default function DirectorioClientes() {
             className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white"
           >
             <option value="">Todas las rutas</option>
-            {RUTAS.map((r) => (
-              <option key={r} value={r}>
-                {r}
+            {/* 3. Mapeamos las rutas reales recibidas por Props */}
+            {rutas.map((r) => (
+              <option key={r.id} value={r.nombre}>
+                {r.nombre}
               </option>
             ))}
           </select>
@@ -119,13 +132,18 @@ export default function DirectorioClientes() {
                   <td className="py-3 px-4 text-sm text-slate-600">
                     {cliente.vendedor}
                   </td>
-                  {/* Botón de editar */}
                   <td className="py-3 px-4 text-center">
                     <button
-                      onClick={() => handleEdit(cliente.id)}
+                      onClick={() => onEdit(cliente)}
                       className="text-slate-400 hover:text-blue-600 transition-colors p-2 hover:bg-blue-50 rounded-full"
                     >
                       <Pencil size={18} />
+                    </button>
+                    <button
+                      onClick={() => onDelete(cliente.id)}
+                      className="text-slate-400 hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-full"
+                    >
+                      <Trash2 size={18} />
                     </button>
                   </td>
                 </tr>

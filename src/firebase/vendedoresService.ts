@@ -5,6 +5,7 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  getDocs, // <--- 1. Asegúrate de añadir esto aquí
 } from "firebase/firestore";
 import { db } from "./config";
 import type { Vendedor as DatosVendedor } from "../types/index";
@@ -12,6 +13,24 @@ import type { Vendedor as DatosVendedor } from "../types/index";
 // Usamos Omit para decirle a TypeScript que vamos a mandar un Vendedor,
 // pero sin el 'id', ya que Firebase se encargará de generar ese ID único.
 export type NuevoVendedor = Omit<DatosVendedor, "id">;
+
+export const obtenerVendedoresFirebase = async (): Promise<DatosVendedor[]> => {
+  try {
+    const vendedoresRef = collection(db, "vendedores");
+    const querySnapshot = await getDocs(vendedoresRef);
+
+    // Convertimos los documentos de Firebase a un formato que tu app entiende
+    const vendedores = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as DatosVendedor[];
+
+    return vendedores;
+  } catch (error) {
+    console.error("Error al obtener vendedores:", error);
+    return [];
+  }
+};
 
 export const agregarVendedorFirebase = async (vendedor: NuevoVendedor) => {
   try {
