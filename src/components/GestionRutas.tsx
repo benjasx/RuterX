@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Map, Plus, Trash2, Save } from "lucide-react";
+import { Map, Plus, Trash2 } from "lucide-react";
 import { RUTAS as initialRutas } from "../data/mockRutas";
 
 export default function GestionRutas() {

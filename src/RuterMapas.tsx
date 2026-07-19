@@ -36,7 +36,7 @@ export default function RuterMapas() {
     e.preventDefault();
 
     // AQUÍ DEFINES TU CONTRASEÑA (Ejemplo: "admin123")
-    if (passwordInput === "admin123") {
+    if (passwordInput === "benjasx98") {
       setEstaAutenticado(true);
       sessionStorage.setItem("adminAuth", "true");
       setErrorPassword(false);
