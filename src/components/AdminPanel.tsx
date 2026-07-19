@@ -8,7 +8,11 @@ import { VENDEDORES } from "../data/mockClients";
 
 type SubVistaAdmin = "clientes" | "rutas";
 
-export default function AdminPanel() {
+interface AdminPanelProps {
+  onLogout: () => void;
+}
+
+export default function AdminPanel({ onLogout }: AdminPanelProps) {
   const [menuActivo, setMenuActivo] = useState<SubVistaAdmin>("clientes");
 
   const [nombre, setNombre] = useState("");
@@ -37,10 +41,6 @@ export default function AdminPanel() {
     setRuta("");
     setLatitud("");
     setLongitud("");
-  };
-
-  const handleCerrarSesion = () => {
-    alert("Cerrando sesión de administrador...");
   };
 
   return (
@@ -85,10 +85,13 @@ export default function AdminPanel() {
         <div>
           <div className="h-px bg-slate-100 w-full mb-4"></div>
           <button
-            onClick={handleCerrarSesion}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-red-600 hover:bg-red-50 font-medium"
+            onClick={() => {
+              alert("Cerrando sesión de administrador...");
+              onLogout(); // Llama a la función que destruye la sesión
+            }}
+            className="flex items-center w-full gap-3 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors mt-auto"
           >
-            <LogOut size={20} />
+            <LogOut size={18} />
             Cerrar Sesión
           </button>
         </div>
