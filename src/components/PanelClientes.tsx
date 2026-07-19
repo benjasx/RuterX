@@ -1,15 +1,18 @@
+// src/components/PanelClientes.tsx
 import { useState } from "react";
 import { UserPlus, Save } from "lucide-react";
 import DirectorioClientes from "./DirectorioClientes";
 import { RUTAS } from "../data/mockRutas";
 import type { Vendedor as DatosVendedor } from "../types/index";
 
+// 1. IMPORTAMOS NUESTRA NUEVA FUNCIÓN DE FIREBASE
+import { agregarClienteFirebase } from "../firebase/clientesService";
+
 interface PanelClientesProps {
   vendedores: DatosVendedor[];
 }
 
 export default function PanelClientes({ vendedores }: PanelClientesProps) {
-  // Estados exclusivos de la vista de clientes
   const [nombre, setNombre] = useState("");
   const [domicilio, setDomicilio] = useState("");
   const [vendedorSeleccionado, setVendedorSeleccionado] = useState("");
@@ -17,31 +20,47 @@ export default function PanelClientes({ vendedores }: PanelClientesProps) {
   const [latitud, setLatitud] = useState("");
   const [longitud, setLongitud] = useState("");
 
+  // Estado para saber si estamos guardando (para deshabilitar el botón)
+  const [guardando, setGuardando] = useState(false);
+
   const opcionesVendedores = [
     "Seleccionar Vendedor...",
     ...vendedores.map((v) => v.nombre),
   ];
 
-  const handleGuardarCliente = (e: React.FormEvent) => {
+  // 2. CONVERTIMOS LA FUNCIÓN A ASÍNCRONA (async)
+  const handleGuardarCliente = async (e: React.FormEvent) => {
     e.preventDefault();
+    setGuardando(true); // Bloqueamos el botón temporalmente
+
     const nuevoCliente = {
       nombre,
-      domicilio,
+      descripcion: domicilio, // Lo llamamos descripcion para que empate con tu interfaz
       vendedor: vendedorSeleccionado,
       ruta,
-      coordenadas: [parseFloat(latitud) || 0, parseFloat(longitud) || 0],
+      posicion: [parseFloat(latitud) || 0, parseFloat(longitud) || 0] as [
+        number,
+        number,
+      ],
     };
 
-    console.log("Cliente a guardar:", nuevoCliente);
-    alert(`¡Cliente ${nombre} registrado con éxito!`);
+    // 3. ENVIAMOS LOS DATOS A FIREBASE
+    const resultado = await agregarClienteFirebase(nuevoCliente);
 
-    // Limpiar formulario
-    setNombre("");
-    setDomicilio("");
-    setVendedorSeleccionado("");
-    setRuta("");
-    setLatitud("");
-    setLongitud("");
+    if (resultado.success) {
+      alert(`¡Cliente ${nombre} registrado con éxito en la nube!`);
+      // Limpiamos el formulario solo si fue exitoso
+      setNombre("");
+      setDomicilio("");
+      setVendedorSeleccionado("");
+      setRuta("");
+      setLatitud("");
+      setLongitud("");
+    } else {
+      alert("Hubo un error al guardar el cliente. Revisa la consola.");
+    }
+
+    setGuardando(false); // Volvemos a habilitar el botón
   };
 
   return (
@@ -132,6 +151,7 @@ export default function PanelClientes({ vendedores }: PanelClientesProps) {
               <input
                 type="number"
                 step="any"
+                required
                 value={latitud}
                 onChange={(e) => setLatitud(e.target.value)}
                 placeholder="21.4425"
@@ -145,6 +165,7 @@ export default function PanelClientes({ vendedores }: PanelClientesProps) {
               <input
                 type="number"
                 step="any"
+                required
                 value={longitud}
                 onChange={(e) => setLongitud(e.target.value)}
                 placeholder="-104.8983"
@@ -153,9 +174,14 @@ export default function PanelClientes({ vendedores }: PanelClientesProps) {
             </div>
           </div>
 
-          <button type="submit" className="w-full mt-auto pt-6">
+          <button
+            type="submit"
+            disabled={guardando}
+            className="w-full mt-auto pt-6 disabled:opacity-70"
+          >
             <div className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors flex justify-center items-center gap-2">
-              <Save size={18} /> Guardar Cliente
+              <Save size={18} />
+              {guardando ? "Guardando en la nube..." : "Guardar Cliente"}
             </div>
           </button>
         </form>
