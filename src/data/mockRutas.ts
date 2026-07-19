@@ -1,0 +1,18 @@
+export const RUTAS: string[] = [
+  "Tlmk",
+  "Local",
+  "Santiago",
+  "Compostela",
+  "Ixtlan",
+  "Tala Magdalena",
+  "18 de Marzo",
+  "Bahia de Banderas",
+  "San Blas",
+  "Acaponeta",
+  "Tecuala",
+  "Rosamorada",
+  "Ruiz",
+  "Tuxpan",
+  "Jala",
+  "Villa Hidalgo",
+];
