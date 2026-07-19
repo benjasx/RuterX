@@ -40,7 +40,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   }, []);
 
   return (
-    <div className="flex flex-col xl:flex-row items-start gap-5 w-full">
+    <div className="flex flex-col xl:flex-row items-start gap-5 w-full mt-10">
       {/* 1. COMPONENTE DE NAVEGACIÓN */}
       <SidebarAdmin
         menuActivo={menuActivo}
@@ -67,6 +67,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         <PanelVendedores
           listaVendedores={listaVendedores}
           setListaVendedores={setListaVendedores}
+          rutas={listaRutas}
         />
       )}
     </div>

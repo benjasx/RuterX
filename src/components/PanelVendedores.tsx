@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { Briefcase, Save } from "lucide-react";
 import DirectorioVendedores from "./DirectorioVendedores";
-import { RUTAS } from "../data/mockRutas";
 import type { Vendedor as DatosVendedor } from "../types/index";
 
 // IMPORTAMOS LOS TRES SERVICIOS DE FIREBASE
@@ -15,11 +14,13 @@ import {
 interface PanelVendedoresProps {
   listaVendedores: DatosVendedor[];
   setListaVendedores: React.Dispatch<React.SetStateAction<DatosVendedor[]>>;
+  rutas: any[]; // Recibimos las rutas reales desde AdminPanel
 }
 
 export default function PanelVendedores({
   listaVendedores,
   setListaVendedores,
+  rutas,
 }: PanelVendedoresProps) {
   const [nuevoNombreVend, setNuevoNombreVend] = useState("");
   const [nuevoCorreoVend, setNuevoCorreoVend] = useState("");
@@ -118,7 +119,7 @@ export default function PanelVendedores({
     setNuevoNombreVend(vend.nombre);
     setNuevoCorreoVend(vend.correo);
     setNuevoTelefonoVend(vend.telefono);
-    setRutasSeleccionadasVend(vend.rutas);
+    setRutasSeleccionadasVend(vend.rutas || []);
   };
 
   const handleEliminarVendedor = async (id: string) => {
@@ -148,7 +149,7 @@ export default function PanelVendedores({
   };
 
   return (
-    <>
+    <div className="flex flex-col xl:flex-row gap-6 w-full">
       <div className="w-full xl:w-100 shrink-0 bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
         <div className="flex items-center gap-2 mb-6">
           <Briefcase className="text-blue-600" size={24} />
@@ -205,22 +206,23 @@ export default function PanelVendedores({
               Rutas Asignadas ({rutasSeleccionadasVend.length})
             </label>
             <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-lg">
-              {RUTAS.map((ruta) => {
+              {/* MAPEAMOS LAS RUTAS REALES DE FIREBASE */}
+              {rutas.map((ruta) => {
                 const isSelected = rutasSeleccionadasVend.some(
-                  (r) => r.toLowerCase() === ruta.toLowerCase(),
+                  (r) => r.toLowerCase() === ruta.nombre.toLowerCase(),
                 );
                 return (
                   <button
-                    key={ruta}
+                    key={ruta.id}
                     type="button"
-                    onClick={() => toggleRutaVendedor(ruta)}
+                    onClick={() => toggleRutaVendedor(ruta.nombre)}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all border ${
                       isSelected
                         ? "bg-blue-600 text-white border-blue-700 shadow-sm"
                         : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
                     }`}
                   >
-                    {ruta}
+                    {ruta.nombre}
                   </button>
                 );
               })}
@@ -259,10 +261,11 @@ export default function PanelVendedores({
       <div className="flex-1 w-full h-full">
         <DirectorioVendedores
           vendedores={listaVendedores}
+          rutas={rutas} // PASAMOS LAS RUTAS REALES A LA TABLA
           onEdit={handleEditarVendedor}
           onDelete={handleEliminarVendedor}
         />
       </div>
-    </>
+    </div>
   );
 }

@@ -9,8 +9,6 @@ import {
   Trash2, // Agregado para eliminar
 } from "lucide-react";
 
-import { RUTAS } from "../data/mockRutas";
-
 // Interfaz para saber qué datos recibimos
 export interface DatosVendedor {
   id: string;
@@ -22,6 +20,7 @@ export interface DatosVendedor {
 
 interface DirectorioVendedoresProps {
   vendedores: DatosVendedor[];
+  rutas: any[];
   onEdit: (vendedor: DatosVendedor) => void;
   onDelete: (id: string) => void;
 }
@@ -29,6 +28,7 @@ interface DirectorioVendedoresProps {
 export default function DirectorioVendedores({
   vendedores,
   onEdit,
+  rutas,
   onDelete,
 }: DirectorioVendedoresProps) {
   const [busquedaNombre, setBusquedaNombre] = useState("");
@@ -103,9 +103,10 @@ export default function DirectorioVendedores({
             className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white"
           >
             <option value="">Todas las rutas</option>
-            {RUTAS.map((r) => (
-              <option key={r} value={r}>
-                {r}
+            {/* CORRECCIÓN: Le decimos a React que use el .id y el .nombre */}
+            {rutas.map((r) => (
+              <option key={r.id} value={r.nombre}>
+                {r.nombre}
               </option>
             ))}
           </select>
