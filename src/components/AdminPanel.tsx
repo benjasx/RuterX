@@ -1,19 +1,12 @@
 import { useState } from "react";
-import {
-  UserPlus,
-  Save,
-  Users,
-  Map,
-  LogOut,
-  Briefcase,
-  Trash2,
-  Edit,
-} from "lucide-react";
+import { UserPlus, Save, Users, Map, LogOut, Briefcase } from "lucide-react";
 import DirectorioClientes from "./DirectorioClientes";
 import GestionRutas from "./GestionRutas";
 
 import { RUTAS } from "../data/mockRutas";
-import { VENDEDORES } from "../data/mockClients";
+import { listaVendedores as mockVendedores } from "../data/mockVendedores";
+import DirectorioVendedores from "./DirectorioVendedores";
+import type { Vendedor as DatosVendedor } from "../types/index";
 
 // 1. Agregamos "vendedores" a los tipos permitidos
 type SubVistaAdmin = "clientes" | "rutas" | "vendedores";
@@ -22,20 +15,30 @@ interface AdminPanelProps {
   onLogout: () => void;
 }
 
-// 2. Interfaz para los datos del nuevo vendedor
-export interface DatosVendedor {
-  id: string;
-  nombre: string;
-  correo: string;
-  telefono: string;
-  rutas: string[];
-}
-
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
   const [menuActivo, setMenuActivo] = useState<SubVistaAdmin>("clientes");
 
   // ==========================================
-  // ESTADOS ORIGINALES DE CLIENTES (Intactos)
+  // NUEVOS ESTADOS PARA VENDEDORES
+  // ==========================================
+  const [listaVendedores, setListaVendedores] =
+    useState<DatosVendedor[]>(mockVendedores);
+  const [nuevoNombreVend, setNuevoNombreVend] = useState("");
+  const [nuevoCorreoVend, setNuevoCorreoVend] = useState("");
+  const [nuevoTelefonoVend, setNuevoTelefonoVend] = useState("");
+  const [rutasSeleccionadasVend, setRutasSeleccionadasVend] = useState<
+    string[]
+  >([]);
+  const [vendedorEditando, setVendedorEditando] = useState<string | null>(null);
+
+  // Lista dinámica para el Select de Clientes
+  const opcionesVendedores = [
+    "Seleccionar Vendedor...",
+    ...listaVendedores.map((v) => v.nombre),
+  ];
+
+  // ==========================================
+  // ESTADOS ORIGINALES DE CLIENTES
   // ==========================================
   const [nombre, setNombre] = useState("");
   const [domicilio, setDomicilio] = useState("");
@@ -66,29 +69,25 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   };
 
   // ==========================================
-  // NUEVOS ESTADOS PARA VENDEDORES
+  // FUNCIONES DE VENDEDORES CORREGIDAS
   // ==========================================
-  const [listaVendedores, setListaVendedores] = useState<DatosVendedor[]>([
-    {
-      id: "v-001",
-      nombre: "Benjamin R-2",
-      correo: "benja02@ejemplo.com",
-      telefono: "311-123-4567",
-      rutas: ["tlmk", "local", "santiago"],
-    },
-  ]);
-  const [nuevoNombreVend, setNuevoNombreVend] = useState("");
-  const [nuevoCorreoVend, setNuevoCorreoVend] = useState("");
-  const [nuevoTelefonoVend, setNuevoTelefonoVend] = useState("");
-  const [rutasSeleccionadasVend, setRutasSeleccionadasVend] = useState<
-    string[]
-  >([]);
-  const [vendedorEditando, setVendedorEditando] = useState<string | null>(null);
-
   const toggleRutaVendedor = (r: string) => {
-    setRutasSeleccionadasVend((prev) =>
-      prev.includes(r) ? prev.filter((ruta) => ruta !== r) : [...prev, r],
-    );
+    setRutasSeleccionadasVend((prev) => {
+      // Verificamos si la ruta ya existe ignorando mayúsculas/minúsculas
+      const existe = prev.some(
+        (rutaGuardada) => rutaGuardada.toLowerCase() === r.toLowerCase(),
+      );
+
+      if (existe) {
+        // Si ya la tiene, filtramos y quitamos cualquier coincidencia
+        return prev.filter(
+          (rutaGuardada) => rutaGuardada.toLowerCase() !== r.toLowerCase(),
+        );
+      } else {
+        // Si no la tiene, la agregamos
+        return [...prev, r];
+      }
+    });
   };
 
   const handleGuardarVendedor = (e: React.FormEvent) => {
@@ -153,9 +152,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   };
 
   return (
-    // 3. items-stretch fuerza a que todas las columnas midan lo mismo hacia abajo
     <div className="flex flex-col xl:flex-row items-start gap-5 w-full">
-      {/* BARRA LATERAL (Intacta, solo añadida la opción de Vendedores) */}
+      {/* BARRA LATERAL */}
       <aside className="w-full xl:w-62.5 shrink-0 bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between p-4">
         <div>
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-3">
@@ -188,7 +186,6 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                 Añadir Rutas
               </button>
             </li>
-            {/* NUEVA OPCIÓN: VENDEDORES */}
             <li>
               <button
                 onClick={() => setMenuActivo("vendedores")}
@@ -210,7 +207,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
           <button
             onClick={() => {
               alert("Cerrando sesión de administrador...");
-              onLogout(); // Llama a la función que destruye la sesión
+              onLogout();
             }}
             className="flex items-center w-full gap-3 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors mt-auto"
           >
@@ -220,12 +217,9 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         </div>
       </aside>
 
-      {/* RENDERIZADO CONDICIONAL DE LAS PANTALLAS */}
-
-      {/* ---------------- VISTA ORIGINAL DE CLIENTES ---------------- */}
+      {/* ---------------- VISTA DE CLIENTES ---------------- */}
       {menuActivo === "clientes" && (
         <>
-          {/* FORMULARIO */}
           <div className="w-full xl:w-100 shrink-0 bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
             <div className="flex items-center gap-2 mb-6">
               <UserPlus className="text-blue-600" size={24} />
@@ -234,7 +228,6 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               </h2>
             </div>
 
-            {/* flex-1 dentro del form permite al botón irse hacia abajo si lo deseas, o mantiene todo compacto */}
             <form
               onSubmit={handleGuardarCliente}
               className="space-y-4 flex flex-col flex-1"
@@ -277,7 +270,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                   onChange={(e) => setVendedor(e.target.value)}
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
-                  {VENDEDORES.map((v, index) => (
+                  {opcionesVendedores.map((v, index) => (
                     <option
                       key={index}
                       value={v === "Seleccionar Vendedor..." ? "" : v}
@@ -336,7 +329,6 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                 </div>
               </div>
 
-              {/* mt-auto empuja el botón de guardar hacia el fondo del contenedor si es necesario */}
               <button type="submit" className="w-full mt-auto pt-6">
                 <div className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors flex justify-center items-center gap-2">
                   <Save size={18} />
@@ -346,17 +338,16 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             </form>
           </div>
 
-          {/* DIRECTORIO */}
           <div className="flex-1 w-full h-full">
             <DirectorioClientes />
           </div>
         </>
       )}
 
-      {/* ---------------- VISTA ORIGINAL DE RUTAS ---------------- */}
+      {/* ---------------- VISTA DE RUTAS ---------------- */}
       {menuActivo === "rutas" && <GestionRutas />}
 
-      {/* ---------------- NUEVA VISTA DE VENDEDORES ---------------- */}
+      {/* ---------------- VISTA DE VENDEDORES ---------------- */}
       {menuActivo === "vendedores" && (
         <>
           {/* FORMULARIO DE VENDEDORES */}
@@ -416,20 +407,28 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                   Rutas Asignadas ({rutasSeleccionadasVend.length})
                 </label>
                 <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                  {RUTAS.map((ruta) => (
-                    <button
-                      key={ruta}
-                      type="button"
-                      onClick={() => toggleRutaVendedor(ruta)}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all border ${
-                        rutasSeleccionadasVend.includes(ruta)
-                          ? "bg-blue-600 text-white border-blue-700 shadow-sm"
-                          : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
-                      }`}
-                    >
-                      {ruta}
-                    </button>
-                  ))}
+                  {RUTAS.map((ruta) => {
+                    // AQUÍ ESTÁ LA CORRECCIÓN: Comparamos ignorando mayúsculas/minúsculas
+                    const isSelected = rutasSeleccionadasVend.some(
+                      (rutaGuardada) =>
+                        rutaGuardada.toLowerCase() === ruta.toLowerCase(),
+                    );
+
+                    return (
+                      <button
+                        key={ruta}
+                        type="button"
+                        onClick={() => toggleRutaVendedor(ruta)}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all border ${
+                          isSelected
+                            ? "bg-blue-600 text-white border-blue-700 shadow-sm"
+                            : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        {ruta}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -461,102 +460,13 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
           </div>
 
           {/* LISTA / DIRECTORIO DE VENDEDORES */}
-          <div className="flex-1 w-full bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
-            <div className="p-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-              <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <Briefcase size={18} className="text-slate-400" /> Directorio de
-                Vendedores
-              </h3>
-            </div>
-
-            <div className="overflow-y-auto flex-1 p-0">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-white sticky top-0 shadow-sm z-10">
-                  <tr className="border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    <th className="px-6 py-4">Vendedor</th>
-                    <th className="px-6 py-4">Contacto</th>
-                    <th className="px-6 py-4">Rutas Asignadas</th>
-                    <th className="px-6 py-4 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-sm">
-                  {listaVendedores.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="px-6 py-8 text-center text-slate-400"
-                      >
-                        No hay vendedores registrados.
-                      </td>
-                    </tr>
-                  ) : (
-                    listaVendedores.map((vendedor) => (
-                      <tr
-                        key={vendedor.id}
-                        className="hover:bg-slate-50 transition-colors"
-                      >
-                        <td className="px-6 py-4 font-bold text-slate-800">
-                          {vendedor.nombre}
-                        </td>
-                        <td className="px-6 py-4 text-slate-600">
-                          {vendedor.correo && (
-                            <div className="mb-1">{vendedor.correo}</div>
-                          )}
-                          {vendedor.telefono && (
-                            <div className="text-xs text-slate-500">
-                              {vendedor.telefono}
-                            </div>
-                          )}
-                          {!vendedor.correo && !vendedor.telefono && (
-                            <span className="italic text-slate-400">
-                              Sin datos
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-wrap gap-1">
-                            {vendedor.rutas.length > 0 ? (
-                              vendedor.rutas.map((ruta) => (
-                                <span
-                                  key={ruta}
-                                  className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase rounded border border-blue-100"
-                                >
-                                  {ruta}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-xs text-slate-400 italic">
-                                Ninguna
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-center gap-3">
-                            <button
-                              onClick={() => handleEditarVendedor(vendedor)}
-                              className="text-slate-400 hover:text-blue-600 transition-colors"
-                              title="Editar"
-                            >
-                              <Edit size={18} />
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleEliminarVendedor(vendedor.id)
-                              }
-                              className="text-slate-400 hover:text-red-600 transition-colors"
-                              title="Eliminar"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+          {/* LISTA / DIRECTORIO DE VENDEDORES (Ahora usando el nuevo componente) */}
+          <div className="flex-1 w-full h-full">
+            <DirectorioVendedores
+              vendedores={listaVendedores}
+              onEdit={handleEditarVendedor}
+              onDelete={handleEliminarVendedor}
+            />
           </div>
         </>
       )}

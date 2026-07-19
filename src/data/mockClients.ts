@@ -1,19 +1,7 @@
-export interface Ubicacion {
-  id: string;
-  nombre: string;
-  posicion: [number, number];
-  descripcion: string;
-  ruta: string;
-  vendedor: string;
-}
+import type { Ubicacion } from "../types";
+import { listaVendedores } from "./mockVendedores";
 
-export const VENDEDORES = [
-  "Benjamin R-2",
-  "Carlos López",
-  "Ana Martínez",
-  "Juan Pérez",
-  "Laura Gómez",
-];
+const VENDEDORES = listaVendedores.map((v) => v.nombre);
 
 export const misClientes: Ubicacion[] = [
   // --- TLMK (85 registros) ---
