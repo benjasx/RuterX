@@ -506,7 +506,7 @@ export default function ReporteEmbarques({ rutas }: Props) {
 
             <div className="flex gap-3">
               <label className="flex items-center justify-center bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-colors shadow-sm">
-                Cargar Otro
+                Cargar Otro .xlsx
                 <input
                   type="file"
                   accept=".xlsx, .xls"
