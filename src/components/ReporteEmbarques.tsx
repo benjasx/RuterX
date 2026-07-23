@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import {
-  Upload,
   FileSpreadsheet,
   Calculator,
   Calendar,
@@ -171,7 +170,7 @@ export default function ReporteEmbarques({ rutas }: Props) {
       // Encabezados de la tabla
       [
         { text: "Ruta Asignada", style: "tableHeader" },
-        { text: "Un.", style: "tableHeader", alignment: "center" },
+        { text: "Unidad", style: "tableHeader", alignment: "center" },
         { text: "Chofer", style: "tableHeader" },
         { text: "Emb. Crédito", style: "tableHeader", alignment: "center" },
         { text: "Emb. Contado", style: "tableHeader", alignment: "center" },
