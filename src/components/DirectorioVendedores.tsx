@@ -1,67 +1,60 @@
+// src/components/DirectorioVendedores.tsx
 import { useState, useMemo, useEffect } from "react";
 import {
   Search,
   Filter,
-  Briefcase, // Cambié el icono por un maletín para vendedores
+  Users,
   ChevronLeft,
   ChevronRight,
   Pencil,
-  Trash2, // Agregado para eliminar
+  Trash2,
+  FileText,
+  FileSpreadsheet,
 } from "lucide-react";
 
-// Interfaz para saber qué datos recibimos
-export interface DatosVendedor {
-  id: string;
-  nombre: string;
-  correo: string;
-  telefono: string;
-  rutas: string[];
-}
+// IMPORTAMOS LAS NUEVAS UTILIDADES
+import {
+  generarPDFVendedores,
+  generarCSVVendedores,
+} from "../utils/exportaciones";
 
-interface DirectorioVendedoresProps {
-  vendedores: DatosVendedor[];
+interface Props {
+  vendedores: any[];
   rutas: any[];
-  onEdit: (vendedor: DatosVendedor) => void;
-  onDelete: (id: string) => void;
+  onEdit: (vendedor: any) => void;
+  onDelete: (id: string) => Promise<void>;
 }
 
 export default function DirectorioVendedores({
   vendedores,
-  onEdit,
   rutas,
+  onEdit,
   onDelete,
-}: DirectorioVendedoresProps) {
-  const [busquedaNombre, setBusquedaNombre] = useState("");
+}: Props) {
+  const [busqueda, setBusqueda] = useState("");
   const [filtroRuta, setFiltroRuta] = useState("");
-
   const [paginaActual, setPaginaActual] = useState(1);
-  const ITEMS_POR_PAGINA = 13;
+  const ITEMS_POR_PAGINA = 8; // Menos items porque las etiquetas de rutas ocupan más espacio
 
-  // Lógica de filtrado
   const vendedoresFiltrados = useMemo(() => {
     return vendedores.filter((vendedor) => {
-      // 1. Filtro por nombre
       const coincideNombre = vendedor.nombre
         .toLowerCase()
-        .includes(busquedaNombre.toLowerCase());
+        .includes(busqueda.toLowerCase());
 
-      // 2. Filtro por ruta (buscamos dentro del arreglo de rutas del vendedor)
+      // La lógica cambia ligeramente aquí: comprobamos si el arreglo de rutas del vendedor incluye el filtro
       const coincideRuta =
         filtroRuta === "" ||
-        vendedor.rutas.some(
-          (r) => r.toLowerCase() === filtroRuta.toLowerCase(),
-        );
+        (vendedor.rutas && vendedor.rutas.includes(filtroRuta));
 
       return coincideNombre && coincideRuta;
     });
-  }, [busquedaNombre, filtroRuta, vendedores]);
+  }, [busqueda, filtroRuta, vendedores]);
 
-  // Regresar a la página 1 si se busca o se filtra algo nuevo
   useEffect(() => {
     setPaginaActual(1);
-  }, [busquedaNombre, filtroRuta, vendedores]);
+  }, [busqueda, filtroRuta]);
 
-  // Paginación
   const totalPaginas =
     Math.ceil(vendedoresFiltrados.length / ITEMS_POR_PAGINA) || 1;
   const vendedoresPaginados = vendedoresFiltrados.slice(
@@ -69,16 +62,46 @@ export default function DirectorioVendedores({
     paginaActual * ITEMS_POR_PAGINA,
   );
 
+  const rutasOrdenadas = [...rutas].sort((a, b) =>
+    a.nombre.localeCompare(b.nombre),
+  );
+
   return (
     <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full">
-      <div className="flex items-center gap-2 mb-6 shrink-0">
-        <Briefcase className="text-blue-600" size={24} />
-        <h2 className="text-xl font-bold text-slate-800">
-          Directorio de Vendedores
-        </h2>
+      {/* CABECERA CON CONTADOR Y BOTONES */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
+        <div className="flex items-center gap-3">
+          <Users className="text-blue-600" size={24} />
+          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+            Directorio de Vendedores
+            <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-200">
+              {vendedoresFiltrados.length}
+            </span>
+          </h2>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => generarCSVVendedores(vendedoresFiltrados)}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 hover:border-emerald-300 transition-colors text-sm font-semibold"
+            title="Exportar a Excel/CSV"
+          >
+            <FileSpreadsheet size={16} />
+            CSV
+          </button>
+          <button
+            onClick={() =>
+              generarPDFVendedores(vendedoresFiltrados, filtroRuta)
+            }
+            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors text-sm font-semibold"
+            title="Generar PDF"
+          >
+            <FileText size={16} />
+            PDF
+          </button>
+        </div>
       </div>
 
-      {/* BARRA DE BÚSQUEDA Y FILTROS */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-100 shrink-0">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -87,8 +110,8 @@ export default function DirectorioVendedores({
           <input
             type="text"
             placeholder="Buscar por nombre..."
-            value={busquedaNombre}
-            onChange={(e) => setBusquedaNombre(e.target.value)}
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
             className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           />
         </div>
@@ -103,8 +126,7 @@ export default function DirectorioVendedores({
             className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white"
           >
             <option value="">Todas las rutas</option>
-            {/* CORRECCIÓN: Le decimos a React que use el .id y el .nombre */}
-            {rutas.map((r) => (
+            {rutasOrdenadas.map((r) => (
               <option key={r.id} value={r.nombre}>
                 {r.nombre}
               </option>
@@ -113,7 +135,6 @@ export default function DirectorioVendedores({
         </div>
       </div>
 
-      {/* TABLA DE VENDEDORES */}
       <div className="flex-1 overflow-y-auto rounded-lg border border-slate-200 shadow-sm">
         <table className="w-full text-left border-collapse min-w-200">
           <thead className="bg-slate-50">
@@ -131,73 +152,55 @@ export default function DirectorioVendedores({
                   key={vendedor.id}
                   className="hover:bg-slate-50 transition-colors"
                 >
-                  {/* Nombre */}
-                  <td className="py-4 px-6 font-semibold text-slate-900">
-                    {vendedor.nombre}
+                  <td className="py-3 px-4">
+                    <p className="font-semibold text-slate-900">
+                      {vendedor.nombre}
+                    </p>
                   </td>
-
-                  {/* Contacto */}
-                  <td className="py-4 px-6 text-slate-600">
-                    {vendedor.correo && (
-                      <div className="mb-1 text-sm">{vendedor.correo}</div>
-                    )}
-                    {vendedor.telefono && (
-                      <div className="text-xs text-slate-500">
-                        {vendedor.telefono}
-                      </div>
-                    )}
-                    {!vendedor.correo && !vendedor.telefono && (
-                      <span className="italic text-slate-400 text-xs">
-                        Sin datos
-                      </span>
-                    )}
+                  <td className="py-3 px-4">
+                    <p className="text-sm text-slate-600">{vendedor.correo}</p>
+                    <p className="text-sm text-slate-500">
+                      {vendedor.telefono}
+                    </p>
                   </td>
-
-                  {/* Rutas (Píldoras) */}
-                  <td className="py-4 px-6">
-                    <div className="flex flex-wrap gap-1.5">
-                      {vendedor.rutas.length > 0 ? (
-                        vendedor.rutas.map((ruta) => (
+                  <td className="py-3 px-4">
+                    <div className="flex flex-wrap gap-1">
+                      {vendedor.rutas &&
+                        vendedor.rutas.map((ruta: string) => (
                           <span
                             key={ruta}
-                            className="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 uppercase"
+                            className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-100 uppercase"
                           >
                             {ruta}
                           </span>
-                        ))
-                      ) : (
+                        ))}
+                      {(!vendedor.rutas || vendedor.rutas.length === 0) && (
                         <span className="text-xs text-slate-400 italic">
-                          Ninguna
+                          Sin rutas asignadas
                         </span>
                       )}
                     </div>
                   </td>
-
-                  {/* Acciones */}
-                  <td className="py-4 px-6">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => onEdit(vendedor)}
-                        className="text-slate-400 hover:text-blue-600 transition-colors p-2 hover:bg-blue-50 rounded-full"
-                        title="Editar"
-                      >
-                        <Pencil size={18} />
-                      </button>
-                      <button
-                        onClick={() => onDelete(vendedor.id)}
-                        className="text-slate-400 hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-full"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
+                  <td className="py-3 px-4 text-center">
+                    <button
+                      onClick={() => onEdit(vendedor)}
+                      className="text-slate-400 hover:text-blue-600 transition-colors p-2 hover:bg-blue-50 rounded-full"
+                    >
+                      <Pencil size={18} />
+                    </button>
+                    <button
+                      onClick={() => onDelete(vendedor.id)}
+                      className="text-slate-400 hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-full"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
                 <td colSpan={4} className="text-center py-12 text-slate-500">
-                  No se encontraron vendedores con esos filtros.
+                  No se encontraron vendedores.
                 </td>
               </tr>
             )}
@@ -205,7 +208,6 @@ export default function DirectorioVendedores({
         </table>
       </div>
 
-      {/* PAGINACIÓN */}
       <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 shrink-0">
         <p className="text-sm text-slate-600">
           Mostrando página <span className="font-bold">{paginaActual}</span> de{" "}

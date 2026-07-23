@@ -8,11 +8,19 @@ import {
   ChevronRight,
   Pencil,
   Trash2,
+  FileText,
+  FileSpreadsheet,
 } from "lucide-react";
+
+// IMPORTAMOS TUS NUEVAS UTILIDADES DE EXPORTACIÓN
+import {
+  generarPDFDirectorio,
+  generarCSVDirectorio,
+} from "../utils/exportaciones";
 
 interface Props {
   clientes: any[];
-  rutas: any[]; // <--- 1. Recibimos las rutas reales de Firebase
+  rutas: any[];
   onEdit: (cliente: any) => void;
   onDelete: (id: string) => Promise<void>;
 }
@@ -31,7 +39,6 @@ export default function DirectorioClientes({
 
   const clientesFiltrados = useMemo(() => {
     return clientes.filter((cliente) => {
-      // 2. Búsqueda segura (evita errores si el cliente no tiene nombre o ruta guardada)
       const nombreSeguro = cliente.nombre || "";
       const rutaSegura = cliente.ruta || "";
 
@@ -56,19 +63,41 @@ export default function DirectorioClientes({
     paginaActual * ITEMS_POR_PAGINA,
   );
 
-  // NUEVO: Ordenamos las rutas alfabéticamente antes de renderizarlas
-  // Usamos [...rutas] para crear una copia y no mutar la propiedad original
   const rutasOrdenadas = [...rutas].sort((a, b) =>
     a.nombre.localeCompare(b.nombre),
   );
 
   return (
     <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full">
-      <div className="flex items-center gap-2 mb-6 shrink-0">
-        <ListTodo className="text-blue-600" size={24} />
-        <h2 className="text-xl font-bold text-slate-800">
-          Directorio de Clientes
-        </h2>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
+        <div className="flex items-center gap-3">
+          <ListTodo className="text-blue-600" size={24} />
+          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+            Directorio de Clientes
+            <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-200">
+              {clientesFiltrados.length}
+            </span>
+          </h2>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => generarCSVDirectorio(clientesFiltrados)}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 hover:border-emerald-300 transition-colors text-sm font-semibold"
+            title="Exportar a Excel/CSV"
+          >
+            <FileSpreadsheet size={16} />
+            CSV
+          </button>
+          <button
+            onClick={() => generarPDFDirectorio(clientesFiltrados, filtroRuta)}
+            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors text-sm font-semibold"
+            title="Generar PDF"
+          >
+            <FileText size={16} />
+            PDF
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-100 shrink-0">
@@ -95,7 +124,6 @@ export default function DirectorioClientes({
             className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white"
           >
             <option value="">Todas las rutas</option>
-            {/* CAMBIO AQUÍ: Usamos la nueva constante 'rutasOrdenadas' en lugar de 'rutas' */}
             {rutasOrdenadas.map((r) => (
               <option key={r.id} value={r.nombre}>
                 {r.nombre}
