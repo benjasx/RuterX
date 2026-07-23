@@ -1,7 +1,7 @@
-import { Users, Map, Briefcase, LogOut } from "lucide-react";
+import { Users, Map, Briefcase, LogOut, Calculator } from "lucide-react"; // <-- Importamos Calculator
 
 // Exportamos el tipo para poder usarlo en el Panel Principal
-export type SubVistaAdmin = "clientes" | "rutas" | "vendedores";
+export type SubVistaAdmin = "clientes" | "rutas" | "vendedores" | "tablamontos";
 
 interface SidebarAdminProps {
   menuActivo: SubVistaAdmin;
@@ -57,6 +57,21 @@ export default function SidebarAdmin({
               <Briefcase size={20} /> Añadir Vendedores
             </button>
           </li>
+
+          {/* --- AQUÍ AGREGAMOS EL NUEVO BOTÓN --- */}
+          <li>
+            <button
+              onClick={() => setMenuActivo("tablamontos")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                menuActivo === "tablamontos"
+                  ? "bg-blue-50 text-blue-700 font-semibold"
+                  : "text-slate-600 hover:bg-slate-50 font-medium"
+              }`}
+            >
+              <Calculator size={20} /> Tabla de Montos
+            </button>
+          </li>
+          {/* ------------------------------------- */}
         </ul>
       </div>
 

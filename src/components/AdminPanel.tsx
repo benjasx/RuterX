@@ -4,6 +4,9 @@ import PanelClientes from "./PanelClientes";
 import PanelVendedores from "./PanelVendedores";
 import SidebarAdmin, { type SubVistaAdmin } from "./SidebarAdmin";
 
+// --- 1. IMPORTAMOS EL NUEVO COMPONENTE ---
+import ReporteEmbarques from "./ReporteEmbarques";
+
 import type { Vendedor as DatosVendedor } from "../types/index";
 // Importamos tus servicios de Firebase
 import { obtenerVendedoresFirebase } from "../firebase/vendedoresService";
@@ -15,16 +18,14 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  // 1. Estados definidos (¡Aquí estaba el error! faltaba listaClientes)
   const [menuActivo, setMenuActivo] = useState<SubVistaAdmin>("clientes");
   const [listaVendedores, setListaVendedores] = useState<DatosVendedor[]>([]);
   const [listaClientes, setListaClientes] = useState<any[]>([]);
   const [listaRutas, setListaRutas] = useState<any[]>([]);
 
-  // 2. Carga inicial de datos reales desde Firebase
+  // Carga inicial de datos reales desde Firebase
   useEffect(() => {
     const cargarDatos = async () => {
-      // 2. Cargamos las 3 colecciones a la vez
       const [vendedores, clientes, rutas] = await Promise.all([
         obtenerVendedoresFirebase(),
         obtenerClientesFirebase(),
@@ -33,7 +34,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
       setListaVendedores(vendedores);
       setListaClientes(clientes);
-      setListaRutas(rutas); // 3. Guardamos las rutas reales
+      setListaRutas(rutas);
     };
 
     cargarDatos();
@@ -41,14 +42,14 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
   return (
     <div className="flex flex-col xl:flex-row items-start gap-5 w-full mt-10">
-      {/* 1. COMPONENTE DE NAVEGACIÓN */}
+      {/* COMPONENTE DE NAVEGACIÓN */}
       <SidebarAdmin
         menuActivo={menuActivo}
         setMenuActivo={setMenuActivo}
         onLogout={onLogout}
       />
 
-      {/* 2. RENDERIZADO CONDICIONAL MODULAR */}
+      {/* RENDERIZADO CONDICIONAL MODULAR */}
       {menuActivo === "clientes" && (
         <PanelClientes
           vendedores={listaVendedores}
@@ -58,7 +59,6 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         />
       )}
 
-      {/* --- CAMBIO AQUÍ --- */}
       {menuActivo === "rutas" && (
         <GestionRutas listaRutas={listaRutas} setListaRutas={setListaRutas} />
       )}
@@ -70,6 +70,9 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
           rutas={listaRutas}
         />
       )}
+
+      {/* --- 2. COLOCAMOS EL COMPONENTE CORRECTO AQUÍ --- */}
+      {menuActivo === "tablamontos" && <ReporteEmbarques rutas={listaRutas} />}
     </div>
   );
 }
