@@ -57,11 +57,18 @@ export default function MapaRutero() {
       ]);
 
       setClientesTotales(clientesData);
-      setRutasDisponibles(rutasData);
 
-      // Si hay rutas, seleccionamos la primera por defecto para que no salga vacío
-      if (rutasData.length > 0) {
-        setRutaSeleccionada(rutasData[0].nombre);
+      // NUEVO: Ordenamos las rutas alfabéticamente apenas llegan de Firebase
+      const rutasOrdenadas = [...rutasData].sort((a, b) =>
+        a.nombre.localeCompare(b.nombre),
+      );
+
+      // Guardamos la lista ya ordenada en el estado
+      setRutasDisponibles(rutasOrdenadas);
+
+      // Si hay rutas, seleccionamos la primera (que ahora será la primera alfabéticamente)
+      if (rutasOrdenadas.length > 0) {
+        setRutaSeleccionada(rutasOrdenadas[0].nombre);
       }
 
       setCargando(false);
@@ -129,7 +136,7 @@ export default function MapaRutero() {
           onChange={(e) => setRutaSeleccionada(e.target.value)}
           className="w-full p-3 mb-4 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium focus:ring-2 focus:ring-blue-500 cursor-pointer"
         >
-          {/* 5. AHORA ITERAMOS SOBRE LAS RUTAS DE FIREBASE */}
+          {/* AHORA ITERAMOS SOBRE LAS RUTAS DE FIREBASE (YA ORDENADAS) */}
           {rutasDisponibles.map((ruta) => (
             <option key={ruta.id} value={ruta.nombre}>
               {ruta.nombre}
@@ -202,7 +209,7 @@ export default function MapaRutero() {
 
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-          {/* 6. PINTAMOS SOLO LOS CLIENTES QUE TENGAN COORDENADAS VÁLIDAS */}
+          {/* PINTAMOS SOLO LOS CLIENTES QUE TENGAN COORDENADAS VÁLIDAS */}
           {clientesDeRuta
             .filter(
               (c) =>

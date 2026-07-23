@@ -148,6 +148,11 @@ export default function PanelVendedores({
     }
   };
 
+  // NUEVO: Ordenamos las rutas alfabéticamente para los botones del formulario
+  const rutasOrdenadas = [...rutas].sort((a, b) =>
+    a.nombre.localeCompare(b.nombre),
+  );
+
   return (
     <div className="flex flex-col xl:flex-row gap-6 w-full">
       <div className="w-full xl:w-100 shrink-0 bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
@@ -206,8 +211,8 @@ export default function PanelVendedores({
               Rutas Asignadas ({rutasSeleccionadasVend.length})
             </label>
             <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-lg">
-              {/* MAPEAMOS LAS RUTAS REALES DE FIREBASE */}
-              {rutas.map((ruta) => {
+              {/* CAMBIO AQUÍ: Usamos 'rutasOrdenadas' en lugar de 'rutas' */}
+              {rutasOrdenadas.map((ruta) => {
                 const isSelected = rutasSeleccionadasVend.some(
                   (r) => r.toLowerCase() === ruta.nombre.toLowerCase(),
                 );

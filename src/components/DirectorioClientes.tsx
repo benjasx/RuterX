@@ -56,6 +56,12 @@ export default function DirectorioClientes({
     paginaActual * ITEMS_POR_PAGINA,
   );
 
+  // NUEVO: Ordenamos las rutas alfabéticamente antes de renderizarlas
+  // Usamos [...rutas] para crear una copia y no mutar la propiedad original
+  const rutasOrdenadas = [...rutas].sort((a, b) =>
+    a.nombre.localeCompare(b.nombre),
+  );
+
   return (
     <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full">
       <div className="flex items-center gap-2 mb-6 shrink-0">
@@ -89,8 +95,8 @@ export default function DirectorioClientes({
             className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white"
           >
             <option value="">Todas las rutas</option>
-            {/* 3. Mapeamos las rutas reales recibidas por Props */}
-            {rutas.map((r) => (
+            {/* CAMBIO AQUÍ: Usamos la nueva constante 'rutasOrdenadas' en lugar de 'rutas' */}
+            {rutasOrdenadas.map((r) => (
               <option key={r.id} value={r.nombre}>
                 {r.nombre}
               </option>
