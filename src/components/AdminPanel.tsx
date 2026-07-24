@@ -12,6 +12,8 @@ import type { Vendedor as DatosVendedor } from "../types/index";
 import { obtenerVendedoresFirebase } from "../firebase/vendedoresService";
 import { obtenerClientesFirebase } from "../firebase/clientesService";
 import { obtenerRutasFirebase } from "../firebase/rutasService";
+import PanelHistorial from "./PanelHistorial";
+import PanelHistorialCompleto from "./PanelHistorialCompleto";
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -73,6 +75,9 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
       {/* --- 2. COLOCAMOS EL COMPONENTE CORRECTO AQUÍ --- */}
       {menuActivo === "tablamontos" && <ReporteEmbarques rutas={listaRutas} />}
+
+      {menuActivo === "historial" && <PanelHistorial />}
+      {menuActivo === "historialCompleto" && <PanelHistorialCompleto />}
     </div>
   );
 }

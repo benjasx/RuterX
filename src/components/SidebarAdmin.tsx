@@ -1,7 +1,21 @@
-import { Users, Map, Briefcase, LogOut, Calculator } from "lucide-react"; // <-- Importamos Calculator
+import {
+  Users,
+  Map,
+  Briefcase,
+  LogOut,
+  Calculator,
+  History,
+  ClipboardList,
+} from "lucide-react"; // <-- Importamos Calculator
 
 // Exportamos el tipo para poder usarlo en el Panel Principal
-export type SubVistaAdmin = "clientes" | "rutas" | "vendedores" | "tablamontos";
+export type SubVistaAdmin =
+  | "clientes"
+  | "rutas"
+  | "vendedores"
+  | "tablamontos"
+  | "historial"
+  | "historialCompleto";
 
 interface SidebarAdminProps {
   menuActivo: SubVistaAdmin;
@@ -73,6 +87,32 @@ export default function SidebarAdmin({
           </li>
           {/* ------------------------------------- */}
         </ul>
+
+        {/* 🚀 NUEVO BOTÓN PARA EL HISTORIAL */}
+        <button
+          onClick={() => setMenuActivo("historial")}
+          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 ${
+            menuActivo === "historial"
+              ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
+              : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+          }`}
+        >
+          <History size={20} />
+          <span>Equidad Choferes</span>
+        </button>
+
+        {/* 🚀 NUEVO BOTÓN: HISTORIAL COMPLETO DE RUTAS */}
+        <button
+          onClick={() => setMenuActivo("historialCompleto")}
+          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 ${
+            menuActivo === "historialCompleto"
+              ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
+              : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+          }`}
+        >
+          <ClipboardList size={20} />
+          <span>Historial Rutas</span>
+        </button>
       </div>
 
       <div>

@@ -11,8 +11,10 @@ import {
   Users,
   UserCheck,
   BarChart3,
+  CloudUpload,
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import { guardarHistorialFirebase } from "../firebase/historialService";
 
 // DICCIONARIO DE MAPEO DE CAMIONES
 const MAPA_CAMIONES: Record<string, string> = {
@@ -72,17 +74,16 @@ export default function ReporteEmbarques({ rutas }: Props) {
   const [mostrarGrafico, setMostrarGrafico] = useState(false);
   const [tipoMetricaGrafico, setTipoMetricaGrafico] = useState<"monto" | "kg">(
     "monto",
-  ); // 'monto' o 'kg'
+  );
+
+  // 🚀 NUEVO: Estado para el botón de subida
+  const [guardandoNube, setGuardandoNube] = useState(false);
 
   // ESTADOS PARA EL MODAL DE TRASPASO
   const [mostrarModalTraspaso, setMostrarModalTraspaso] = useState(false);
   const [unidadTraspaso, setUnidadTraspaso] = useState("");
   const [choferTraspaso, setChoferTraspaso] = useState("");
   const [rutaTraspaso, setRutaTraspaso] = useState("");
-
-  const rutasOrdenadas = [...rutas].sort((a, b) =>
-    a.nombre.localeCompare(b.nombre),
-  );
 
   // RECUPERAR DATOS DEL LOCAL STORAGE AL CARGAR LA PÁGINA
   useEffect(() => {
@@ -150,7 +151,6 @@ export default function ReporteEmbarques({ rutas }: Props) {
     0,
   );
 
-  // MÁXIMOS PARA ESCALAR LAS BARRAS CORRECTAMENTE
   const maxMonto = Math.max(...datosProcesados.map((d) => d.totalMonto), 1);
   const maxKg = Math.max(...datosProcesados.map((d) => d.kgTotal), 1);
 
@@ -172,7 +172,6 @@ export default function ReporteEmbarques({ rutas }: Props) {
   // LÓGICA DE PDF - TABLA 1 (FINANCIERO)
   const handleExportarPDF = async () => {
     const pdfMake = (window as any).pdfMake;
-
     if (!pdfMake) {
       alert(
         "El generador de PDF está cargando... intenta de nuevo en un segundo.",
@@ -304,7 +303,6 @@ export default function ReporteEmbarques({ rutas }: Props) {
             hLineWidth: function (i: number, node: any) {
               if (i === 0 || i === 1) return 1;
               if (i === node.table.body.length - 1) return 1.5;
-              if (i === node.table.body.length) return 0;
               return 0.4;
             },
             vLineWidth: function () {
@@ -351,7 +349,6 @@ export default function ReporteEmbarques({ rutas }: Props) {
   // LÓGICA DE PDF - TABLA 2 (TRIPULACIÓN, AYUDANTES Y EMBARQUES)
   const handleExportarPDFTripulacion = async () => {
     const pdfMake = (window as any).pdfMake;
-
     if (!pdfMake) {
       alert(
         "El generador de PDF está cargando... intenta de nuevo en un segundo.",
@@ -490,7 +487,6 @@ export default function ReporteEmbarques({ rutas }: Props) {
             hLineWidth: function (i: number, node: any) {
               if (i === 0 || i === 1) return 1;
               if (i === node.table.body.length - 1) return 1.5;
-              if (i === node.table.body.length) return 1;
               return 0.4;
             },
             vLineWidth: function () {
@@ -551,7 +547,6 @@ export default function ReporteEmbarques({ rutas }: Props) {
         const tipoRaw = String(fila.tipo || "")
           .toLowerCase()
           .trim();
-
         if (tipoRaw !== "credito" && tipoRaw !== "contado") return acc;
 
         const vehiculoRaw = fila.vehiculo;
@@ -620,7 +615,7 @@ export default function ReporteEmbarques({ rutas }: Props) {
     setDatosProcesados(resultadoFinal);
   };
 
-  // 2. CARGA DE AYUDANTES DESDE EXCEL OPERATIVO
+  // 2. CARGA DE AYUDANTES, CHOFERES Y RUTAS DESDE EXCEL OPERATIVO
   const handleAyudantesFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -679,8 +674,17 @@ export default function ReporteEmbarques({ rutas }: Props) {
             match["Ayudante 2"] || match["ayudante2"] || "",
           ).trim();
 
+          const rutaExcel = String(
+            match["RUTA/DIA"] ||
+              match["Ruta"] ||
+              match["ruta"] ||
+              match["RUTA"] ||
+              "",
+          ).trim();
+
           return {
             ...filaActual,
+            ruta: rutaExcel ? rutaExcel.toUpperCase() : filaActual.ruta,
             chofer:
               choferExcel && choferExcel !== "SIN NOMBRE"
                 ? choferExcel.toUpperCase()
@@ -701,13 +705,7 @@ export default function ReporteEmbarques({ rutas }: Props) {
     });
 
     alert(
-      "¡Ayudantes, choferes y tripulación importados correctamente desde el Excel operativo!",
-    );
-  };
-
-  const handleCambiarRuta = (unidad: string, nuevaRuta: string) => {
-    setDatosProcesados((prev) =>
-      prev.map((f) => (f.unidad === unidad ? { ...f, ruta: nuevaRuta } : f)),
+      "¡Rutas, ayudantes, choferes y tripulación importados correctamente desde el Excel operativo!",
     );
   };
 
@@ -754,6 +752,32 @@ export default function ReporteEmbarques({ rutas }: Props) {
     setChoferTraspaso("");
     setRutaTraspaso("");
     setMostrarModalTraspaso(false);
+  };
+
+  // 🚀 NUEVA FUNCIÓN: Guardar datos a la nube
+  const handleGuardarEnNube = async () => {
+    if (!datosProcesados.length) return;
+
+    if (
+      window.confirm(
+        `¿Subir reporte del día ${fechaSalida} a la nube? Esto registrará los viajes de los choferes.`,
+      )
+    ) {
+      setGuardandoNube(true);
+      const resultado = await guardarHistorialFirebase(
+        fechaSalida,
+        datosProcesados,
+      );
+
+      if (resultado.success) {
+        alert("¡Historial de salidas guardado en la nube exitosamente!");
+      } else {
+        alert(
+          "Hubo un error al guardar en la nube. Verifica tu conexión a internet o los permisos de Firebase.",
+        );
+      }
+      setGuardandoNube(false);
+    }
   };
 
   return (
@@ -844,7 +868,6 @@ export default function ReporteEmbarques({ rutas }: Props) {
                 Relación de Salida Financiera
               </h3>
 
-              {/* CONTROLES DEL GRÁFICO (MONTO VS KG) */}
               <div className="flex items-center gap-2">
                 {mostrarGrafico && (
                   <div className="bg-slate-200 p-1 rounded-lg flex text-xs font-semibold">
@@ -880,7 +903,6 @@ export default function ReporteEmbarques({ rutas }: Props) {
               </div>
             </div>
 
-            {/* SECCIÓN DEL GRÁFICO DINÁMICO (MONTO O KG) */}
             {mostrarGrafico && (
               <div className="mb-6 p-6 bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-4 flex items-center gap-2">
@@ -961,21 +983,12 @@ export default function ReporteEmbarques({ rutas }: Props) {
                       key={index}
                       className="hover:bg-blue-50/50 transition-colors group"
                     >
-                      <td className="px-4 py-2">
-                        <select
-                          value={fila.ruta}
-                          onChange={(e) =>
-                            handleCambiarRuta(fila.unidad, e.target.value)
-                          }
-                          className="w-full bg-transparent border border-transparent group-hover:border-slate-200 group-hover:bg-white rounded px-2 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
-                        >
-                          <option value="">- Seleccionar Ruta -</option>
-                          {rutasOrdenadas.map((r) => (
-                            <option key={r.id} value={r.nombre}>
-                              {r.nombre}
-                            </option>
-                          ))}
-                        </select>
+                      <td className="px-6 py-3 text-left font-semibold text-slate-700 text-xs uppercase">
+                        {fila.ruta || (
+                          <span className="text-slate-400 italic font-normal">
+                            Sin ruta asignada
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-3 text-center">
                         <span className="inline-flex items-center justify-center bg-slate-100 text-slate-700 font-bold px-2.5 py-1 rounded-md text-xs">
@@ -1050,6 +1063,20 @@ export default function ReporteEmbarques({ rutas }: Props) {
                         >
                           <FileText size={16} />{" "}
                           {isGenerandoPDF ? "Generando..." : "Generar PDF"}
+                        </button>
+
+                        {/* 🚀 NUEVO BOTÓN DE GUARDAR EN NUBE 🚀 */}
+                        <button
+                          onClick={handleGuardarEnNube}
+                          disabled={guardandoNube}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm ${
+                            guardandoNube
+                              ? "bg-emerald-300 text-white cursor-not-allowed"
+                              : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                          }`}
+                        >
+                          <CloudUpload size={16} />
+                          {guardandoNube ? "Subiendo..." : "Subir a Nube"}
                         </button>
                       </div>
                     </td>
@@ -1154,10 +1181,10 @@ export default function ReporteEmbarques({ rutas }: Props) {
                           {fila.unidad}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-semibold text-slate-700 text-xs">
+                      <td className="px-4 py-3 font-semibold text-slate-700 text-xs uppercase">
                         {fila.ruta || (
                           <span className="text-slate-400 italic font-normal">
-                            Sin ruta seleccionada
+                            Sin ruta asignada
                           </span>
                         )}
                       </td>
