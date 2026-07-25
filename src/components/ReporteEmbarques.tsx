@@ -9,7 +9,13 @@ import {
 import * as XLSX from "xlsx";
 import { guardarHistorialFirebase } from "../firebase/historialService";
 
-// 🚀 IMPORTAMOS LA LÓGICA DE LOS PDF DESDE NUESTRO NUEVO ARCHIVO
+// 🚀 1. IMPORTAMOS EL SERVICIO DE REGLAS DE NÓMINA
+import {
+  obtenerAjustesNomina,
+  type AjustesNomina,
+} from "../firebase/ajustesNominaService";
+
+// IMPORTAMOS LA LÓGICA DE LOS PDF DESDE NUESTRO NUEVO ARCHIVO
 import {
   generarPDFFinanciero,
   generarPDFTripulacion,
@@ -30,6 +36,10 @@ export interface FilaReporte {
   embCtdo: string;
   totalMonto: number;
   kgTotal: number;
+  // 🚀 2. NUEVOS CAMPOS OCULTOS PARA FIREBASE
+  viaticoRuta: number;
+  comisionChofer: number;
+  comisionAyudante: number;
 }
 
 const MAPA_CAMIONES: Record<string, string> = {
@@ -62,6 +72,54 @@ const MAPA_CAMIONES: Record<string, string> = {
   "39": "28",
 };
 
+// 🚀 FUNCIÓN: BUSCADOR INTELIGENTE (FUZZY MATCHER) DE RUTAS
+// Compara la ruta del Excel con las reglas de Firebase de forma flexible
+const calcularFinanzas = (
+  rutaRaw: string,
+  montoBase: number,
+  reglas: AjustesNomina | null,
+) => {
+  if (!reglas)
+    return { viaticoRuta: 0, comisionChofer: 0, comisionAyudante: 0 };
+
+  let viaticoEncontrado = 0;
+
+  if (rutaRaw) {
+    // Normalizamos quitando acentos y espacios extra
+    const rutaNormalizada = rutaRaw
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
+    // Buscamos coincidencia en el catálogo
+    for (const [rutaCatalogo, montoViatico] of Object.entries(
+      reglas.viaticosRutas,
+    )) {
+      const catNorm = rutaCatalogo
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+
+      // Si la ruta del catálogo incluye la palabra del excel, o viceversa, hay match
+      if (
+        rutaNormalizada.includes(catNorm) ||
+        catNorm.includes(rutaNormalizada)
+      ) {
+        viaticoEncontrado = montoViatico;
+        break; // Detenemos la búsqueda al primer match exitoso
+      }
+    }
+  }
+
+  return {
+    viaticoRuta: viaticoEncontrado,
+    comisionChofer: montoBase * reglas.comisionChofer,
+    comisionAyudante: montoBase * reglas.comisionAyudante,
+  };
+};
+
 export default function ReporteEmbarques() {
   const [datosProcesados, setDatosProcesados] = useState<FilaReporte[]>([]);
   const [nombreArchivo, setNombreArchivo] = useState("");
@@ -76,12 +134,16 @@ export default function ReporteEmbarques() {
   );
   const [guardandoNube, setGuardandoNube] = useState(false);
 
+  // 🚀 3. ESTADO PARA GUARDAR LAS REGLAS DE NÓMINA EN MEMORIA
+  const [reglasNomina, setReglasNomina] = useState<AjustesNomina | null>(null);
+
   const [mostrarModalTraspaso, setMostrarModalTraspaso] = useState(false);
   const [unidadTraspaso, setUnidadTraspaso] = useState("");
   const [choferTraspaso, setChoferTraspaso] = useState("");
   const [rutaTraspaso, setRutaTraspaso] = useState("");
 
   useEffect(() => {
+    // Cargar datos locales
     const datosGuardados = localStorage.getItem("embarques_datos");
     if (datosGuardados) setDatosProcesados(JSON.parse(datosGuardados));
     if (localStorage.getItem("embarques_archivo"))
@@ -90,7 +152,25 @@ export default function ReporteEmbarques() {
       setArchivoAyudantes(localStorage.getItem("embarques_ayudantes_archivo")!);
     if (localStorage.getItem("embarques_fecha"))
       setFechaSalida(localStorage.getItem("embarques_fecha")!);
+
+    // 🚀 DESCARGAR REGLAS FINANCIERAS EN SEGUNDO PLANO
+    const cargarReglas = async () => {
+      const reglas = await obtenerAjustesNomina();
+      setReglasNomina(reglas);
+    };
+    cargarReglas();
   }, []);
+
+  // Función para forzar el recálculo financiero a toda la tabla (Útil cuando se actualizan datos)
+  const recalcularFinanzasCompletas = (
+    datos: FilaReporte[],
+    reglas: AjustesNomina | null,
+  ) => {
+    return datos.map((fila) => {
+      const finanzas = calcularFinanzas(fila.ruta, fila.totalMonto, reglas);
+      return { ...fila, ...finanzas };
+    });
+  };
 
   const handleGuardarProgreso = () => {
     localStorage.setItem("embarques_datos", JSON.stringify(datosProcesados));
@@ -106,17 +186,24 @@ export default function ReporteEmbarques() {
     if (!datosProcesados.length) return;
     if (
       window.confirm(
-        `¿Subir reporte del día ${fechaSalida} a la nube? Esto registrará los viajes de los choferes.`,
+        `¿Subir reporte del día ${fechaSalida} a la nube? Esto registrará los viajes de los choferes y calculará comisiones.`,
       )
     ) {
       setGuardandoNube(true);
+
+      // 🚀 ASEGURAR RE-CÁLCULO FINANCIERO ANTES DE SUBIR
+      const datosListos = recalcularFinanzasCompletas(
+        datosProcesados,
+        reglasNomina,
+      );
+
       const resultado = await guardarHistorialFirebase(
         fechaSalida,
-        datosProcesados,
+        datosListos,
       );
       alert(
         resultado.success
-          ? "¡Historial de salidas guardado en la nube exitosamente!"
+          ? "¡Historial y finanzas guardados en la nube exitosamente!"
           : "Error al guardar en la nube. Verifica tu conexión.",
       );
       setGuardandoNube(false);
@@ -165,9 +252,6 @@ export default function ReporteEmbarques() {
   const maxMonto = Math.max(...datosProcesados.map((d) => d.totalMonto), 1);
   const maxKg = Math.max(...datosProcesados.map((d) => d.kgTotal), 1);
 
-  // =========================================================================
-  // 🚀 LÓGICA DE PDF ULTRA LIMPIA (Delega el trabajo al archivo pdfGenerator.ts)
-  // =========================================================================
   const handleExportarPDF = async () => {
     setIsGenerandoPDF(true);
     await generarPDFFinanciero(datosProcesados, fechaSalida, totales);
@@ -179,7 +263,6 @@ export default function ReporteEmbarques() {
     await generarPDFTripulacion(datosProcesados, fechaSalida);
     setIsGenerandoPDF(false);
   };
-  // =========================================================================
 
   // LOGICA EXCEL BMS
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -196,8 +279,10 @@ export default function ReporteEmbarques() {
           .toLowerCase()
           .trim();
         if (tipoRaw !== "credito" && tipoRaw !== "contado") return acc;
+
         const vehiculoRaw = fila.vehiculo;
         if (!vehiculoRaw) return acc;
+
         const unidadReal =
           MAPA_CAMIONES[
             isNaN(parseInt(vehiculoRaw))
@@ -205,7 +290,7 @@ export default function ReporteEmbarques() {
               : parseInt(vehiculoRaw)
           ] || String(vehiculoRaw).padStart(2, "0");
 
-        if (!acc[unidadReal])
+        if (!acc[unidadReal]) {
           acc[unidadReal] = {
             ruta: "",
             unidad: unidadReal,
@@ -217,19 +302,36 @@ export default function ReporteEmbarques() {
             embCtdo: "0",
             totalMonto: 0,
             kgTotal: 0,
+            // 🚀 VALORES FINANCIEROS INICIALES
+            viaticoRuta: 0,
+            comisionChofer: 0,
+            comisionAyudante: 0,
           };
+        }
+
         if (tipoRaw === "credito") acc[unidadReal].embCred = fila.folio || "";
         if (tipoRaw === "contado") acc[unidadReal].embCtdo = fila.folio || "";
+
         acc[unidadReal].totalMonto += parseFloat(
           String(fila.total || 0).replace(/,/g, ""),
         );
         acc[unidadReal].kgTotal += parseFloat(
           String(fila.peso || 0).replace(/,/g, ""),
         );
+
+        // 🚀 INYECTAR CÁLCULO FINANCIERO INMEDIATO
+        const finanzas = calcularFinanzas(
+          acc[unidadReal].ruta,
+          acc[unidadReal].totalMonto,
+          reglasNomina,
+        );
+        acc[unidadReal] = { ...acc[unidadReal], ...finanzas };
+
         return acc;
       },
       {},
     );
+
     setDatosProcesados(
       Object.values(resumen).sort(
         (a: any, b: any) => parseInt(a.unidad) - parseInt(b.unidad),
@@ -262,8 +364,12 @@ export default function ReporteEmbarques() {
               embCtdo: "0",
               totalMonto: 0,
               kgTotal: 0,
+              viaticoRuta: 0,
+              comisionChofer: 0,
+              comisionAyudante: 0,
             }));
-      return base.map((fila) => {
+
+      const nuevosDatos = base.map((fila) => {
         const match = jsonData.find(
           (row) =>
             parseInt(
@@ -271,11 +377,14 @@ export default function ReporteEmbarques() {
             ) === parseInt(fila.unidad),
         );
         if (!match) return fila;
+
+        const rutaDefinitiva =
+          String(match["RUTA/DIA"] || match["Ruta"] || "").toUpperCase() ||
+          fila.ruta;
+
         return {
           ...fila,
-          ruta:
-            String(match["RUTA/DIA"] || match["Ruta"] || "").toUpperCase() ||
-            fila.ruta,
+          ruta: rutaDefinitiva,
           chofer: match["Chofer"]
             ? String(match["Chofer"]).toUpperCase()
             : fila.chofer,
@@ -287,7 +396,11 @@ export default function ReporteEmbarques() {
             : fila.ayudante2,
         };
       });
+
+      // 🚀 RECALCULAMOS LAS FINANZAS PORQUE LA RUTA PUDO HABER CAMBIADO AQUÍ
+      return recalcularFinanzasCompletas(nuevosDatos, reglasNomina);
     });
+
     alert(
       "¡Rutas, ayudantes, choferes y tripulación importados correctamente!",
     );
@@ -305,7 +418,6 @@ export default function ReporteEmbarques() {
     );
   };
 
-  // 3. CONFIRMAR TRASPASO
   const confirmarTraspaso = () => {
     if (!unidadTraspaso.trim() || !choferTraspaso.trim()) {
       alert("Por favor, ingresa la unidad y el nombre del chofer.");
@@ -316,6 +428,7 @@ export default function ReporteEmbarques() {
       ? `TRASPASO - ${rutaTraspaso.toUpperCase()}`
       : "TRASPASO";
 
+    // 🚀 AL SER TRASPASO, LAS COMISIONES Y VIÁTICOS SERÁN $0
     const nuevaFila: FilaReporte = {
       ruta: rutaFinal,
       unidad: unidadTraspaso.padStart(2, "0"),
@@ -326,6 +439,9 @@ export default function ReporteEmbarques() {
       embCtdo: "TRASPASO",
       totalMonto: 0,
       kgTotal: 0,
+      viaticoRuta: 0,
+      comisionChofer: 0,
+      comisionAyudante: 0,
     };
 
     const nuevosDatos = [...datosProcesados, nuevaFila];
@@ -338,6 +454,7 @@ export default function ReporteEmbarques() {
     setMostrarModalTraspaso(false);
   };
 
+  // ... (El return() se queda exactamente igual)
   return (
     <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full relative">
       <div className="flex items-center gap-2 mb-6 shrink-0">

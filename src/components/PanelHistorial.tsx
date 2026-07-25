@@ -10,7 +10,12 @@ import {
   Users,
 } from "lucide-react";
 import { obtenerHistorialFirebase } from "../firebase/historialService";
-import { generarPDFRutasPorChofer } from "../utils/pdfReporterutasxchofer";
+
+// 🚀 IMPORTAMOS TUS NUEVOS GENERADORES DE NÓMINA
+import {
+  generarPDFNominaChoferes,
+  generarPDFNominaAyudantes,
+} from "../utils/pdfNominaService";
 
 interface PersonalStat {
   nombre: string;
@@ -37,12 +42,19 @@ export default function PanelHistorial() {
   >([]);
   const [viajesRango, setViajesRango] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
+
+  // 🚀 ESTADO PARA GUARDAR LA LISTA NEGRA Y PASARLA AL PDF
+  const [listaNegraChoferes, setListaNegraChoferes] = useState<Set<string>>(
+    new Set(),
+  );
+
   const [vistaActiva, setVistaActiva] = useState<"choferes" | "ayudantes">(
     "choferes",
   );
-
   const [isGenerandoPDF, setIsGenerandoPDF] = useState(false);
-  const [choferPDF, setChoferPDF] = useState<string>("TODOS");
+
+  // Renombramos de choferPDF a personalPDF para que aplique a ambos
+  const [personalPDF, setPersonalPDF] = useState<string>("TODOS");
 
   useEffect(() => {
     const fetchDatos = async () => {
@@ -57,8 +69,7 @@ export default function PanelHistorial() {
   useEffect(() => {
     if (!datosCrudosNube.length && !cargando) return;
 
-    // 🚀 PASO 1: CREAR LA "LISTA NEGRA" DE CHOFERES (Set)
-    // Esto asegura que cualquiera que haya sido chofer alguna vez, no cuente como ayudante
+    // CREAR LA "LISTA NEGRA" DE CHOFERES
     const setChoferesHistoricos = new Set<string>();
     datosCrudosNube.forEach((registro) => {
       (registro.viajes || []).forEach((viaje: any) => {
@@ -67,6 +78,9 @@ export default function PanelHistorial() {
         }
       });
     });
+
+    // 🚀 GUARDAMOS LA LISTA EN EL ESTADO
+    setListaNegraChoferes(setChoferesHistoricos);
 
     const statsCMap: Record<string, { total: number; ultimaFecha: string }> =
       {};
@@ -78,7 +92,7 @@ export default function PanelHistorial() {
       (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
     );
 
-    // 🚀 PASO 2: CONTAR LOS VIAJES
+    // CONTAR LOS VIAJES
     datosOrdenados.forEach((registro) => {
       const fecha = registro.fecha;
       const enRango = fecha >= fechaInicio && fecha <= fechaFin;
@@ -93,35 +107,24 @@ export default function PanelHistorial() {
           statsCMap[nombreChofer].ultimaFecha = fecha;
         }
 
-        // --- PROCESAR AYUDANTE 1 ---
-        const ay1 = viaje.ayudante1 ? viaje.ayudante1.toUpperCase().trim() : "";
-        // Agregamos la condición: !setChoferesHistoricos.has(ay1)
-        if (
-          ay1 &&
-          ay1 !== "-" &&
-          ay1 !== "SIN AYUDANTE" &&
-          ay1 !== "UNDEFINED" &&
-          !setChoferesHistoricos.has(ay1)
-        ) {
-          if (!statsAMap[ay1]) statsAMap[ay1] = { total: 0, ultimaFecha: "" };
-          if (enRango) statsAMap[ay1].total += 1;
-          statsAMap[ay1].ultimaFecha = fecha;
-        }
+        // --- PROCESAR AYUDANTES ---
+        const procesarAyudante = (ayRaw: string) => {
+          const ay = ayRaw ? ayRaw.toUpperCase().trim() : "";
+          if (
+            ay &&
+            ay !== "-" &&
+            ay !== "SIN AYUDANTE" &&
+            ay !== "UNDEFINED" &&
+            !setChoferesHistoricos.has(ay)
+          ) {
+            if (!statsAMap[ay]) statsAMap[ay] = { total: 0, ultimaFecha: "" };
+            if (enRango) statsAMap[ay].total += 1;
+            statsAMap[ay].ultimaFecha = fecha;
+          }
+        };
 
-        // --- PROCESAR AYUDANTE 2 ---
-        const ay2 = viaje.ayudante2 ? viaje.ayudante2.toUpperCase().trim() : "";
-        // Agregamos la condición: !setChoferesHistoricos.has(ay2)
-        if (
-          ay2 &&
-          ay2 !== "-" &&
-          ay2 !== "SIN AYUDANTE" &&
-          ay2 !== "UNDEFINED" &&
-          !setChoferesHistoricos.has(ay2)
-        ) {
-          if (!statsAMap[ay2]) statsAMap[ay2] = { total: 0, ultimaFecha: "" };
-          if (enRango) statsAMap[ay2].total += 1;
-          statsAMap[ay2].ultimaFecha = fecha;
-        }
+        procesarAyudante(viaje.ayudante1);
+        procesarAyudante(viaje.ayudante2);
 
         if (enRango && viaje.chofer && viaje.chofer !== "-") {
           listaViajesFiltrados.push({ fecha, ...viaje });
@@ -150,61 +153,102 @@ export default function PanelHistorial() {
     setViajesRango(listaViajesFiltrados);
   }, [datosCrudosNube, fechaInicio, fechaFin, cargando]);
 
+  // 🚀 RESETEAR SELECTOR AL CAMBIAR DE PESTAÑA
+  useEffect(() => {
+    setPersonalPDF("TODOS");
+  }, [vistaActiva]);
+
+  // 🚀 LÓGICA DE DESCARGA DINÁMICA
   const handleDescargarPDF = async () => {
     setIsGenerandoPDF(true);
-    await generarPDFRutasPorChofer(
-      viajesRango,
-      fechaInicio,
-      fechaFin,
-      choferPDF,
-    );
+    if (vistaActiva === "choferes") {
+      await generarPDFNominaChoferes(
+        viajesRango,
+        fechaInicio,
+        fechaFin,
+        personalPDF,
+      );
+    } else {
+      await generarPDFNominaAyudantes(
+        viajesRango,
+        fechaInicio,
+        fechaFin,
+        personalPDF,
+        listaNegraChoferes,
+      );
+    }
     setIsGenerandoPDF(false);
   };
 
   const datosMostrar =
     vistaActiva === "choferes" ? estadisticasChoferes : estadisticasAyudantes;
 
+  // 🚀 VARIABLES DINÁMICAS DE COLOR
+  const isChofer = vistaActiva === "choferes";
+  const colorBgMenu = isChofer
+    ? "bg-purple-50 border-purple-100"
+    : "bg-emerald-50 border-emerald-100";
+  const colorTextMenu = isChofer ? "text-purple-800" : "text-emerald-800";
+  const colorSelectBorder = isChofer
+    ? "border-purple-200 focus:ring-purple-500"
+    : "border-emerald-200 focus:ring-emerald-500";
+  const colorBtnPDF = isChofer
+    ? "bg-purple-700 hover:bg-purple-800"
+    : "bg-emerald-700 hover:bg-emerald-800";
+  const colorTabActivo = isChofer
+    ? "border-purple-600 text-purple-700"
+    : "border-emerald-600 text-emerald-700";
+  const colorTh = isChofer ? "bg-purple-800" : "bg-emerald-800";
+  const colorHoverFila = isChofer
+    ? "hover:bg-purple-50"
+    : "hover:bg-emerald-50";
+
   return (
     <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full">
       <div className="flex items-center gap-2 mb-4">
-        <History className="text-purple-600" size={24} />
+        <History
+          className={isChofer ? "text-purple-600" : "text-emerald-600"}
+          size={24}
+        />
         <h2 className="text-xl font-bold text-slate-800">
-          Control de Equidad de Personal
+          Control de Equidad y Nómina
         </h2>
       </div>
 
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
         {/* SELECTORES DE FECHA */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 bg-purple-50 p-2.5 rounded-lg border border-purple-100 shadow-sm w-full xl:w-auto">
+        <div
+          className={`flex flex-col sm:flex-row items-center gap-3 p-2.5 rounded-lg border shadow-sm w-full xl:w-auto transition-colors ${colorBgMenu}`}
+        >
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-sm font-bold text-purple-800">Desde:</span>
+            <span className={`text-sm font-bold ${colorTextMenu}`}>Desde:</span>
             <input
               type="date"
               value={fechaInicio}
               onChange={(e) => setFechaInicio(e.target.value)}
-              className="px-2 py-1 rounded-md text-sm border-none shadow-sm text-slate-700 bg-white w-full sm:w-auto cursor-pointer focus:ring-2 focus:ring-purple-500 outline-none"
+              className="px-2 py-1 rounded-md text-sm border-none shadow-sm text-slate-700 bg-white w-full sm:w-auto cursor-pointer focus:ring-2 outline-none"
             />
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-sm font-bold text-purple-800">Hasta:</span>
+            <span className={`text-sm font-bold ${colorTextMenu}`}>Hasta:</span>
             <input
               type="date"
               value={fechaFin}
               onChange={(e) => setFechaFin(e.target.value)}
-              className="px-2 py-1 rounded-md text-sm border-none shadow-sm text-slate-700 bg-white w-full sm:w-auto cursor-pointer focus:ring-2 focus:ring-purple-500 outline-none"
+              className="px-2 py-1 rounded-md text-sm border-none shadow-sm text-slate-700 bg-white w-full sm:w-auto cursor-pointer focus:ring-2 outline-none"
             />
           </div>
         </div>
 
-        {/* SELECTOR DE CHOFER Y BOTÓN DE PDF */}
+        {/* SELECTOR DE PERSONAL Y BOTÓN DE PDF */}
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
           <select
-            value={choferPDF}
-            onChange={(e) => setChoferPDF(e.target.value)}
-            className="px-3 py-2.5 rounded-lg border border-purple-200 text-sm focus:ring-2 focus:ring-purple-500 outline-none text-slate-700 font-bold bg-white shadow-sm w-full sm:w-auto cursor-pointer"
+            value={personalPDF}
+            onChange={(e) => setPersonalPDF(e.target.value)}
+            className={`px-3 py-2.5 rounded-lg border text-sm outline-none text-slate-700 font-bold bg-white shadow-sm w-full sm:w-auto cursor-pointer transition-colors ${colorSelectBorder}`}
           >
             <option value="TODOS">Reporte General (Todos)</option>
-            {[...estadisticasChoferes]
+            {[...datosMostrar]
               .sort((a, b) => a.nombre.localeCompare(b.nombre))
               .map((c) => (
                 <option key={c.nombre} value={c.nombre}>
@@ -219,11 +263,13 @@ export default function PanelHistorial() {
             className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm w-full sm:w-auto ${
               isGenerandoPDF
                 ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                : "bg-purple-700 hover:bg-purple-800 text-white"
+                : `${colorBtnPDF} text-white`
             }`}
           >
             <FileDown size={18} />
-            {isGenerandoPDF ? "Generando..." : "Descargar (PDF)"}
+            {isGenerandoPDF
+              ? "Calculando..."
+              : `Descargar Reporte de Rutas ${isChofer ? "Choferes" : "Ayudantes"}`}
           </button>
         </div>
       </div>
@@ -246,8 +292,8 @@ export default function PanelHistorial() {
         <button
           onClick={() => setVistaActiva("choferes")}
           className={`flex items-center gap-2 px-4 py-2.5 font-semibold text-sm transition-colors border-b-2 ${
-            vistaActiva === "choferes"
-              ? "border-purple-600 text-purple-700"
+            isChofer
+              ? colorTabActivo
               : "border-transparent text-slate-500 hover:text-purple-600"
           }`}
         >
@@ -256,9 +302,9 @@ export default function PanelHistorial() {
         <button
           onClick={() => setVistaActiva("ayudantes")}
           className={`flex items-center gap-2 px-4 py-2.5 font-semibold text-sm transition-colors border-b-2 ${
-            vistaActiva === "ayudantes"
-              ? "border-purple-600 text-purple-700"
-              : "border-transparent text-slate-500 hover:text-purple-600"
+            !isChofer
+              ? colorTabActivo
+              : "border-transparent text-slate-500 hover:text-emerald-600"
           }`}
         >
           <Users size={16} /> Ayudantes
@@ -280,11 +326,11 @@ export default function PanelHistorial() {
         <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
           <table className="w-full text-left border-collapse text-sm bg-white">
             <thead>
-              <tr className="bg-purple-800 text-white uppercase tracking-wider text-xs">
+              <tr
+                className={`${colorTh} text-white uppercase tracking-wider text-xs transition-colors`}
+              >
                 <th className="px-6 py-4 font-bold">
-                  {vistaActiva === "choferes"
-                    ? "Nombre del Chofer"
-                    : "Nombre del Ayudante"}
+                  {isChofer ? "Nombre del Chofer" : "Nombre del Ayudante"}
                 </th>
                 <th className="px-6 py-4 font-bold text-center">
                   Viajes en el Rango
@@ -298,7 +344,7 @@ export default function PanelHistorial() {
               {datosMostrar.map((personal, index) => (
                 <tr
                   key={index}
-                  className="hover:bg-purple-50 transition-colors"
+                  className={`${colorHoverFila} transition-colors`}
                 >
                   <td className="px-6 py-4 font-bold text-slate-700 text-xs">
                     {personal.nombre}
@@ -317,7 +363,12 @@ export default function PanelHistorial() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-center text-slate-600 font-medium text-xs flex justify-center items-center gap-2">
-                    <CalendarCheck size={14} className="text-purple-400" />
+                    <CalendarCheck
+                      size={14}
+                      className={
+                        isChofer ? "text-purple-400" : "text-emerald-400"
+                      }
+                    />
                     {personal.ultimoViaje}
                   </td>
                 </tr>

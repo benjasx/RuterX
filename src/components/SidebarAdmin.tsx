@@ -6,16 +6,18 @@ import {
   Calculator,
   History,
   ClipboardList,
-} from "lucide-react"; // <-- Importamos Calculator
+  Settings, // <-- 1. Importamos el icono de configuración
+} from "lucide-react";
 
-// Exportamos el tipo para poder usarlo en el Panel Principal
+// 2. Agregamos "ajustesNomina" a los tipos permitidos
 export type SubVistaAdmin =
   | "clientes"
   | "rutas"
   | "vendedores"
   | "tablamontos"
   | "historial"
-  | "historialCompleto";
+  | "historialCompleto"
+  | "ajustesNomina";
 
 interface SidebarAdminProps {
   menuActivo: SubVistaAdmin;
@@ -34,7 +36,7 @@ export default function SidebarAdmin({
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-3">
           Opciones
         </h3>
-        <ul className="space-y-2">
+        <ul className="space-y-2 mb-2">
           <li>
             <button
               onClick={() => setMenuActivo("clientes")}
@@ -72,7 +74,6 @@ export default function SidebarAdmin({
             </button>
           </li>
 
-          {/* --- AQUÍ AGREGAMOS EL NUEVO BOTÓN --- */}
           <li>
             <button
               onClick={() => setMenuActivo("tablamontos")}
@@ -85,13 +86,12 @@ export default function SidebarAdmin({
               <Calculator size={20} /> Tabla de Montos
             </button>
           </li>
-          {/* ------------------------------------- */}
         </ul>
 
-        {/* 🚀 NUEVO BOTÓN PARA EL HISTORIAL */}
+        {/* BOTÓN PARA EL HISTORIAL */}
         <button
           onClick={() => setMenuActivo("historial")}
-          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 ${
+          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mb-1 ${
             menuActivo === "historial"
               ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
               : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
@@ -101,10 +101,10 @@ export default function SidebarAdmin({
           <span>Equidad Choferes</span>
         </button>
 
-        {/* 🚀 NUEVO BOTÓN: HISTORIAL COMPLETO DE RUTAS */}
+        {/* BOTÓN: HISTORIAL COMPLETO DE RUTAS */}
         <button
           onClick={() => setMenuActivo("historialCompleto")}
-          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 ${
+          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mb-1 ${
             menuActivo === "historialCompleto"
               ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
               : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
@@ -112,6 +112,19 @@ export default function SidebarAdmin({
         >
           <ClipboardList size={20} />
           <span>Historial Rutas</span>
+        </button>
+
+        {/* 🚀 3. NUEVO BOTÓN: AJUSTES DE NÓMINA Y VIÁTICOS */}
+        <button
+          onClick={() => setMenuActivo("ajustesNomina")}
+          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mt-2 ${
+            menuActivo === "ajustesNomina"
+              ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
+              : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+          }`}
+        >
+          <Settings size={20} />
+          <span>Reglas de viaticos</span>
         </button>
       </div>
 
