@@ -41,7 +41,6 @@ export default function PanelHistorial() {
     "choferes",
   );
 
-  // 🚀 NUEVOS ESTADOS PARA EL PDF
   const [isGenerandoPDF, setIsGenerandoPDF] = useState(false);
   const [choferPDF, setChoferPDF] = useState<string>("TODOS");
 
@@ -58,6 +57,17 @@ export default function PanelHistorial() {
   useEffect(() => {
     if (!datosCrudosNube.length && !cargando) return;
 
+    // 🚀 PASO 1: CREAR LA "LISTA NEGRA" DE CHOFERES (Set)
+    // Esto asegura que cualquiera que haya sido chofer alguna vez, no cuente como ayudante
+    const setChoferesHistoricos = new Set<string>();
+    datosCrudosNube.forEach((registro) => {
+      (registro.viajes || []).forEach((viaje: any) => {
+        if (viaje.chofer && viaje.chofer !== "-") {
+          setChoferesHistoricos.add(viaje.chofer.toUpperCase().trim());
+        }
+      });
+    });
+
     const statsCMap: Record<string, { total: number; ultimaFecha: string }> =
       {};
     const statsAMap: Record<string, { total: number; ultimaFecha: string }> =
@@ -68,11 +78,13 @@ export default function PanelHistorial() {
       (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
     );
 
+    // 🚀 PASO 2: CONTAR LOS VIAJES
     datosOrdenados.forEach((registro) => {
       const fecha = registro.fecha;
       const enRango = fecha >= fechaInicio && fecha <= fechaFin;
 
       (registro.viajes || []).forEach((viaje: any) => {
+        // --- PROCESAR CHOFERES ---
         if (viaje.chofer && viaje.chofer !== "-") {
           const nombreChofer = viaje.chofer.toUpperCase().trim();
           if (!statsCMap[nombreChofer])
@@ -81,24 +93,30 @@ export default function PanelHistorial() {
           statsCMap[nombreChofer].ultimaFecha = fecha;
         }
 
+        // --- PROCESAR AYUDANTE 1 ---
         const ay1 = viaje.ayudante1 ? viaje.ayudante1.toUpperCase().trim() : "";
+        // Agregamos la condición: !setChoferesHistoricos.has(ay1)
         if (
           ay1 &&
           ay1 !== "-" &&
           ay1 !== "SIN AYUDANTE" &&
-          ay1 !== "UNDEFINED"
+          ay1 !== "UNDEFINED" &&
+          !setChoferesHistoricos.has(ay1)
         ) {
           if (!statsAMap[ay1]) statsAMap[ay1] = { total: 0, ultimaFecha: "" };
           if (enRango) statsAMap[ay1].total += 1;
           statsAMap[ay1].ultimaFecha = fecha;
         }
 
+        // --- PROCESAR AYUDANTE 2 ---
         const ay2 = viaje.ayudante2 ? viaje.ayudante2.toUpperCase().trim() : "";
+        // Agregamos la condición: !setChoferesHistoricos.has(ay2)
         if (
           ay2 &&
           ay2 !== "-" &&
           ay2 !== "SIN AYUDANTE" &&
-          ay2 !== "UNDEFINED"
+          ay2 !== "UNDEFINED" &&
+          !setChoferesHistoricos.has(ay2)
         ) {
           if (!statsAMap[ay2]) statsAMap[ay2] = { total: 0, ultimaFecha: "" };
           if (enRango) statsAMap[ay2].total += 1;
@@ -132,7 +150,6 @@ export default function PanelHistorial() {
     setViajesRango(listaViajesFiltrados);
   }, [datosCrudosNube, fechaInicio, fechaFin, cargando]);
 
-  // 🚀 ACTUALIZAMOS LA FUNCIÓN PARA PASAR EL CHOFER SELECCIONADO
   const handleDescargarPDF = async () => {
     setIsGenerandoPDF(true);
     await generarPDFRutasPorChofer(
@@ -179,7 +196,7 @@ export default function PanelHistorial() {
           </div>
         </div>
 
-        {/* 🚀 NUEVO BLOQUE: SELECTOR DE CHOFER Y BOTÓN DE PDF */}
+        {/* SELECTOR DE CHOFER Y BOTÓN DE PDF */}
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
           <select
             value={choferPDF}
@@ -187,7 +204,6 @@ export default function PanelHistorial() {
             className="px-3 py-2.5 rounded-lg border border-purple-200 text-sm focus:ring-2 focus:ring-purple-500 outline-none text-slate-700 font-bold bg-white shadow-sm w-full sm:w-auto cursor-pointer"
           >
             <option value="TODOS">Reporte General (Todos)</option>
-            {/* Solo mostramos los nombres ordenados alfabéticamente */}
             {[...estadisticasChoferes]
               .sort((a, b) => a.nombre.localeCompare(b.nombre))
               .map((c) => (
