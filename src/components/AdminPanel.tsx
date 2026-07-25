@@ -74,7 +74,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
       )}
 
       {/* --- 2. COLOCAMOS EL COMPONENTE CORRECTO AQUÍ --- */}
-      {menuActivo === "tablamontos" && <ReporteEmbarques rutas={listaRutas} />}
+      {menuActivo === "tablamontos" && <ReporteEmbarques />}
 
       {menuActivo === "historial" && <PanelHistorial />}
       {menuActivo === "historialCompleto" && <PanelHistorialCompleto />}
