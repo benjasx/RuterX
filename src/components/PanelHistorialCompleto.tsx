@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ClipboardList,
   Calendar,
@@ -7,8 +7,17 @@ import {
   MapPin,
   Users,
   AlertCircle,
+  Search,
+  DollarSign,
+  Scale,
+  FileText,
+  FileDown,
+  Settings2,
+  CheckSquare,
+  Square, // 🚀 IMPORTAMOS NUEVOS ICONOS PARA EL MENÚ
 } from "lucide-react";
 import { obtenerHistorialFirebase } from "../firebase/historialService";
+import { generarPDFAuditoria } from "../utils/pdfAuditoriaService";
 
 interface ViajeDetalle {
   fecha: string;
@@ -17,145 +26,447 @@ interface ViajeDetalle {
   chofer: string;
   ayudante1: string;
   ayudante2: string;
+  embCred: string;
+  embCtdo: string;
+  kgTotal: number;
+  totalMonto: number;
+  viaticoRuta: number;
+  comisionChofer: number;
+  comisionAyudante: number;
 }
 
 export default function PanelHistorialCompleto() {
-  const [viajes, setViajes] = useState<ViajeDetalle[]>([]);
+  const hoy = new Date();
+  const hace7Dias = new Date();
+  hace7Dias.setDate(hoy.getDate() - 7);
+
+  const [fechaInicio, setFechaInicio] = useState(
+    hace7Dias.toISOString().split("T")[0],
+  );
+  const [fechaFin, setFechaFin] = useState(hoy.toISOString().split("T")[0]);
+  const [busqueda, setBusqueda] = useState("");
+
+  const [datosCrudos, setDatosCrudos] = useState<any[]>([]);
+  const [viajesMostrados, setViajesMostrados] = useState<ViajeDetalle[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [isGenerandoPDF, setIsGenerandoPDF] = useState(false);
+
+  // 🚀 1. ESTADOS PARA EL MENÚ DE COLUMNAS
+  const [mostrarMenuColumnas, setMostrarMenuColumnas] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // 🚀 2. CONFIGURACIÓN INICIAL: QUÉ COLUMNAS ESTÁN ENCENDIDAS
+  const [columnasPDF, setColumnasPDF] = useState<Record<string, boolean>>({
+    fecha: true,
+    unidad: true,
+    ruta: true,
+    embCred: false,
+    embCtdo: false, // Ocultamos folios por defecto para ahorrar espacio
+    chofer: true,
+    ayudante1: true,
+    ayudante2: true,
+    kgTotal: true,
+    totalMonto: true,
+    viaticoRuta: true,
+    comisionChofer: true,
+    comisionAyudante: true,
+  });
+
+  const fMoneda = (c: number) =>
+    new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+    }).format(c);
+  const fNumero = (c: number) =>
+    new Intl.NumberFormat("es-MX", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(c);
+
+  // Cerrar menú al hacer clic fuera
+  useEffect(() => {
+    const handleClickFuera = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMostrarMenuColumnas(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickFuera);
+    return () => document.removeEventListener("mousedown", handleClickFuera);
+  }, []);
 
   useEffect(() => {
     const cargarDatos = async () => {
       setCargando(true);
       const datosNube = await obtenerHistorialFirebase();
-
-      // 1. Calculamos la fecha de hace 7 días
-      const fechaLimite = new Date();
-      fechaLimite.setDate(fechaLimite.getDate() - 7);
-      const fechaLimiteStr = fechaLimite.toISOString().split("T")[0];
-
-      let historialAplanado: ViajeDetalle[] = [];
-
-      // 2. Extraemos y filtramos solo los de los últimos 7 días
-      datosNube.forEach((registro) => {
-        const fecha = registro.fecha;
-        if (fecha >= fechaLimiteStr) {
-          const viajesDelDia = registro.viajes || [];
-
-          viajesDelDia.forEach((viaje: any) => {
-            if (
-              viaje.chofer &&
-              viaje.chofer.trim() !== "" &&
-              viaje.chofer !== "-"
-            ) {
-              historialAplanado.push({
-                fecha: fecha,
-                unidad: viaje.unidad || "-",
-                ruta: viaje.ruta || "SIN RUTA",
-                chofer: viaje.chofer,
-                ayudante1: viaje.ayudante1 || "-",
-                ayudante2: viaje.ayudante2 || "-",
-              });
-            }
-          });
-        }
-      });
-
-      // 3. Ordenamos: Primero los más recientes (por fecha) y luego por número de unidad
-      historialAplanado.sort((a, b) => {
-        if (a.fecha !== b.fecha) {
-          return new Date(b.fecha).getTime() - new Date(a.fecha).getTime(); // Fecha descendente
-        }
-        return parseInt(a.unidad) - parseInt(b.unidad); // Unidad ascendente
-      });
-
-      setViajes(historialAplanado);
+      setDatosCrudos(datosNube);
       setCargando(false);
     };
-
     cargarDatos();
   }, []);
 
+  useEffect(() => {
+    if (!datosCrudos.length) return;
+    let historialAplanado: ViajeDetalle[] = [];
+    const textoBusqueda = busqueda
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    datosCrudos.forEach((registro) => {
+      const fecha = registro.fecha;
+      if (fecha >= fechaInicio && fecha <= fechaFin) {
+        const viajesDelDia = registro.viajes || [];
+        viajesDelDia.forEach((viaje: any) => {
+          if (
+            viaje.chofer &&
+            viaje.chofer.trim() !== "" &&
+            viaje.chofer !== "-"
+          ) {
+            const objViaje: ViajeDetalle = {
+              fecha: fecha,
+              unidad: viaje.unidad || "-",
+              ruta: viaje.ruta || "SIN RUTA",
+              chofer: viaje.chofer,
+              ayudante1: viaje.ayudante1 || "-",
+              ayudante2: viaje.ayudante2 || "-",
+              embCred: viaje.embCred || "-",
+              embCtdo: viaje.embCtdo || "-",
+              kgTotal: Number(viaje.kgTotal) || 0,
+              totalMonto: Number(viaje.totalMonto) || 0,
+              viaticoRuta: Number(viaje.viaticoRuta) || 0,
+              comisionChofer: Number(viaje.comisionChofer) || 0,
+              comisionAyudante: Number(viaje.comisionAyudante) || 0,
+            };
+
+            if (textoBusqueda) {
+              const valoresTexto = [
+                objViaje.chofer,
+                objViaje.ruta,
+                objViaje.unidad,
+                objViaje.ayudante1,
+                objViaje.ayudante2,
+                objViaje.embCred,
+                objViaje.embCtdo,
+              ]
+                .join(" ")
+                .toUpperCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "");
+              if (!valoresTexto.includes(textoBusqueda)) return;
+            }
+            historialAplanado.push(objViaje);
+          }
+        });
+      }
+    });
+
+    historialAplanado.sort((a, b) => {
+      if (a.fecha !== b.fecha)
+        return new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
+      return parseInt(a.unidad) - parseInt(b.unidad);
+    });
+
+    setViajesMostrados(historialAplanado);
+  }, [datosCrudos, fechaInicio, fechaFin, busqueda]);
+
+  const totales = viajesMostrados.reduce(
+    (acc, v) => ({
+      kg: acc.kg + v.kgTotal,
+      monto: acc.monto + v.totalMonto,
+      viaticos: acc.viaticos + v.viaticoRuta,
+      comisionChofer: acc.comisionChofer + v.comisionChofer,
+      comisionAyudante:
+        acc.comisionAyudante +
+        (v.ayudante1 !== "-" ? v.comisionAyudante : 0) +
+        (v.ayudante2 !== "-" ? v.comisionAyudante : 0),
+    }),
+    { kg: 0, monto: 0, viaticos: 0, comisionChofer: 0, comisionAyudante: 0 },
+  );
+
+  // 🚀 GENERAR PDF PASANDO LA CONFIGURACIÓN DE COLUMNAS
+  const handleDescargarPDF = async () => {
+    setIsGenerandoPDF(true);
+    await generarPDFAuditoria(
+      viajesMostrados,
+      fechaInicio,
+      fechaFin,
+      busqueda,
+      totales,
+      columnasPDF,
+    );
+    setIsGenerandoPDF(false);
+  };
+
+  const toggleColumna = (clave: string) => {
+    setColumnasPDF((prev) => ({ ...prev, [clave]: !prev[clave] }));
+  };
+
   return (
-    <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full">
-      <div className="flex items-center gap-2 mb-2">
+    <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full overflow-hidden">
+      <div className="flex items-center gap-2 mb-2 shrink-0">
         <ClipboardList className="text-blue-600" size={24} />
         <h2 className="text-xl font-bold text-slate-800">
-          Historial Completo de Salidas
+          Auditoría y Registro de Salidas
         </h2>
       </div>
-      <p className="text-sm text-slate-500 mb-6">
-        Consulta el registro detallado de todas las rutas, choferes y auxiliares
-        que han sido asignados en los <strong>últimos 7 días</strong>.
+      <p className="text-sm text-slate-500 mb-6 shrink-0">
+        Consulta el registro detallado, financiero y logístico de la operación.
       </p>
 
-      {cargando ? (
-        <div className="flex items-center justify-center p-12 text-slate-500">
-          Cargando historial completo de la nube...
+      {/* BARRA DE CONTROLES */}
+      <div className="flex flex-col xl:flex-row gap-4 mb-6 shrink-0 bg-slate-50 p-4 rounded-xl border border-slate-200">
+        <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm w-full xl:w-auto">
+          <div className="flex items-center gap-2">
+            <Calendar className="text-blue-600" size={18} />
+            <span className="text-sm font-bold text-slate-700">Desde:</span>
+            <input
+              type="date"
+              value={fechaInicio}
+              onChange={(e) => setFechaInicio(e.target.value)}
+              className="px-2 py-1 rounded-md text-sm border-none shadow-sm text-slate-700 bg-slate-50 w-full sm:w-auto focus:ring-2 outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-slate-200 pt-2 sm:pt-0 sm:pl-3 w-full sm:w-auto">
+            <span className="text-sm font-bold text-slate-700">Hasta:</span>
+            <input
+              type="date"
+              value={fechaFin}
+              onChange={(e) => setFechaFin(e.target.value)}
+              className="px-2 py-1 rounded-md text-sm border-none shadow-sm text-slate-700 bg-slate-50 w-full sm:w-auto focus:ring-2 outline-none"
+            />
+          </div>
         </div>
-      ) : viajes.length === 0 ? (
-        <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 flex flex-col items-center text-center">
+
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto flex-1">
+          <div className="flex items-center flex-1 bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm relative w-full">
+            <Search className="text-slate-400 ml-2 absolute" size={20} />
+            <input
+              type="text"
+              placeholder="Buscar chofer, ruta, unidad..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="w-full pl-10 pr-4 py-1 text-sm text-slate-700 border-none outline-none bg-transparent font-medium"
+            />
+          </div>
+
+          {/* 🚀 BOTONES DE EXPORTACIÓN Y CONFIGURACIÓN */}
+          <div
+            className="flex items-center gap-2 w-full sm:w-auto relative"
+            ref={menuRef}
+          >
+            <button
+              onClick={() => setMostrarMenuColumnas(!mostrarMenuColumnas)}
+              className="flex items-center justify-center p-3 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors shadow-sm bg-white"
+              title="Configurar columnas de exportación"
+            >
+              <Settings2 size={20} />
+            </button>
+            <button
+              onClick={handleDescargarPDF}
+              disabled={isGenerandoPDF || viajesMostrados.length === 0}
+              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-bold transition-colors shadow-sm flex-1 sm:flex-auto ${isGenerandoPDF || viajesMostrados.length === 0 ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
+            >
+              <FileDown size={18} />
+              {isGenerandoPDF ? "Generando..." : "Exportar PDF"}
+            </button>
+
+            {/* 🚀 MENÚ DESPLEGABLE (DROPDOWN) DE COLUMNAS */}
+            {mostrarMenuColumnas && (
+              <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-slate-200 shadow-xl rounded-xl p-4 z-50 animate-in fade-in zoom-in-95">
+                <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">
+                  Columnas a Exportar
+                </h4>
+                <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                  {[
+                    { id: "fecha", label: "Fecha" },
+                    { id: "unidad", label: "Unidad" },
+                    { id: "ruta", label: "Ruta" },
+                    { id: "embCred", label: "Folio Crédito" },
+                    { id: "embCtdo", label: "Folio Contado" },
+                    { id: "chofer", label: "Chofer" },
+                    { id: "ayudante1", label: "Ayudante 1" },
+                    { id: "ayudante2", label: "Ayudante 2" },
+                    { id: "kgTotal", label: "Peso (KG)" },
+                    { id: "totalMonto", label: "Venta ($)" },
+                    { id: "viaticoRuta", label: "Viático ($)" },
+                    { id: "comisionChofer", label: "Comisión Chofer" },
+                    { id: "comisionAyudante", label: "Comisión Ayudantes" },
+                  ].map((opcion) => (
+                    <button
+                      key={opcion.id}
+                      onClick={() => toggleColumna(opcion.id)}
+                      className="flex items-center gap-2 w-full text-left text-sm text-slate-700 hover:bg-slate-50 p-1.5 rounded-md transition-colors"
+                    >
+                      {columnasPDF[opcion.id] ? (
+                        <CheckSquare size={16} className="text-blue-600" />
+                      ) : (
+                        <Square size={16} className="text-slate-300" />
+                      )}
+                      <span
+                        className={
+                          columnasPDF[opcion.id]
+                            ? "font-semibold text-slate-900"
+                            : ""
+                        }
+                      >
+                        {opcion.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {cargando ? (
+        <div className="flex items-center justify-center p-12 text-slate-500 flex-1">
+          Cargando base de datos...
+        </div>
+      ) : viajesMostrados.length === 0 ? (
+        <div className="p-12 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 flex flex-col items-center text-center flex-1">
           <AlertCircle className="text-slate-400 mb-3" size={40} />
           <h3 className="text-lg font-semibold text-slate-700">
-            No hay salidas recientes
+            No hay coincidencias
           </h3>
-          <p className="text-sm text-slate-500 max-w-sm">
-            No se encontraron registros de viajes en los últimos 7 días.
-          </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm max-h-[70vh] overflow-y-auto relative">
-          <table className="w-full text-left border-collapse text-sm bg-white">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm flex-1 custom-scrollbar">
+          <table className="w-full min-w-375 text-left border-collapse text-sm bg-white">
             <thead className="sticky top-0 z-10 shadow-sm">
-              <tr className="bg-slate-800 text-white uppercase tracking-wider text-xs">
-                <th className="px-4 py-3 font-bold flex items-center gap-2">
-                  <Calendar size={14} /> Fecha
+              <tr className="bg-slate-800 text-white tracking-wider text-xs uppercase">
+                <th className="px-3 py-3 font-bold border-r border-slate-700">
+                  <Calendar size={14} className="inline mr-1" /> Fecha
                 </th>
-                <th className="px-4 py-3 font-bold text-center">
+                <th className="px-3 py-3 font-bold text-center border-r border-slate-700">
                   <Truck size={14} className="inline mr-1" /> Un.
                 </th>
-                <th className="px-4 py-3 font-bold">
+                <th className="px-3 py-3 font-bold border-r border-slate-700">
                   <MapPin size={14} className="inline mr-1" /> Ruta
                 </th>
-                <th className="px-4 py-3 font-bold">
+                <th className="px-3 py-3 font-bold border-r border-slate-700">
+                  <FileText size={14} className="inline mr-1" /> F. Cred
+                </th>
+                <th className="px-3 py-3 font-bold border-r border-slate-700">
+                  <FileText size={14} className="inline mr-1" /> F. Ctdo
+                </th>
+
+                {/* 🚀 AYUDANTES SEPARADOS AQUÍ EN LA VISTA TABLA */}
+                <th className="px-3 py-3 font-bold bg-slate-700 border-r border-slate-600">
                   <User size={14} className="inline mr-1" /> Chofer
                 </th>
-                <th className="px-4 py-3 font-bold">
+                <th className="px-3 py-3 font-bold bg-slate-700 border-r border-slate-600">
                   <Users size={14} className="inline mr-1" /> Ayudante 1
                 </th>
-                <th className="px-4 py-3 font-bold">
+                <th className="px-3 py-3 font-bold bg-slate-700 border-r border-slate-600">
                   <Users size={14} className="inline mr-1" /> Ayudante 2
+                </th>
+
+                <th className="px-3 py-3 font-bold text-right bg-blue-900 border-r border-blue-800">
+                  <Scale size={14} className="inline mr-1" /> Peso (KG)
+                </th>
+                <th className="px-3 py-3 font-bold text-right bg-emerald-900 border-r border-emerald-800">
+                  <DollarSign size={14} className="inline mr-1" /> Venta
+                </th>
+                <th className="px-3 py-3 font-bold text-right bg-emerald-800 border-r border-emerald-700">
+                  Viático Ruta
+                </th>
+                <th className="px-3 py-3 font-bold text-right bg-emerald-800 border-r border-emerald-700">
+                  Com. Chofer
+                </th>
+                <th className="px-3 py-3 font-bold text-right bg-emerald-800">
+                  Com. Ayudantes
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {viajes.map((viaje, index) => (
-                <tr
-                  key={index}
-                  className="hover:bg-blue-50/50 transition-colors"
-                >
-                  <td className="px-4 py-3 font-semibold text-slate-700 text-xs whitespace-nowrap">
+            <tbody className="divide-y divide-slate-200">
+              {viajesMostrados.map((viaje, index) => (
+                <tr key={index} className="hover:bg-blue-50 transition-colors">
+                  <td className="px-3 py-3 font-semibold text-slate-700 text-xs whitespace-nowrap border-r border-slate-100">
                     {viaje.fecha}
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="inline-flex items-center justify-center bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded-md text-xs">
+                  <td className="px-3 py-3 text-center border-r border-slate-100">
+                    <span className="inline-flex items-center justify-center bg-slate-200 text-slate-800 font-bold px-2 py-1 rounded-md text-xs">
                       {viaje.unidad}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-semibold text-slate-700 text-xs uppercase">
+                  <td className="px-3 py-3 font-bold text-slate-700 text-xs uppercase border-r border-slate-100">
                     {viaje.ruta}
                   </td>
-                  <td className="px-4 py-3 font-medium text-slate-800 text-xs uppercase">
+                  <td className="px-3 py-3 font-medium text-slate-500 text-[11px] border-r border-slate-100">
+                    {viaje.embCred}
+                  </td>
+                  <td className="px-3 py-3 font-medium text-slate-500 text-[11px] border-r border-slate-100">
+                    {viaje.embCtdo}
+                  </td>
+
+                  {/* 🚀 CELDAS DE AYUDANTES SEPARADAS */}
+                  <td className="px-3 py-3 font-bold text-slate-800 text-xs uppercase bg-slate-50 border-r border-slate-100">
                     {viaje.chofer}
                   </td>
-                  <td className="px-4 py-3 text-slate-600 text-xs uppercase">
-                    {viaje.ayudante1}
+                  <td className="px-3 py-3 text-slate-600 text-[11px] uppercase bg-slate-50 border-r border-slate-100">
+                    {viaje.ayudante1 !== "-" ? (
+                      viaje.ayudante1
+                    ) : (
+                      <span className="text-slate-300 italic">-</span>
+                    )}
                   </td>
-                  <td className="px-4 py-3 text-slate-600 text-xs uppercase">
-                    {viaje.ayudante2}
+                  <td className="px-3 py-3 text-slate-600 text-[11px] uppercase bg-slate-50 border-r border-slate-200">
+                    {viaje.ayudante2 !== "-" ? (
+                      viaje.ayudante2
+                    ) : (
+                      <span className="text-slate-300 italic">-</span>
+                    )}
+                  </td>
+
+                  <td className="px-3 py-3 font-bold text-blue-700 text-xs text-right border-r border-slate-100">
+                    {fNumero(viaje.kgTotal)}
+                  </td>
+                  <td className="px-3 py-3 font-bold text-emerald-700 text-xs text-right border-r border-slate-100">
+                    {fMoneda(viaje.totalMonto)}
+                  </td>
+                  <td className="px-3 py-3 font-bold text-slate-700 text-xs text-right border-r border-slate-100">
+                    {fMoneda(viaje.viaticoRuta)}
+                  </td>
+                  <td className="px-3 py-3 font-bold text-emerald-600 text-xs text-right border-r border-slate-100">
+                    {fMoneda(viaje.comisionChofer)}
+                  </td>
+                  <td className="px-3 py-3 font-bold text-emerald-600 text-xs text-right">
+                    {fMoneda(
+                      (viaje.ayudante1 !== "-" ? viaje.comisionAyudante : 0) +
+                        (viaje.ayudante2 !== "-" ? viaje.comisionAyudante : 0),
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
+            {/* 🚀 TOTALES: AHORA EL COLSPAN ES 8 PORQUE HAY UNA COLUMNA EXTRA DE AYUDANTE */}
+            <tfoot className="sticky bottom-0 bg-slate-800 text-white shadow-inner">
+              <tr>
+                <td
+                  colSpan={8}
+                  className="px-4 py-3 font-bold text-right text-xs uppercase border-r border-slate-700"
+                >
+                  Total Acumulado ({viajesMostrados.length} Viajes):
+                </td>
+                <td className="px-3 py-3 font-bold text-right text-xs bg-blue-900 border-r border-blue-800">
+                  {fNumero(totales.kg)} KG
+                </td>
+                <td className="px-3 py-3 font-bold text-right text-xs bg-emerald-900 border-r border-emerald-800">
+                  {fMoneda(totales.monto)}
+                </td>
+                <td className="px-3 py-3 font-bold text-right text-xs bg-emerald-800 border-r border-emerald-700">
+                  {fMoneda(totales.viaticos)}
+                </td>
+                <td className="px-3 py-3 font-bold text-right text-xs bg-emerald-800 border-r border-emerald-700">
+                  {fMoneda(totales.comisionChofer)}
+                </td>
+                <td className="px-3 py-3 font-bold text-right text-xs bg-emerald-800">
+                  {fMoneda(totales.comisionAyudante)}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}
