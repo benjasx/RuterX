@@ -14,8 +14,10 @@ import {
   FileDown,
   Settings2,
   CheckSquare,
-  Square, // 🚀 IMPORTAMOS NUEVOS ICONOS PARA EL MENÚ
+  Square,
+  FileSpreadsheet,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { obtenerHistorialFirebase } from "../firebase/historialService";
 import { generarPDFAuditoria } from "../utils/pdfAuditoriaService";
 
@@ -51,17 +53,15 @@ export default function PanelHistorialCompleto() {
   const [cargando, setCargando] = useState(true);
   const [isGenerandoPDF, setIsGenerandoPDF] = useState(false);
 
-  // 🚀 1. ESTADOS PARA EL MENÚ DE COLUMNAS
   const [mostrarMenuColumnas, setMostrarMenuColumnas] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // 🚀 2. CONFIGURACIÓN INICIAL: QUÉ COLUMNAS ESTÁN ENCENDIDAS
   const [columnasPDF, setColumnasPDF] = useState<Record<string, boolean>>({
     fecha: true,
     unidad: true,
     ruta: true,
     embCred: false,
-    embCtdo: false, // Ocultamos folios por defecto para ahorrar espacio
+    embCtdo: false,
     chofer: true,
     ayudante1: true,
     ayudante2: true,
@@ -83,7 +83,6 @@ export default function PanelHistorialCompleto() {
       maximumFractionDigits: 2,
     }).format(c);
 
-  // Cerrar menú al hacer clic fuera
   useEffect(() => {
     const handleClickFuera = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -183,7 +182,6 @@ export default function PanelHistorialCompleto() {
     { kg: 0, monto: 0, viaticos: 0, comisionChofer: 0, comisionAyudante: 0 },
   );
 
-  // 🚀 GENERAR PDF PASANDO LA CONFIGURACIÓN DE COLUMNAS
   const handleDescargarPDF = async () => {
     setIsGenerandoPDF(true);
     await generarPDFAuditoria(
@@ -195,6 +193,64 @@ export default function PanelHistorialCompleto() {
       columnasPDF,
     );
     setIsGenerandoPDF(false);
+  };
+
+  const handleDescargarExcelReal = () => {
+    const headersMap: Record<string, string> = {
+      fecha: "Fecha",
+      unidad: "Unidad",
+      ruta: "Ruta",
+      embCred: "Folio Crédito",
+      embCtdo: "Folio Contado",
+      chofer: "Chofer",
+      ayudante1: "Ayudante 1",
+      ayudante2: "Ayudante 2",
+      kgTotal: "Peso (KG)",
+      totalMonto: "Venta ($)",
+      viaticoRuta: "Viático ($)",
+      comisionChofer: "Comisión Chofer",
+      comisionAyudante: "Total Com. Ayudantes",
+    };
+
+    const columnasActivas = Object.keys(columnasPDF).filter(
+      (key) => columnasPDF[key],
+    );
+
+    const datosFiltrados = viajesMostrados.map((v) => {
+      const filaObj: Record<string, any> = {};
+
+      columnasActivas.forEach((key) => {
+        const headerName = headersMap[key];
+
+        if (key === "comisionAyudante") {
+          const com1 = v.ayudante1 !== "-" ? v.comisionAyudante : 0;
+          const com2 = v.ayudante2 !== "-" ? v.comisionAyudante : 0;
+          filaObj[headerName] = Number((com1 + com2).toFixed(2));
+        } else if (key === "ayudante1" || key === "ayudante2") {
+          filaObj[headerName] =
+            v[key as keyof ViajeDetalle] !== "-"
+              ? v[key as keyof ViajeDetalle]
+              : "";
+        } else if (
+          ["kgTotal", "totalMonto", "viaticoRuta", "comisionChofer"].includes(
+            key,
+          )
+        ) {
+          filaObj[headerName] = Number(
+            Number(v[key as keyof ViajeDetalle]).toFixed(2),
+          );
+        } else {
+          filaObj[headerName] = v[key as keyof ViajeDetalle];
+        }
+      });
+
+      return filaObj;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(datosFiltrados);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Auditoría de Salidas");
+    XLSX.writeFile(workbook, `Auditoria_Salidas_${fechaInicio}.xlsx`);
   };
 
   const toggleColumna = (clave: string) => {
@@ -249,7 +305,6 @@ export default function PanelHistorialCompleto() {
             />
           </div>
 
-          {/* 🚀 BOTONES DE EXPORTACIÓN Y CONFIGURACIÓN */}
           <div
             className="flex items-center gap-2 w-full sm:w-auto relative"
             ref={menuRef}
@@ -261,16 +316,34 @@ export default function PanelHistorialCompleto() {
             >
               <Settings2 size={20} />
             </button>
+
+            <button
+              onClick={handleDescargarExcelReal}
+              disabled={viajesMostrados.length === 0}
+              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-colors shadow-sm flex-1 sm:flex-auto ${
+                viajesMostrados.length === 0
+                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
+              }`}
+              title="Exportar a Excel"
+            >
+              <FileSpreadsheet size={18} />
+              Excel
+            </button>
+
             <button
               onClick={handleDescargarPDF}
               disabled={isGenerandoPDF || viajesMostrados.length === 0}
-              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-bold transition-colors shadow-sm flex-1 sm:flex-auto ${isGenerandoPDF || viajesMostrados.length === 0 ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
+              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-colors shadow-sm flex-1 sm:flex-auto ${
+                isGenerandoPDF || viajesMostrados.length === 0
+                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
             >
               <FileDown size={18} />
-              {isGenerandoPDF ? "Generando..." : "Exportar PDF"}
+              {isGenerandoPDF ? "..." : "PDF"}
             </button>
 
-            {/* 🚀 MENÚ DESPLEGABLE (DROPDOWN) DE COLUMNAS */}
             {mostrarMenuColumnas && (
               <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-slate-200 shadow-xl rounded-xl p-4 z-50 animate-in fade-in zoom-in-95">
                 <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">
@@ -290,7 +363,7 @@ export default function PanelHistorialCompleto() {
                     { id: "totalMonto", label: "Venta ($)" },
                     { id: "viaticoRuta", label: "Viático ($)" },
                     { id: "comisionChofer", label: "Comisión Chofer" },
-                    { id: "comisionAyudante", label: "Comisión Ayudantes" },
+                    { id: "comisionAyudante", label: "Total Com. Ayudantes" },
                   ].map((opcion) => (
                     <button
                       key={opcion.id}
@@ -352,7 +425,6 @@ export default function PanelHistorialCompleto() {
                   <FileText size={14} className="inline mr-1" /> F. Ctdo
                 </th>
 
-                {/* 🚀 AYUDANTES SEPARADOS AQUÍ EN LA VISTA TABLA */}
                 <th className="px-3 py-3 font-bold bg-slate-700 border-r border-slate-600">
                   <User size={14} className="inline mr-1" /> Chofer
                 </th>
@@ -376,7 +448,7 @@ export default function PanelHistorialCompleto() {
                   Com. Chofer
                 </th>
                 <th className="px-3 py-3 font-bold text-right bg-emerald-800">
-                  Com. Ayudantes
+                  Total Com. Ayudantes
                 </th>
               </tr>
             </thead>
@@ -401,7 +473,6 @@ export default function PanelHistorialCompleto() {
                     {viaje.embCtdo}
                   </td>
 
-                  {/* 🚀 CELDAS DE AYUDANTES SEPARADAS */}
                   <td className="px-3 py-3 font-bold text-slate-800 text-xs uppercase bg-slate-50 border-r border-slate-100">
                     {viaje.chofer}
                   </td>
@@ -441,7 +512,6 @@ export default function PanelHistorialCompleto() {
                 </tr>
               ))}
             </tbody>
-            {/* 🚀 TOTALES: AHORA EL COLSPAN ES 8 PORQUE HAY UNA COLUMNA EXTRA DE AYUDANTE */}
             <tfoot className="sticky bottom-0 bg-slate-800 text-white shadow-inner">
               <tr>
                 <td

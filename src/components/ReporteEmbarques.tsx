@@ -378,9 +378,17 @@ export default function ReporteEmbarques() {
         );
         if (!match) return fila;
 
-        const rutaDefinitiva =
-          String(match["RUTA/DIA"] || match["Ruta"] || "").toUpperCase() ||
-          fila.ruta;
+        let rawRuta = match["RUTA/DIA"] || match["Ruta"] || "";
+
+        // 🚀 PROTECCIÓN CONTRA FECHAS DE EXCEL (Ej: "18 de Marzo" convertido en número serial)
+        if (typeof rawRuta === "number") {
+          const fechaExcel = new Date((rawRuta - (25567 + 2)) * 86400 * 1000);
+          const dia = fechaExcel.getDate();
+          const mes = fechaExcel.toLocaleString("es-MX", { month: "long" });
+          rawRuta = `${dia} de ${mes}`;
+        }
+
+        const rutaDefinitiva = String(rawRuta).toUpperCase() || fila.ruta;
 
         return {
           ...fila,
@@ -454,7 +462,6 @@ export default function ReporteEmbarques() {
     setMostrarModalTraspaso(false);
   };
 
-  // ... (El return() se queda exactamente igual)
   return (
     <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full relative">
       <div className="flex items-center gap-2 mb-6 shrink-0">
