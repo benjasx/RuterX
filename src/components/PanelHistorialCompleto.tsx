@@ -16,12 +16,23 @@ import {
   CheckSquare,
   Square,
   FileSpreadsheet,
+  Edit2,
+  X,
+  Save,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { obtenerHistorialFirebase } from "../firebase/historialService";
+import {
+  obtenerHistorialFirebase,
+  guardarHistorialFirebase,
+} from "../firebase/historialService";
 import { generarPDFAuditoria } from "../utils/pdfAuditoriaService";
+import {
+  obtenerAjustesNomina,
+  type AjustesNomina,
+} from "../firebase/ajustesNominaService";
 
 interface ViajeDetalle {
+  originalIndex?: number; // Para ubicar el viaje exacto dentro del día en Firebase
   fecha: string;
   unidad: string;
   ruta: string;
@@ -52,6 +63,12 @@ export default function PanelHistorialCompleto() {
   const [viajesMostrados, setViajesMostrados] = useState<ViajeDetalle[]>([]);
   const [cargando, setCargando] = useState(true);
   const [isGenerandoPDF, setIsGenerandoPDF] = useState(false);
+  const [reglasNomina, setReglasNomina] = useState<AjustesNomina | null>(null);
+
+  // 🚀 ESTADOS PARA EL MODAL DE EDICIÓN
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [viajeEditando, setViajeEditando] = useState<ViajeDetalle | null>(null);
+  const [guardandoCambios, setGuardandoCambios] = useState(false);
 
   const [mostrarMenuColumnas, setMostrarMenuColumnas] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -83,6 +100,15 @@ export default function PanelHistorialCompleto() {
       maximumFractionDigits: 2,
     }).format(c);
 
+  // Cargar reglas de nómina para cálculos automáticos al editar
+  useEffect(() => {
+    const cargarReglas = async () => {
+      const reglas = await obtenerAjustesNomina();
+      setReglasNomina(reglas);
+    };
+    cargarReglas();
+  }, []);
+
   useEffect(() => {
     const handleClickFuera = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -93,15 +119,48 @@ export default function PanelHistorialCompleto() {
     return () => document.removeEventListener("mousedown", handleClickFuera);
   }, []);
 
+  const cargarDatosNube = async () => {
+    setCargando(true);
+    const datosNube = await obtenerHistorialFirebase();
+    setDatosCrudos(datosNube);
+    setCargando(false);
+  };
+
   useEffect(() => {
-    const cargarDatos = async () => {
-      setCargando(true);
-      const datosNube = await obtenerHistorialFirebase();
-      setDatosCrudos(datosNube);
-      setCargando(false);
-    };
-    cargarDatos();
+    cargarDatosNube();
   }, []);
+
+  // Función de cálculo financiero dinámico
+  const calcularFinanzasDinamicas = (rutaRaw: string, montoBase: number) => {
+    if (!reglasNomina)
+      return { viaticoRuta: 0, comisionChofer: 0, comisionAyudante: 0 };
+    let viaticoEncontrado = 0;
+    if (rutaRaw) {
+      const rutaNorm = rutaRaw
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+      for (const [rutaCat, montoV] of Object.entries(
+        reglasNomina.viaticosRutas,
+      )) {
+        const catNorm = rutaCat
+          .toUpperCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim();
+        if (rutaNorm.includes(catNorm) || catNorm.includes(rutaNorm)) {
+          viaticoEncontrado = montoV;
+          break;
+        }
+      }
+    }
+    return {
+      viaticoRuta: viaticoEncontrado,
+      comisionChofer: montoBase * reglasNomina.comisionChofer,
+      comisionAyudante: montoBase * reglasNomina.comisionAyudante,
+    };
+  };
 
   useEffect(() => {
     if (!datosCrudos.length) return;
@@ -115,13 +174,14 @@ export default function PanelHistorialCompleto() {
       const fecha = registro.fecha;
       if (fecha >= fechaInicio && fecha <= fechaFin) {
         const viajesDelDia = registro.viajes || [];
-        viajesDelDia.forEach((viaje: any) => {
+        viajesDelDia.forEach((viaje: any, idx: number) => {
           if (
             viaje.chofer &&
             viaje.chofer.trim() !== "" &&
             viaje.chofer !== "-"
           ) {
             const objViaje: ViajeDetalle = {
+              originalIndex: idx,
               fecha: fecha,
               unidad: viaje.unidad || "-",
               ruta: viaje.ruta || "SIN RUTA",
@@ -218,10 +278,8 @@ export default function PanelHistorialCompleto() {
 
     const datosFiltrados = viajesMostrados.map((v) => {
       const filaObj: Record<string, any> = {};
-
       columnasActivas.forEach((key) => {
         const headerName = headersMap[key];
-
         if (key === "comisionAyudante") {
           const com1 = v.ayudante1 !== "-" ? v.comisionAyudante : 0;
           const com2 = v.ayudante2 !== "-" ? v.comisionAyudante : 0;
@@ -243,7 +301,6 @@ export default function PanelHistorialCompleto() {
           filaObj[headerName] = v[key as keyof ViajeDetalle];
         }
       });
-
       return filaObj;
     });
 
@@ -257,6 +314,63 @@ export default function PanelHistorialCompleto() {
     setColumnasPDF((prev) => ({ ...prev, [clave]: !prev[clave] }));
   };
 
+  // 🚀 ABRIR MODAL DE EDICIÓN
+  const abrirEdicion = (viaje: ViajeDetalle) => {
+    setViajeEditando({ ...viaje });
+    setModalAbierto(true);
+  };
+
+  // 🚀 GUARDAR CAMBIOS EN FIREBASE
+  const guardarEdicionTripulacion = async () => {
+    if (!viajeEditando) return;
+    setGuardandoCambios(true);
+
+    // 1. Recalcular finanzas si la ruta o el monto cambiaron
+    const nuevasFinanzas = calcularFinanzasDinamicas(
+      viajeEditando.ruta,
+      viajeEditando.totalMonto,
+    );
+
+    const viajeActualizadoFirebase = {
+      unidad: viajeEditando.unidad,
+      ruta: viajeEditando.ruta.toUpperCase(),
+      chofer: viajeEditando.chofer.toUpperCase(),
+      ayudante1: viajeEditando.ayudante1.toUpperCase() || "-",
+      ayudante2: viajeEditando.ayudante2.toUpperCase() || "-",
+      embCred: viajeEditando.embCred,
+      embCtdo: viajeEditando.embCtdo,
+      kgTotal: Number(viajeEditando.kgTotal),
+      totalMonto: Number(viajeEditando.totalMonto),
+      viaticoRuta: nuevasFinanzas.viaticoRuta,
+      comisionChofer: nuevasFinanzas.comisionChofer,
+      comisionAyudante: nuevasFinanzas.comisionAyudante,
+    };
+
+    // 2. Encontrar el registro del día exacto en datosCrudos
+    const registroDia = datosCrudos.find(
+      (r) => r.fecha === viajeEditando.fecha,
+    );
+    if (registroDia && registroDia.viajes) {
+      // Reemplazamos el viaje en el índice original
+      registroDia.viajes[viajeEditando.originalIndex!] =
+        viajeActualizadoFirebase;
+
+      // 3. Guardar de nuevo todo el arreglo del día en Firebase
+      const resultado = await guardarHistorialFirebase(
+        viajeEditando.fecha,
+        registroDia.viajes,
+      );
+      if (resultado.success) {
+        alert("¡Registro actualizado y guardado en la nube correctamente!");
+        setModalAbierto(false);
+        await cargarDatosNube(); // Recargar datos frescos
+      } else {
+        alert("Error al guardar los cambios en la nube.");
+      }
+    }
+    setGuardandoCambios(false);
+  };
+
   return (
     <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full overflow-hidden">
       <div className="flex items-center gap-2 mb-2 shrink-0">
@@ -267,6 +381,7 @@ export default function PanelHistorialCompleto() {
       </div>
       <p className="text-sm text-slate-500 mb-6 shrink-0">
         Consulta el registro detallado, financiero y logístico de la operación.
+        Haz clic en el ícono de editar para modificar cualquier dato.
       </p>
 
       {/* BARRA DE CONTROLES */}
@@ -406,9 +521,12 @@ export default function PanelHistorialCompleto() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm flex-1 custom-scrollbar">
-          <table className="w-full min-w-375 text-left border-collapse text-sm bg-white">
+          <table className="w-full min-w-[1600px] text-left border-collapse text-sm bg-white">
             <thead className="sticky top-0 z-10 shadow-sm">
               <tr className="bg-slate-800 text-white tracking-wider text-xs uppercase">
+                <th className="px-3 py-3 font-bold text-center w-16 border-r border-slate-700">
+                  Acción
+                </th>
                 <th className="px-3 py-3 font-bold border-r border-slate-700">
                   <Calendar size={14} className="inline mr-1" /> Fecha
                 </th>
@@ -455,6 +573,16 @@ export default function PanelHistorialCompleto() {
             <tbody className="divide-y divide-slate-200">
               {viajesMostrados.map((viaje, index) => (
                 <tr key={index} className="hover:bg-blue-50 transition-colors">
+                  {/* BOTÓN DE EDITAR */}
+                  <td className="px-3 py-3 text-center border-r border-slate-100">
+                    <button
+                      onClick={() => abrirEdicion(viaje)}
+                      className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg transition-colors shadow-sm inline-flex items-center justify-center"
+                      title="Editar registro"
+                    >
+                      <Edit2 size={15} />
+                    </button>
+                  </td>
                   <td className="px-3 py-3 font-semibold text-slate-700 text-xs whitespace-nowrap border-r border-slate-100">
                     {viaje.fecha}
                   </td>
@@ -515,7 +643,7 @@ export default function PanelHistorialCompleto() {
             <tfoot className="sticky bottom-0 bg-slate-800 text-white shadow-inner">
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={9}
                   className="px-4 py-3 font-bold text-right text-xs uppercase border-r border-slate-700"
                 >
                   Total Acumulado ({viajesMostrados.length} Viajes):
@@ -538,6 +666,186 @@ export default function PanelHistorialCompleto() {
               </tr>
             </tfoot>
           </table>
+        </div>
+      )}
+
+      {/* 🚀 MODAL FLOTANTE DE EDICIÓN */}
+      {modalAbierto && viajeEditando && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95">
+            {/* Cabecera del Modal */}
+            <div className="bg-slate-800 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Edit2 size={20} className="text-blue-400" />
+                <h3 className="text-lg font-bold">
+                  Editar Salida - Unidad {viajeEditando.unidad} (
+                  {viajeEditando.fecha})
+                </h3>
+              </div>
+              <button
+                onClick={() => setModalAbierto(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            {/* Cuerpo del Modal con Campos Editables */}
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[75vh] overflow-y-auto">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Ruta Asignada
+                </label>
+                <input
+                  type="text"
+                  value={viajeEditando.ruta}
+                  onChange={(e) =>
+                    setViajeEditando({ ...viajeEditando, ruta: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Chofer
+                </label>
+                <input
+                  type="text"
+                  value={viajeEditando.chofer}
+                  onChange={(e) =>
+                    setViajeEditando({
+                      ...viajeEditando,
+                      chofer: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Ayudante 1
+                </label>
+                <input
+                  type="text"
+                  value={viajeEditando.ayudante1}
+                  onChange={(e) =>
+                    setViajeEditando({
+                      ...viajeEditando,
+                      ayudante1: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Ayudante 2
+                </label>
+                <input
+                  type="text"
+                  value={viajeEditando.ayudante2}
+                  onChange={(e) =>
+                    setViajeEditando({
+                      ...viajeEditando,
+                      ayudante2: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Folio Crédito
+                </label>
+                <input
+                  type="text"
+                  value={viajeEditando.embCred}
+                  onChange={(e) =>
+                    setViajeEditando({
+                      ...viajeEditando,
+                      embCred: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Folio Contado
+                </label>
+                <input
+                  type="text"
+                  value={viajeEditando.embCtdo}
+                  onChange={(e) =>
+                    setViajeEditando({
+                      ...viajeEditando,
+                      embCtdo: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Monto Total Venta ($)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={viajeEditando.totalMonto}
+                  onChange={(e) =>
+                    setViajeEditando({
+                      ...viajeEditando,
+                      totalMonto: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-emerald-700 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Peso Total (KG)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={viajeEditando.kgTotal}
+                  onChange={(e) =>
+                    setViajeEditando({
+                      ...viajeEditando,
+                      kgTotal: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-blue-700 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Pie del Modal */}
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setModalAbierto(false)}
+                className="px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg text-sm hover:bg-slate-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={guardarEdicionTripulacion}
+                disabled={guardandoCambios}
+                className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm transition-colors shadow-sm disabled:opacity-50"
+              >
+                <Save size={18} />
+                {guardandoCambios ? "Guardando..." : "Guardar Cambios"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
