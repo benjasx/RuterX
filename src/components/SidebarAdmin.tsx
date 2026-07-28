@@ -6,11 +6,13 @@ import {
   Calculator,
   History,
   ClipboardList,
-  Settings, // <-- 1. Importamos el icono de configuración
+  Settings,
+  LayoutDashboard, // 🚀 1. Importamos el icono para el Dashboard
 } from "lucide-react";
 
-// 2. Agregamos "ajustesNomina" a los tipos permitidos
+// 2. Agregamos "dashboard" a los tipos permitidos
 export type SubVistaAdmin =
+  | "dashboard" // 🚀 Nuevo
   | "clientes"
   | "rutas"
   | "vendedores"
@@ -37,6 +39,20 @@ export default function SidebarAdmin({
           Opciones
         </h3>
         <ul className="space-y-2 mb-2">
+          {/* 🚀 3. NUEVO BOTÓN: DASHBOARD (Al principio por ser el principal) */}
+          <li>
+            <button
+              onClick={() => setMenuActivo("dashboard")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                menuActivo === "dashboard"
+                  ? "bg-blue-50 text-blue-700 font-semibold"
+                  : "text-slate-600 hover:bg-slate-50 font-medium"
+              }`}
+            >
+              <LayoutDashboard size={20} /> Dashboard
+            </button>
+          </li>
+
           <li>
             <button
               onClick={() => setMenuActivo("clientes")}
@@ -88,10 +104,10 @@ export default function SidebarAdmin({
           </li>
         </ul>
 
-        {/* BOTÓN PARA EL HISTORIAL */}
+        {/* BOTÓN PARA EL HISTORIAL (Equidad Choferes) */}
         <button
           onClick={() => setMenuActivo("historial")}
-          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mb-1 ${
+          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mb-1 mt-4 ${
             menuActivo === "historial"
               ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
               : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
@@ -114,7 +130,7 @@ export default function SidebarAdmin({
           <span>Historial Rutas</span>
         </button>
 
-        {/* 🚀 3. NUEVO BOTÓN: AJUSTES DE NÓMINA Y VIÁTICOS */}
+        {/* BOTÓN: AJUSTES DE NÓMINA Y VIÁTICOS */}
         <button
           onClick={() => setMenuActivo("ajustesNomina")}
           className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mt-2 ${
@@ -129,7 +145,7 @@ export default function SidebarAdmin({
       </div>
 
       <div>
-        <div className="h-px bg-slate-100 w-full mb-4"></div>
+        <div className="h-px bg-slate-100 w-full mb-4 mt-6"></div>
         <button
           onClick={() => {
             alert("Cerrando sesión de administrador...");
