@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   ClipboardList,
   Calendar,
@@ -19,6 +19,8 @@ import {
   Edit2,
   X,
   Save,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -32,7 +34,7 @@ import {
 } from "../firebase/ajustesNominaService";
 
 interface ViajeDetalle {
-  originalIndex?: number; // Para ubicar el viaje exacto dentro del día en Firebase
+  originalIndex?: number;
   fecha: string;
   unidad: string;
   ruta: string;
@@ -47,6 +49,9 @@ interface ViajeDetalle {
   comisionChofer: number;
   comisionAyudante: number;
 }
+
+// 🚀 CONSTANTE: NÚMERO DE FILAS POR PÁGINA
+const ITEMS_POR_PAGINA = 20;
 
 export default function PanelHistorialCompleto() {
   const hoy = new Date();
@@ -65,10 +70,12 @@ export default function PanelHistorialCompleto() {
   const [isGenerandoPDF, setIsGenerandoPDF] = useState(false);
   const [reglasNomina, setReglasNomina] = useState<AjustesNomina | null>(null);
 
-  // 🚀 ESTADOS PARA EL MODAL DE EDICIÓN
   const [modalAbierto, setModalAbierto] = useState(false);
   const [viajeEditando, setViajeEditando] = useState<ViajeDetalle | null>(null);
   const [guardandoCambios, setGuardandoCambios] = useState(false);
+
+  // 🚀 NUEVO ESTADO PARA LA PAGINACIÓN
+  const [paginaActual, setPaginaActual] = useState(1);
 
   const [mostrarMenuColumnas, setMostrarMenuColumnas] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -100,7 +107,6 @@ export default function PanelHistorialCompleto() {
       maximumFractionDigits: 2,
     }).format(c);
 
-  // Cargar reglas de nómina para cálculos automáticos al editar
   useEffect(() => {
     const cargarReglas = async () => {
       const reglas = await obtenerAjustesNomina();
@@ -130,7 +136,41 @@ export default function PanelHistorialCompleto() {
     cargarDatosNube();
   }, []);
 
-  // Función de cálculo financiero dinámico
+  const listasPersonal = useMemo(() => {
+    const choferes = new Set<string>();
+    const ayudantes = new Set<string>();
+    const rutas = new Set<string>();
+
+    datosCrudos.forEach((registro) => {
+      (registro.viajes || []).forEach((v: any) => {
+        if (v.chofer && v.chofer !== "-" && v.chofer.trim() !== "") {
+          choferes.add(v.chofer.toUpperCase().trim());
+        }
+        if (v.ayudante1 && v.ayudante1 !== "-" && v.ayudante1.trim() !== "") {
+          ayudantes.add(v.ayudante1.toUpperCase().trim());
+        }
+        if (v.ayudante2 && v.ayudante2 !== "-" && v.ayudante2.trim() !== "") {
+          ayudantes.add(v.ayudante2.toUpperCase().trim());
+        }
+        if (v.ruta && v.ruta !== "SIN RUTA" && v.ruta.trim() !== "") {
+          rutas.add(v.ruta.toUpperCase().trim());
+        }
+      });
+    });
+
+    if (reglasNomina && reglasNomina.viaticosRutas) {
+      Object.keys(reglasNomina.viaticosRutas).forEach((rutaCat) => {
+        rutas.add(rutaCat.toUpperCase().trim());
+      });
+    }
+
+    return {
+      choferes: Array.from(choferes).sort(),
+      ayudantes: Array.from(ayudantes).sort(),
+      rutas: Array.from(rutas).sort(),
+    };
+  }, [datosCrudos, reglasNomina]);
+
   const calcularFinanzasDinamicas = (rutaRaw: string, montoBase: number) => {
     if (!reglasNomina)
       return { viaticoRuta: 0, comisionChofer: 0, comisionAyudante: 0 };
@@ -226,7 +266,15 @@ export default function PanelHistorialCompleto() {
     });
 
     setViajesMostrados(historialAplanado);
+    setPaginaActual(1); // 🚀 REGRESAMOS A LA PÁGINA 1 CUANDO CAMBIAN LOS FILTROS
   }, [datosCrudos, fechaInicio, fechaFin, busqueda]);
+
+  // 🚀 LÓGICA DE PAGINACIÓN
+  const totalPaginas = Math.ceil(viajesMostrados.length / ITEMS_POR_PAGINA);
+  const viajesPaginados = viajesMostrados.slice(
+    (paginaActual - 1) * ITEMS_POR_PAGINA,
+    paginaActual * ITEMS_POR_PAGINA,
+  );
 
   const totales = viajesMostrados.reduce(
     (acc, v) => ({
@@ -314,18 +362,15 @@ export default function PanelHistorialCompleto() {
     setColumnasPDF((prev) => ({ ...prev, [clave]: !prev[clave] }));
   };
 
-  // 🚀 ABRIR MODAL DE EDICIÓN
   const abrirEdicion = (viaje: ViajeDetalle) => {
     setViajeEditando({ ...viaje });
     setModalAbierto(true);
   };
 
-  // 🚀 GUARDAR CAMBIOS EN FIREBASE
   const guardarEdicionTripulacion = async () => {
     if (!viajeEditando) return;
     setGuardandoCambios(true);
 
-    // 1. Recalcular finanzas si la ruta o el monto cambiaron
     const nuevasFinanzas = calcularFinanzasDinamicas(
       viajeEditando.ruta,
       viajeEditando.totalMonto,
@@ -346,16 +391,12 @@ export default function PanelHistorialCompleto() {
       comisionAyudante: nuevasFinanzas.comisionAyudante,
     };
 
-    // 2. Encontrar el registro del día exacto en datosCrudos
     const registroDia = datosCrudos.find(
       (r) => r.fecha === viajeEditando.fecha,
     );
     if (registroDia && registroDia.viajes) {
-      // Reemplazamos el viaje en el índice original
       registroDia.viajes[viajeEditando.originalIndex!] =
         viajeActualizadoFirebase;
-
-      // 3. Guardar de nuevo todo el arreglo del día en Firebase
       const resultado = await guardarHistorialFirebase(
         viajeEditando.fecha,
         registroDia.viajes,
@@ -363,7 +404,7 @@ export default function PanelHistorialCompleto() {
       if (resultado.success) {
         alert("¡Registro actualizado y guardado en la nube correctamente!");
         setModalAbierto(false);
-        await cargarDatosNube(); // Recargar datos frescos
+        await cargarDatosNube();
       } else {
         alert("Error al guardar los cambios en la nube.");
       }
@@ -520,7 +561,7 @@ export default function PanelHistorialCompleto() {
           </h3>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm flex-1 custom-scrollbar">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm flex-1 custom-scrollbar flex flex-col">
           <table className="w-full min-w-[1600px] text-left border-collapse text-sm bg-white">
             <thead className="sticky top-0 z-10 shadow-sm">
               <tr className="bg-slate-800 text-white tracking-wider text-xs uppercase">
@@ -542,7 +583,6 @@ export default function PanelHistorialCompleto() {
                 <th className="px-3 py-3 font-bold border-r border-slate-700">
                   <FileText size={14} className="inline mr-1" /> F. Ctdo
                 </th>
-
                 <th className="px-3 py-3 font-bold bg-slate-700 border-r border-slate-600">
                   <User size={14} className="inline mr-1" /> Chofer
                 </th>
@@ -552,7 +592,6 @@ export default function PanelHistorialCompleto() {
                 <th className="px-3 py-3 font-bold bg-slate-700 border-r border-slate-600">
                   <Users size={14} className="inline mr-1" /> Ayudante 2
                 </th>
-
                 <th className="px-3 py-3 font-bold text-right bg-blue-900 border-r border-blue-800">
                   <Scale size={14} className="inline mr-1" /> Peso (KG)
                 </th>
@@ -571,9 +610,9 @@ export default function PanelHistorialCompleto() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {viajesMostrados.map((viaje, index) => (
+              {/* 🚀 USAMOS viajesPaginados EN LUGAR DE viajesMostrados */}
+              {viajesPaginados.map((viaje, index) => (
                 <tr key={index} className="hover:bg-blue-50 transition-colors">
-                  {/* BOTÓN DE EDITAR */}
                   <td className="px-3 py-3 text-center border-r border-slate-100">
                     <button
                       onClick={() => abrirEdicion(viaje)}
@@ -640,13 +679,14 @@ export default function PanelHistorialCompleto() {
                 </tr>
               ))}
             </tbody>
+            {/* FOOTER DE TOTALES FIJO ABAJO */}
             <tfoot className="sticky bottom-0 bg-slate-800 text-white shadow-inner">
               <tr>
                 <td
                   colSpan={9}
                   className="px-4 py-3 font-bold text-right text-xs uppercase border-r border-slate-700"
                 >
-                  Total Acumulado ({viajesMostrados.length} Viajes):
+                  Total Búsqueda ({viajesMostrados.length} Viajes):
                 </td>
                 <td className="px-3 py-3 font-bold text-right text-xs bg-blue-900 border-r border-blue-800">
                   {fNumero(totales.kg)} KG
@@ -669,11 +709,54 @@ export default function PanelHistorialCompleto() {
         </div>
       )}
 
-      {/* 🚀 MODAL FLOTANTE DE EDICIÓN */}
+      {/* 🚀 CONTROLES DE PAGINACIÓN */}
+      {!cargando && totalPaginas > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200 sm:px-6 rounded-b-xl shrink-0">
+          <div className="flex items-center w-full justify-between">
+            <p className="text-sm text-slate-600 hidden sm:block">
+              Mostrando del{" "}
+              <span className="font-bold">
+                {(paginaActual - 1) * ITEMS_POR_PAGINA + 1}
+              </span>{" "}
+              al{" "}
+              <span className="font-bold">
+                {Math.min(
+                  paginaActual * ITEMS_POR_PAGINA,
+                  viajesMostrados.length,
+                )}
+              </span>{" "}
+              de <span className="font-bold">{viajesMostrados.length}</span>{" "}
+              registros
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
+                disabled={paginaActual === 1}
+                className="inline-flex items-center px-3 py-2 border border-slate-300 rounded-md text-sm font-medium bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+              >
+                <ChevronLeft size={16} className="mr-1" /> Anterior
+              </button>
+              <span className="text-sm font-medium text-slate-600 px-2">
+                Página {paginaActual} de {totalPaginas}
+              </span>
+              <button
+                onClick={() =>
+                  setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))
+                }
+                disabled={paginaActual === totalPaginas}
+                className="inline-flex items-center px-3 py-2 border border-slate-300 rounded-md text-sm font-medium bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+              >
+                Siguiente <ChevronRight size={16} className="ml-1" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL FLOTANTE DE EDICIÓN CON SELECTS PARA RUTA Y PERSONAL */}
       {modalAbierto && viajeEditando && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95">
-            {/* Cabecera del Modal */}
             <div className="bg-slate-800 text-white px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Edit2 size={20} className="text-blue-400" />
@@ -690,28 +773,38 @@ export default function PanelHistorialCompleto() {
               </button>
             </div>
 
-            {/* Cuerpo del Modal con Campos Editables */}
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[75vh] overflow-y-auto">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
                   Ruta Asignada
                 </label>
-                <input
-                  type="text"
+                <select
                   value={viajeEditando.ruta}
                   onChange={(e) =>
                     setViajeEditando({ ...viajeEditando, ruta: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">-- SELECCIONAR RUTA --</option>
+                  {listasPersonal.rutas.map((r, i) => (
+                    <option key={i} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                  {viajeEditando.ruta &&
+                    !listasPersonal.rutas.includes(viajeEditando.ruta) && (
+                      <option value={viajeEditando.ruta}>
+                        {viajeEditando.ruta}
+                      </option>
+                    )}
+                </select>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
                   Chofer
                 </label>
-                <input
-                  type="text"
+                <select
                   value={viajeEditando.chofer}
                   onChange={(e) =>
                     setViajeEditando({
@@ -719,42 +812,91 @@ export default function PanelHistorialCompleto() {
                       chofer: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">-- SELECCIONAR CHOFER --</option>
+                  {listasPersonal.choferes.map((c, i) => (
+                    <option key={i} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                  {viajeEditando.chofer &&
+                    !listasPersonal.choferes.includes(viajeEditando.chofer) && (
+                      <option value={viajeEditando.chofer}>
+                        {viajeEditando.chofer}
+                      </option>
+                    )}
+                </select>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
                   Ayudante 1
                 </label>
-                <input
-                  type="text"
-                  value={viajeEditando.ayudante1}
+                <select
+                  value={
+                    viajeEditando.ayudante1 === "-"
+                      ? ""
+                      : viajeEditando.ayudante1
+                  }
                   onChange={(e) =>
                     setViajeEditando({
                       ...viajeEditando,
-                      ayudante1: e.target.value,
+                      ayudante1: e.target.value || "-",
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">-- SIN AYUDANTE --</option>
+                  {listasPersonal.ayudantes.map((a, i) => (
+                    <option key={i} value={a}>
+                      {a}
+                    </option>
+                  ))}
+                  {viajeEditando.ayudante1 !== "-" &&
+                    !listasPersonal.ayudantes.includes(
+                      viajeEditando.ayudante1,
+                    ) && (
+                      <option value={viajeEditando.ayudante1}>
+                        {viajeEditando.ayudante1}
+                      </option>
+                    )}
+                </select>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
                   Ayudante 2
                 </label>
-                <input
-                  type="text"
-                  value={viajeEditando.ayudante2}
+                <select
+                  value={
+                    viajeEditando.ayudante2 === "-"
+                      ? ""
+                      : viajeEditando.ayudante2
+                  }
                   onChange={(e) =>
                     setViajeEditando({
                       ...viajeEditando,
-                      ayudante2: e.target.value,
+                      ayudante2: e.target.value || "-",
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">-- SIN AYUDANTE --</option>
+                  {listasPersonal.ayudantes.map((a, i) => (
+                    <option key={i} value={a}>
+                      {a}
+                    </option>
+                  ))}
+                  {viajeEditando.ayudante2 !== "-" &&
+                    !listasPersonal.ayudantes.includes(
+                      viajeEditando.ayudante2,
+                    ) && (
+                      <option value={viajeEditando.ayudante2}>
+                        {viajeEditando.ayudante2}
+                      </option>
+                    )}
+                </select>
               </div>
 
               <div>
@@ -828,7 +970,6 @@ export default function PanelHistorialCompleto() {
               </div>
             </div>
 
-            {/* Pie del Modal */}
             <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
               <button
                 onClick={() => setModalAbierto(false)}
