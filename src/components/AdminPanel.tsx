@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query"; // 🚀 IMPORTAMOS TANSTACK QUERY
 import GestionRutas from "./GestionRutas";
 import PanelClientes from "./PanelClientes";
 import PanelVendedores from "./PanelVendedores";
@@ -8,11 +9,8 @@ import ReporteEmbarques from "./ReporteEmbarques";
 import PanelHistorial from "./PanelHistorial";
 import PanelHistorialCompleto from "./PanelHistorialCompleto";
 import PanelAjustesNomina from "./PanelAjustesNomina";
-
-// 🚀 1. IMPORTAMOS EL NUEVO COMPONENTE DASHBOARD
 import Dashboard from "./Dashboard";
 
-import type { Vendedor as DatosVendedor } from "../types/index";
 import { obtenerVendedoresFirebase } from "../firebase/vendedoresService";
 import { obtenerClientesFirebase } from "../firebase/clientesService";
 import { obtenerRutasFirebase } from "../firebase/rutasService";
@@ -22,61 +20,69 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  // 🚀 2. CAMBIAMOS EL ESTADO INICIAL A "dashboard" POR DEFECTO
   const [menuActivo, setMenuActivo] = useState<SubVistaAdmin>("dashboard");
-  const [listaVendedores, setListaVendedores] = useState<DatosVendedor[]>([]);
-  const [listaClientes, setListaClientes] = useState<any[]>([]);
-  const [listaRutas, setListaRutas] = useState<any[]>([]);
 
-  // Carga inicial de datos reales desde Firebase
-  useEffect(() => {
-    const cargarDatos = async () => {
-      const [vendedores, clientes, rutas] = await Promise.all([
-        obtenerVendedoresFirebase(),
-        obtenerClientesFirebase(),
-        obtenerRutasFirebase(),
-      ]);
+  // 🚀 CARGAMOS LOS CATÁLOGOS CON CACHÉ GLOBAL DE TANSTACK QUERY
+  // Estos se descargan 1 sola vez y se comparten con toda la app instantáneamente
+  const { data: listaVendedores = [] } = useQuery({
+    queryKey: ["vendedores"],
+    queryFn: obtenerVendedoresFirebase,
+  });
 
-      setListaVendedores(vendedores);
-      setListaClientes(clientes);
-      setListaRutas(rutas);
-    };
+  const { data: listaClientes = [], refetch: refetchClientes } = useQuery({
+    queryKey: ["clientes"],
+    queryFn: obtenerClientesFirebase,
+  });
 
-    cargarDatos();
-  }, []);
+  const { data: listaRutas = [] } = useQuery({
+    queryKey: ["rutas"],
+    queryFn: obtenerRutasFirebase,
+  });
+
+  // Mantenemos esta función auxiliar por compatibilidad con los estados locales de los paneles
+  const setListaClientesDummy = () => {
+    refetchClientes();
+  };
+
+  const setListaVendedoresDummy = () => {
+    // Se actualiza automáticamente vía caché invalidateQueries
+  };
+
+  const setListaRutasDummy = () => {
+    // Se actualiza automáticamente vía caché invalidateQueries
+  };
 
   return (
-    // Quitamos la clase relative y corregimos los paddings
     <div className="flex flex-col xl:flex-row items-start gap-5 w-full mt-10">
-      {/* COMPONENTE DE NAVEGACIÓN (Se encarga de su propio ancho) */}
       <SidebarAdmin
         menuActivo={menuActivo}
         setMenuActivo={setMenuActivo}
         onLogout={onLogout}
       />
 
-      {/* CORRECCIÓN: Le quitamos el xl:ml-[280px] para que no empuje el contenido */}
       <div className="flex-1 w-full min-w-0">
-        {/* 🚀 3. RENDERIZAMOS EL DASHBOARD */}
         {menuActivo === "dashboard" && <Dashboard />}
 
         {menuActivo === "clientes" && (
           <PanelClientes
             vendedores={listaVendedores}
             listaClientes={listaClientes}
-            setListaClientes={setListaClientes}
+            setListaClientes={setListaClientesDummy}
             rutas={listaRutas}
           />
         )}
 
         {menuActivo === "rutas" && (
-          <GestionRutas listaRutas={listaRutas} setListaRutas={setListaRutas} />
+          <GestionRutas
+            listaRutas={listaRutas}
+            setListaRutas={setListaRutasDummy}
+          />
         )}
 
         {menuActivo === "vendedores" && (
           <PanelVendedores
             listaVendedores={listaVendedores}
-            setListaVendedores={setListaVendedores}
+            setListaVendedores={setListaVendedoresDummy}
             rutas={listaRutas}
           />
         )}
@@ -87,7 +93,6 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
         {menuActivo === "historialCompleto" && <PanelHistorialCompleto />}
 
-        {/* COMPONENTE DE NÓMINA */}
         {menuActivo === "ajustesNomina" && <PanelAjustesNomina />}
       </div>
     </div>

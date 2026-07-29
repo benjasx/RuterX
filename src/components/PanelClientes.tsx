@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query"; // 🚀 1. IMPORTAMOS LA HERRAMIENTA DE CACHÉ
 import { UserPlus, X } from "lucide-react";
 import DirectorioClientes from "./DirectorioClientes";
 import type { Vendedor as DatosVendedor } from "../types/index";
@@ -21,6 +22,9 @@ export default function PanelClientes({
   setListaClientes,
   rutas,
 }: PanelClientesProps) {
+  // 🚀 2. INICIALIZAMOS EL CLIENTE DE CACHÉ
+  const queryClient = useQueryClient();
+
   const [nombre, setNombre] = useState("");
   const [domicilio, setDomicilio] = useState("");
   const [vendedorSeleccionado, setVendedorSeleccionado] = useState("");
@@ -59,6 +63,9 @@ export default function PanelClientes({
             c.id === idEditando ? { ...c, ...datosCliente } : c,
           ),
         );
+        // 🚀 3. INVALIDAMOS LA CACHÉ PARA QUE EL MAPA SE ACTUALICE SOLO
+        queryClient.invalidateQueries({ queryKey: ["clientes"] });
+
         alert("Cliente actualizado correctamente");
         limpiarFormulario();
       }
@@ -66,6 +73,10 @@ export default function PanelClientes({
       const res = await agregarClienteFirebase(datosCliente);
       if (res.success && res.id) {
         setListaClientes([...listaClientes, { ...datosCliente, id: res.id }]);
+
+        // 🚀 3. INVALIDAMOS LA CACHÉ PARA QUE EL MAPA SE ACTUALICE SOLO
+        queryClient.invalidateQueries({ queryKey: ["clientes"] });
+
         alert("¡Cliente registrado en la nube!");
         limpiarFormulario();
       }
@@ -88,6 +99,10 @@ export default function PanelClientes({
       const res = await eliminarClienteFirebase(id);
       if (res.success) {
         setListaClientes(listaClientes.filter((c) => c.id !== id));
+
+        // 🚀 3. INVALIDAMOS LA CACHÉ AL ELIMINAR
+        queryClient.invalidateQueries({ queryKey: ["clientes"] });
+
         if (idEditando === id) limpiarFormulario();
       }
     }
@@ -123,7 +138,7 @@ export default function PanelClientes({
               required
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Ej. Abarrotes El Sol"
             />
           </div>
@@ -137,7 +152,7 @@ export default function PanelClientes({
               required
               value={domicilio}
               onChange={(e) => setDomicilio(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Ej. Av. Principal 123"
             />
           </div>
@@ -150,7 +165,7 @@ export default function PanelClientes({
               required
               value={vendedorSeleccionado}
               onChange={(e) => setVendedorSeleccionado(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
               {opcionesVendedores.map((v, i) => (
                 <option
@@ -171,10 +186,9 @@ export default function PanelClientes({
               required
               value={ruta}
               onChange={(e) => setRuta(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
               <option value="">Seleccionar Ruta...</option>
-              {/* 3. Mapeamos las rutas reales de Firebase */}
               {rutas.map((r) => (
                 <option key={r.id} value={r.nombre}>
                   {r.nombre}
@@ -195,7 +209,7 @@ export default function PanelClientes({
                 placeholder="ej. 19.432608"
                 value={latitud}
                 onChange={(e) => setLatitud(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
@@ -209,7 +223,7 @@ export default function PanelClientes({
                 placeholder="ej. -99.133209"
                 value={longitud}
                 onChange={(e) => setLongitud(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -217,7 +231,7 @@ export default function PanelClientes({
           <button
             type="submit"
             disabled={guardando}
-            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700"
+            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
           >
             {guardando
               ? "Procesando..."
@@ -230,7 +244,7 @@ export default function PanelClientes({
             <button
               type="button"
               onClick={limpiarFormulario}
-              className="w-full text-slate-500 text-sm flex justify-center gap-1"
+              className="w-full text-slate-500 text-sm flex justify-center items-center gap-1 hover:text-slate-700 transition-colors mt-2"
             >
               <X size={16} /> Cancelar edición
             </button>
@@ -238,7 +252,7 @@ export default function PanelClientes({
         </form>
       </div>
 
-      <div className="flex-1 w-full h-full">
+      <div className="flex-1 w-full h-full min-h-125">
         <DirectorioClientes
           clientes={listaClientes}
           rutas={rutas}

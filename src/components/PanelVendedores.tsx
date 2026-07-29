@@ -1,5 +1,5 @@
-// src/components/PanelVendedores.tsx
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query"; // 🚀 1. IMPORTAMOS TANSTACK
 import { Briefcase, Save } from "lucide-react";
 import DirectorioVendedores from "./DirectorioVendedores";
 import type { Vendedor as DatosVendedor } from "../types/index";
@@ -22,6 +22,8 @@ export default function PanelVendedores({
   setListaVendedores,
   rutas,
 }: PanelVendedoresProps) {
+  const queryClient = useQueryClient(); // 🚀 2. INICIALIZAMOS EL CLIENTE DE CACHÉ
+
   const [nuevoNombreVend, setNuevoNombreVend] = useState("");
   const [nuevoCorreoVend, setNuevoCorreoVend] = useState("");
   const [nuevoTelefonoVend, setNuevoTelefonoVend] = useState("");
@@ -74,6 +76,9 @@ export default function PanelVendedores({
             v.id === vendedorEditando ? { ...v, ...datosActualizados } : v,
           ),
         );
+        // 🚀 3. INVALIDAMOS LA CACHÉ PARA ACTUALIZAR AL INSTANTE
+        queryClient.invalidateQueries({ queryKey: ["vendedores"] });
+
         alert("Vendedor actualizado en la nube correctamente.");
         setVendedorEditando(null);
         limpiarFormulario();
@@ -92,12 +97,16 @@ export default function PanelVendedores({
       const resultado = await agregarVendedorFirebase(nuevoVendedor);
 
       if (resultado.success && resultado.id) {
-        alert(`¡Vendedor ${nuevoNombreVend} registrado en la nube con éxito!`);
         const vendedorConIdReal: DatosVendedor = {
           ...nuevoVendedor,
           id: resultado.id,
         };
         setListaVendedores([...listaVendedores, vendedorConIdReal]);
+
+        // 🚀 3. INVALIDAMOS LA CACHÉ PARA ACTUALIZAR AL INSTANTE
+        queryClient.invalidateQueries({ queryKey: ["vendedores"] });
+
+        alert(`¡Vendedor ${nuevoNombreVend} registrado en la nube con éxito!`);
         limpiarFormulario();
       } else {
         alert("Hubo un error al guardar en Firebase.");
@@ -135,6 +144,10 @@ export default function PanelVendedores({
 
       if (resultado.success) {
         setListaVendedores(listaVendedores.filter((v) => v.id !== id));
+
+        // 🚀 3. INVALIDAMOS LA CACHÉ AL ELIMINAR
+        queryClient.invalidateQueries({ queryKey: ["vendedores"] });
+
         if (vendedorEditando === id) {
           setVendedorEditando(null);
           limpiarFormulario();

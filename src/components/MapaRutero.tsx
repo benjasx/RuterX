@@ -1,18 +1,27 @@
 import { useState, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// 1. IMPORTAMOS TUS SERVICIOS DE FIREBASE EN LUGAR DE LOS MOCKS
 import { obtenerClientesFirebase } from "../firebase/clientesService";
-import { obtenerRutasFirebase, type Ruta } from "../firebase/rutasService";
+import { obtenerRutasFirebase } from "../firebase/rutasService";
+
+// 🚀 1. LE ENSEÑAMOS A TYPESCRIPT LA FORMA EXACTA DE TUS CLIENTES
+interface ClienteMapa {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  ruta: string;
+  vendedor: string;
+  posicion: [number, number];
+}
 
 // Función para ajustar el mapa automáticamente a los puntos seleccionados
 function MapUpdater({ markers }: { markers: [number, number][] }) {
   const map = useMap();
   useEffect(() => {
     if (markers.length > 0) {
-      // fitBounds ajusta automáticamente zoom y posición para ver todos los puntos
       map.fitBounds(markers, { padding: [50, 50] });
     }
   }, [markers, map]);
@@ -39,46 +48,43 @@ const customIcon = new L.DivIcon({
 });
 
 export default function MapaRutero() {
-  const [clientesTotales, setClientesTotales] = useState<any[]>([]);
-  const [rutasDisponibles, setRutasDisponibles] = useState<Ruta[]>([]);
-  const [cargando, setCargando] = useState(true);
-
   const [rutaSeleccionada, setRutaSeleccionada] = useState<string>("");
   const [selectedClienteIds, setSelectedClienteIds] = useState<string[]>([]);
 
-  // 3. CARGAMOS LOS DATOS AL ABRIR LA PANTALLA
+  // 🚀 2. OBTENEMOS LOS DATOS DE FIREBASE
+  const { data: clientesData = [], isLoading: cargandoClientes } = useQuery({
+    queryKey: ["clientes"],
+    queryFn: obtenerClientesFirebase,
+  });
+
+  const { data: rutasData = [], isLoading: cargandoRutas } = useQuery({
+    queryKey: ["rutas"],
+    queryFn: obtenerRutasFirebase,
+  });
+
+  // 🚀 3. FORZAMOS EL TIPO DE DATO PARA QUITAR LOS ERRORES ROJOS
+  const clientesTotales = clientesData as ClienteMapa[];
+  const rutasDisponibles = useMemo(() => {
+    return [...(rutasData as any[])].sort((a, b) =>
+      a.nombre.localeCompare(b.nombre),
+    );
+  }, [rutasData]);
+
   useEffect(() => {
-    const cargarDatos = async () => {
-      setCargando(true);
-      const [clientesData, rutasData] = await Promise.all([
-        obtenerClientesFirebase(),
-        obtenerRutasFirebase(),
-      ]);
-
-      setClientesTotales(clientesData);
-
-      const rutasOrdenadas = [...rutasData].sort((a, b) =>
-        a.nombre.localeCompare(b.nombre),
-      );
-      setRutasDisponibles(rutasOrdenadas);
-
-      // Si existe una ruta guardada en memoria, intentamos seleccionarla primero
+    if (rutasDisponibles.length > 0 && !rutaSeleccionada) {
       const rutaEnMemoria = localStorage.getItem("rutasmart_ruta");
-
       if (
         rutaEnMemoria &&
-        rutasOrdenadas.find((r) => r.nombre === rutaEnMemoria)
+        rutasDisponibles.find((r) => r.nombre === rutaEnMemoria)
       ) {
         setRutaSeleccionada(rutaEnMemoria);
-      } else if (rutasOrdenadas.length > 0) {
-        setRutaSeleccionada(rutasOrdenadas[0].nombre);
+      } else {
+        setRutaSeleccionada(rutasDisponibles[0].nombre);
       }
+    }
+  }, [rutasDisponibles, rutaSeleccionada]);
 
-      setCargando(false);
-    };
-
-    cargarDatos();
-  }, []);
+  const cargando = cargandoClientes || cargandoRutas;
 
   const clientesDeRuta = useMemo(() => {
     if (!rutaSeleccionada) return [];
@@ -87,28 +93,20 @@ export default function MapaRutero() {
     );
   }, [rutaSeleccionada, clientesTotales]);
 
-  // 🚀 4. NUEVA LÓGICA DE MEMORIA (REEMPLAZA AL USEEFFECT ANTERIOR)
   useEffect(() => {
-    // Evitamos ejecutar si aún no hay datos
     if (!rutaSeleccionada || clientesDeRuta.length === 0) return;
 
     const rutaGuardada = localStorage.getItem("rutasmart_ruta");
     const clientesGuardadosStr = localStorage.getItem("rutasmart_clientes");
 
     if (rutaSeleccionada === rutaGuardada) {
-      // ✅ CASO A: Es la misma ruta (el usuario solo refrescó la página)
       if (clientesGuardadosStr) {
         setSelectedClienteIds(JSON.parse(clientesGuardadosStr));
       } else {
-        // Por precaución, si no hay clientes guardados, seleccionamos todos
         setSelectedClienteIds(clientesDeRuta.map((c) => c.id));
       }
     } else {
-      // 🔄 CASO B: El usuario eligió una NUEVA ruta en el desplegable
       localStorage.setItem("rutasmart_ruta", rutaSeleccionada);
-
-      // Seleccionamos todos los clientes de la nueva ruta por defecto
-      // (Si quieres que aparezcan TODOS desmarcados al cambiar de ruta, cambia "todos" por "[]")
       const todos = clientesDeRuta.map((c) => c.id);
       setSelectedClienteIds(todos);
       localStorage.setItem("rutasmart_clientes", JSON.stringify(todos));
@@ -126,7 +124,6 @@ export default function MapaRutero() {
       .map((c) => c.posicion as [number, number]);
   }, [selectedClienteIds, clientesDeRuta]);
 
-  // 🚀 5. ACTUALIZAMOS LOS BOTONES PARA QUE GUARDEN EN TIEMPO REAL EN LOCALSTORAGE
   const toggleCliente = (id: string) => {
     setSelectedClienteIds((prev) => {
       const nuevoEstado = prev.includes(id)
@@ -168,7 +165,7 @@ export default function MapaRutero() {
         <select
           value={rutaSeleccionada}
           onChange={(e) => setRutaSeleccionada(e.target.value)}
-          className="w-full p-3 mb-4 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium focus:ring-2 focus:ring-blue-500 cursor-pointer"
+          className="w-full p-3 mb-4 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium focus:ring-2 focus:ring-blue-500 cursor-pointer outline-none"
         >
           {rutasDisponibles.map((ruta) => (
             <option key={ruta.id} value={ruta.nombre}>
@@ -204,7 +201,7 @@ export default function MapaRutero() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-2 space-y-2">
+        <div className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
           {clientesDeRuta.map((cliente) => (
             <label
               key={cliente.id}
@@ -222,7 +219,7 @@ export default function MapaRutero() {
                 type="checkbox"
                 checked={selectedClienteIds.includes(cliente.id)}
                 onChange={() => toggleCliente(cliente.id)}
-                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
               />
             </label>
           ))}

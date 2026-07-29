@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query"; // 🚀 IMPORTAMOS TANSTACK
 import {
   ClipboardList,
   Calendar,
@@ -24,7 +25,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
-  obtenerHistorialFirebase,
+  obtenerHistorialPorRangoFirebase, // 🚀 USAMOS LA NUEVA FUNCIÓN
   guardarHistorialFirebase,
 } from "../firebase/historialService";
 import { generarPDFAuditoria } from "../utils/pdfAuditoriaService";
@@ -50,10 +51,11 @@ interface ViajeDetalle {
   comisionAyudante: number;
 }
 
-// 🚀 CONSTANTE: NÚMERO DE FILAS POR PÁGINA
 const ITEMS_POR_PAGINA = 20;
 
 export default function PanelHistorialCompleto() {
+  const queryClient = useQueryClient(); // 🚀 HERRAMIENTA PARA ACTUALIZAR LA CACHÉ AL EDITAR
+
   const hoy = new Date();
   const hace7Dias = new Date();
   hace7Dias.setDate(hoy.getDate() - 7);
@@ -64,9 +66,6 @@ export default function PanelHistorialCompleto() {
   const [fechaFin, setFechaFin] = useState(hoy.toISOString().split("T")[0]);
   const [busqueda, setBusqueda] = useState("");
 
-  const [datosCrudos, setDatosCrudos] = useState<any[]>([]);
-  const [viajesMostrados, setViajesMostrados] = useState<ViajeDetalle[]>([]);
-  const [cargando, setCargando] = useState(true);
   const [isGenerandoPDF, setIsGenerandoPDF] = useState(false);
   const [reglasNomina, setReglasNomina] = useState<AjustesNomina | null>(null);
 
@@ -74,9 +73,7 @@ export default function PanelHistorialCompleto() {
   const [viajeEditando, setViajeEditando] = useState<ViajeDetalle | null>(null);
   const [guardandoCambios, setGuardandoCambios] = useState(false);
 
-  // 🚀 NUEVO ESTADO PARA LA PAGINACIÓN
   const [paginaActual, setPaginaActual] = useState(1);
-
   const [mostrarMenuColumnas, setMostrarMenuColumnas] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -125,17 +122,17 @@ export default function PanelHistorialCompleto() {
     return () => document.removeEventListener("mousedown", handleClickFuera);
   }, []);
 
-  const cargarDatosNube = async () => {
-    setCargando(true);
-    const datosNube = await obtenerHistorialFirebase();
-    setDatosCrudos(datosNube);
-    setCargando(false);
-  };
+  // 🚀 AQUÍ ESTÁ LA MAGIA: REEMPLAZAMOS EL useEffect Y EL ESTADO MANUAL POR useQuery
+  const {
+    data: datosCrudos = [],
+    isLoading: cargando,
+    isError,
+  } = useQuery({
+    queryKey: ["historial_salidas", "auditoria", fechaInicio, fechaFin],
+    queryFn: () => obtenerHistorialPorRangoFirebase(fechaInicio, fechaFin),
+  });
 
-  useEffect(() => {
-    cargarDatosNube();
-  }, []);
-
+  // 🚀 EXTRAEMOS LISTAS PARA LOS SELECTS DEL MODAL (Depende de datosCrudos en caché)
   const listasPersonal = useMemo(() => {
     const choferes = new Set<string>();
     const ayudantes = new Set<string>();
@@ -143,18 +140,14 @@ export default function PanelHistorialCompleto() {
 
     datosCrudos.forEach((registro) => {
       (registro.viajes || []).forEach((v: any) => {
-        if (v.chofer && v.chofer !== "-" && v.chofer.trim() !== "") {
+        if (v.chofer && v.chofer !== "-" && v.chofer.trim() !== "")
           choferes.add(v.chofer.toUpperCase().trim());
-        }
-        if (v.ayudante1 && v.ayudante1 !== "-" && v.ayudante1.trim() !== "") {
+        if (v.ayudante1 && v.ayudante1 !== "-" && v.ayudante1.trim() !== "")
           ayudantes.add(v.ayudante1.toUpperCase().trim());
-        }
-        if (v.ayudante2 && v.ayudante2 !== "-" && v.ayudante2.trim() !== "") {
+        if (v.ayudante2 && v.ayudante2 !== "-" && v.ayudante2.trim() !== "")
           ayudantes.add(v.ayudante2.toUpperCase().trim());
-        }
-        if (v.ruta && v.ruta !== "SIN RUTA" && v.ruta.trim() !== "") {
+        if (v.ruta && v.ruta !== "SIN RUTA" && v.ruta.trim() !== "")
           rutas.add(v.ruta.toUpperCase().trim());
-        }
       });
     });
 
@@ -202,8 +195,8 @@ export default function PanelHistorialCompleto() {
     };
   };
 
-  useEffect(() => {
-    if (!datosCrudos.length) return;
+  // 🚀 PROCESAMOS LA TABLA Y EL BUSCADOR CON useMemo
+  const viajesMostrados = useMemo(() => {
     let historialAplanado: ViajeDetalle[] = [];
     const textoBusqueda = busqueda
       .toUpperCase()
@@ -212,51 +205,52 @@ export default function PanelHistorialCompleto() {
 
     datosCrudos.forEach((registro) => {
       const fecha = registro.fecha;
-      if (fecha >= fechaInicio && fecha <= fechaFin) {
-        const viajesDelDia = registro.viajes || [];
-        viajesDelDia.forEach((viaje: any, idx: number) => {
-          if (
-            viaje.chofer &&
-            viaje.chofer.trim() !== "" &&
-            viaje.chofer !== "-"
-          ) {
-            const objViaje: ViajeDetalle = {
-              originalIndex: idx,
-              fecha: fecha,
-              unidad: viaje.unidad || "-",
-              ruta: viaje.ruta || "SIN RUTA",
-              chofer: viaje.chofer,
-              ayudante1: viaje.ayudante1 || "-",
-              ayudante2: viaje.ayudante2 || "-",
-              embCred: viaje.embCred || "-",
-              embCtdo: viaje.embCtdo || "-",
-              kgTotal: Number(viaje.kgTotal) || 0,
-              totalMonto: Number(viaje.totalMonto) || 0,
-              viaticoRuta: Number(viaje.viaticoRuta) || 0,
-              comisionChofer: Number(viaje.comisionChofer) || 0,
-              comisionAyudante: Number(viaje.comisionAyudante) || 0,
-            };
+      // Ya no validamos fechas aquí porque Firebase ya nos mandó solo las correctas
+      const viajesDelDia = registro.viajes || [];
 
-            if (textoBusqueda) {
-              const valoresTexto = [
-                objViaje.chofer,
-                objViaje.ruta,
-                objViaje.unidad,
-                objViaje.ayudante1,
-                objViaje.ayudante2,
-                objViaje.embCred,
-                objViaje.embCtdo,
-              ]
-                .join(" ")
-                .toUpperCase()
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "");
-              if (!valoresTexto.includes(textoBusqueda)) return;
-            }
-            historialAplanado.push(objViaje);
+      viajesDelDia.forEach((viaje: any, idx: number) => {
+        if (
+          viaje.chofer &&
+          viaje.chofer.trim() !== "" &&
+          viaje.chofer !== "-"
+        ) {
+          const objViaje: ViajeDetalle = {
+            originalIndex: idx,
+            fecha: fecha,
+            unidad: viaje.unidad || "-",
+            ruta: viaje.ruta || "SIN RUTA",
+            chofer: viaje.chofer,
+            ayudante1: viaje.ayudante1 || "-",
+            ayudante2: viaje.ayudante2 || "-",
+            embCred: viaje.embCred || "-",
+            embCtdo: viaje.embCtdo || "-",
+            kgTotal: Number(viaje.kgTotal) || 0,
+            totalMonto: Number(viaje.totalMonto) || 0,
+            viaticoRuta: Number(viaje.viaticoRuta) || 0,
+            comisionChofer: Number(viaje.comisionChofer) || 0,
+            comisionAyudante: Number(viaje.comisionAyudante) || 0,
+          };
+
+          if (textoBusqueda) {
+            const valoresTexto = [
+              objViaje.chofer,
+              objViaje.ruta,
+              objViaje.unidad,
+              objViaje.ayudante1,
+              objViaje.ayudante2,
+              objViaje.embCred,
+              objViaje.embCtdo,
+            ]
+              .join(" ")
+              .toUpperCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "");
+
+            if (!valoresTexto.includes(textoBusqueda)) return;
           }
-        });
-      }
+          historialAplanado.push(objViaje);
+        }
+      });
     });
 
     historialAplanado.sort((a, b) => {
@@ -265,11 +259,14 @@ export default function PanelHistorialCompleto() {
       return parseInt(a.unidad) - parseInt(b.unidad);
     });
 
-    setViajesMostrados(historialAplanado);
-    setPaginaActual(1); // 🚀 REGRESAMOS A LA PÁGINA 1 CUANDO CAMBIAN LOS FILTROS
-  }, [datosCrudos, fechaInicio, fechaFin, busqueda]);
+    return historialAplanado;
+  }, [datosCrudos, busqueda]);
 
-  // 🚀 LÓGICA DE PAGINACIÓN
+  // 🚀 REGRESAMOS A LA PÁGINA 1 SI CAMBIAN LOS FILTROS
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [viajesMostrados.length]);
+
   const totalPaginas = Math.ceil(viajesMostrados.length / ITEMS_POR_PAGINA);
   const viajesPaginados = viajesMostrados.slice(
     (paginaActual - 1) * ITEMS_POR_PAGINA,
@@ -401,16 +398,31 @@ export default function PanelHistorialCompleto() {
         viajeEditando.fecha,
         registroDia.viajes,
       );
+
       if (resultado.success) {
         alert("¡Registro actualizado y guardado en la nube correctamente!");
         setModalAbierto(false);
-        await cargarDatosNube();
+        // 🚀 MAGIA DE TANSTACK: Invalidamos la caché para que se refresque en 2do plano sin recargar todo
+        queryClient.invalidateQueries({
+          queryKey: ["historial_salidas", "auditoria"],
+        });
       } else {
         alert("Error al guardar los cambios en la nube.");
       }
     }
     setGuardandoCambios(false);
   };
+
+  if (isError) {
+    return (
+      <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-full flex flex-col items-center justify-center">
+        <AlertCircle className="text-rose-500 mb-3" size={40} />
+        <h3 className="text-lg font-semibold text-slate-700">
+          Error al cargar la auditoría
+        </h3>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full overflow-hidden">
@@ -550,8 +562,9 @@ export default function PanelHistorialCompleto() {
       </div>
 
       {cargando ? (
-        <div className="flex items-center justify-center p-12 text-slate-500 flex-1">
-          Cargando base de datos...
+        <div className="flex flex-col h-full items-center justify-center p-12 text-slate-500 font-bold animate-pulse gap-2 flex-1">
+          <ClipboardList size={24} />
+          Cargando auditoría...
         </div>
       ) : viajesMostrados.length === 0 ? (
         <div className="p-12 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 flex flex-col items-center text-center flex-1">
@@ -610,7 +623,6 @@ export default function PanelHistorialCompleto() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {/* 🚀 USAMOS viajesPaginados EN LUGAR DE viajesMostrados */}
               {viajesPaginados.map((viaje, index) => (
                 <tr key={index} className="hover:bg-blue-50 transition-colors">
                   <td className="px-3 py-3 text-center border-r border-slate-100">
@@ -639,7 +651,6 @@ export default function PanelHistorialCompleto() {
                   <td className="px-3 py-3 font-medium text-slate-500 text-[11px] border-r border-slate-100">
                     {viaje.embCtdo}
                   </td>
-
                   <td className="px-3 py-3 font-bold text-slate-800 text-xs uppercase bg-slate-50 border-r border-slate-100">
                     {viaje.chofer}
                   </td>
@@ -657,7 +668,6 @@ export default function PanelHistorialCompleto() {
                       <span className="text-slate-300 italic">-</span>
                     )}
                   </td>
-
                   <td className="px-3 py-3 font-bold text-blue-700 text-xs text-right border-r border-slate-100">
                     {fNumero(viaje.kgTotal)}
                   </td>
@@ -773,7 +783,7 @@ export default function PanelHistorialCompleto() {
               </button>
             </div>
 
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[75vh] overflow-y-auto">
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
                   Ruta Asignada

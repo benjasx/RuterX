@@ -1,5 +1,5 @@
-// src/components/GestionRutas.tsx
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query"; // 🚀 1. IMPORTAMOS TANSTACK
 import { Plus, Trash2, Map } from "lucide-react";
 import {
   agregarRutaFirebase,
@@ -13,6 +13,8 @@ interface Props {
 }
 
 export default function GestionRutas({ listaRutas, setListaRutas }: Props) {
+  const queryClient = useQueryClient(); // 🚀 2. INICIALIZAMOS EL CLIENTE DE CACHÉ
+
   const [nuevaRuta, setNuevaRuta] = useState("");
   const [cargando, setCargando] = useState(false);
 
@@ -32,6 +34,10 @@ export default function GestionRutas({ listaRutas, setListaRutas }: Props) {
         ...listaRutas,
         { id: resultado.id, nombre: rutaEnMayusculas },
       ]);
+
+      // 🚀 3. INVALIDAMOS LA CACHÉ PARA QUE EL MAPA Y OTROS PANELES SE ACTUALICEN
+      queryClient.invalidateQueries({ queryKey: ["rutas"] });
+
       setNuevaRuta("");
     } else {
       alert("Error al guardar la ruta");
@@ -49,6 +55,9 @@ export default function GestionRutas({ listaRutas, setListaRutas }: Props) {
       if (resultado.success) {
         // ACTUALIZAMOS EL ESTADO GLOBAL AL BORRAR
         setListaRutas(listaRutas.filter((r) => r.id !== id));
+
+        // 🚀 3. INVALIDAMOS LA CACHÉ AL ELIMINAR
+        queryClient.invalidateQueries({ queryKey: ["rutas"] });
       }
     }
   };
@@ -71,12 +80,12 @@ export default function GestionRutas({ listaRutas, setListaRutas }: Props) {
           value={nuevaRuta}
           onChange={(e) => setNuevaRuta(e.target.value)}
           placeholder="Ej. NUEVA RUTA NORTE"
-          className="flex-1 border border-slate-300 rounded-lg px-3 py-2 uppercase"
+          className="flex-1 border border-slate-300 rounded-lg px-3 py-2 uppercase outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
           onClick={handleAgregar}
           disabled={cargando}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg"
+          className="bg-blue-600 hover:bg-blue-700 transition-colors text-white px-4 py-2 rounded-lg disabled:opacity-50 flex items-center justify-center min-w-12.5"
         >
           {cargando ? "..." : <Plus size={18} />}
         </button>
@@ -87,12 +96,13 @@ export default function GestionRutas({ listaRutas, setListaRutas }: Props) {
         {rutasOrdenadas.map((ruta) => (
           <div
             key={ruta.id}
-            className="flex items-center justify-between p-3 border rounded-lg bg-slate-50"
+            className="flex items-center justify-between p-3 border rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors"
           >
             <span className="font-medium text-slate-700">{ruta.nombre}</span>
             <button
               onClick={() => handleEliminar(ruta.id)}
-              className="text-red-600"
+              className="text-slate-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 transition-colors"
+              title="Eliminar Ruta"
             >
               <Trash2 size={16} />
             </button>

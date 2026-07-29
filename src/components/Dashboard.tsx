@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query"; // 🚀 IMPORTAMOS EL HOOK DE CACHÉ
 import {
   TrendingUp,
   TrendingDown,
@@ -8,7 +9,7 @@ import {
   Award,
   Map,
   Activity,
-  FileDown, // 🚀 Nuevo icono para el botón PDF
+  FileDown,
 } from "lucide-react";
 import {
   AreaChart,
@@ -19,8 +20,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { obtenerHistorialFirebase } from "../firebase/historialService";
-import { generarPDFGerencial } from "../utils/pdfDashboardService"; // 🚀 IMPORTAMOS EL GENERADOR PDF
+import { obtenerHistorialPorRangoFirebase } from "../firebase/historialService"; // 🚀 USAMOS LA NUEVA FUNCIÓN
+import { generarPDFGerencial } from "../utils/pdfDashboardService";
 
 // Función para forzar hora local
 const obtenerFechaLocalStr = (fecha: Date) => {
@@ -31,8 +32,6 @@ const obtenerFechaLocalStr = (fecha: Date) => {
 };
 
 export default function Dashboard() {
-  const [datosCrudos, setDatosCrudos] = useState<any[]>([]);
-  const [cargando, setCargando] = useState(true);
   const [generandoPDF, setGenerandoPDF] = useState(false);
 
   const hoy = new Date();
@@ -42,15 +41,16 @@ export default function Dashboard() {
   const strHoy = obtenerFechaLocalStr(hoy);
   const strHace7Dias = obtenerFechaLocalStr(hace7Dias);
 
-  useEffect(() => {
-    const cargarDatos = async () => {
-      setCargando(true);
-      const datosNube = await obtenerHistorialFirebase();
-      setDatosCrudos(datosNube);
-      setCargando(false);
-    };
-    cargarDatos();
-  }, []);
+  // 🚀 AQUÍ ESTÁ LA MAGIA: TANSTACK QUERY
+  // Reemplaza al useEffect, maneja el estado de carga y solo descarga la fecha indicada
+  const {
+    data: datosCrudos = [],
+    isLoading: cargando,
+    isError,
+  } = useQuery({
+    queryKey: ["historial_salidas", "dashboard", strHace7Dias, strHoy],
+    queryFn: () => obtenerHistorialPorRangoFirebase(strHace7Dias, strHoy),
+  });
 
   // 🚀 EXTRAEMOS TODA LA DATA ORDENADA PARA COMPARTIRLA CON LA UI Y EL PDF
   const dataProcesada = useMemo(() => {
@@ -95,6 +95,8 @@ export default function Dashboard() {
 
     datosCrudos.forEach((registro) => {
       const fecha = registro.fecha;
+      // Ya no es estrictamente necesario este if porque Firebase ya lo filtró,
+      // pero lo dejamos por seguridad extra
       if (fecha >= strHace7Dias && fecha <= strHoy) {
         const viajes = registro.viajes || [];
 
@@ -153,7 +155,6 @@ export default function Dashboard() {
           fecha: fecha.substring(5),
           ventas: agrupadoPorDia[fecha],
         })),
-      // Arrays Completos Ordenados (para PDF y UI)
       todasRutas: Object.entries(rutasMap)
         .sort((a, b) => b[1] - a[1])
         .map(([nombre, venta]) => ({ nombre, venta })),
@@ -205,6 +206,16 @@ export default function Dashboard() {
       <div className="flex w-full h-full items-center justify-center">
         <p className="text-slate-500 font-bold animate-pulse flex items-center gap-2">
           <Activity size={20} /> Analizando operación de los últimos 7 días...
+        </p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex w-full h-full items-center justify-center">
+        <p className="text-rose-500 font-bold">
+          Ocurrió un error al cargar los datos.
         </p>
       </div>
     );

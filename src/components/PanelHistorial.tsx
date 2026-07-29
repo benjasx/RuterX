@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query"; // 🚀 IMPORTAMOS TANSTACK QUERY
 import {
   History,
   Truck,
@@ -9,19 +10,12 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { obtenerHistorialFirebase } from "../firebase/historialService";
+import { obtenerHistorialPorRangoFirebase } from "../firebase/historialService"; // 🚀 USAMOS LA NUEVA FUNCIÓN
 
-// 🚀 IMPORTAMOS TUS NUEVOS GENERADORES DE NÓMINA
 import {
   generarPDFNominaChoferes,
   generarPDFNominaAyudantes,
 } from "../utils/pdfNominaService";
-
-interface PersonalStat {
-  nombre: string;
-  totalViajes: number;
-  ultimoViaje: string;
-}
 
 export default function PanelHistorial() {
   const hoy = new Date();
@@ -33,45 +27,38 @@ export default function PanelHistorial() {
   );
   const [fechaFin, setFechaFin] = useState(hoy.toISOString().split("T")[0]);
 
-  const [datosCrudosNube, setDatosCrudosNube] = useState<any[]>([]);
-  const [estadisticasChoferes, setEstadisticasChoferes] = useState<
-    PersonalStat[]
-  >([]);
-  const [estadisticasAyudantes, setEstadisticasAyudantes] = useState<
-    PersonalStat[]
-  >([]);
-  const [viajesRango, setViajesRango] = useState<any[]>([]);
-  const [cargando, setCargando] = useState(true);
-
-  // 🚀 ESTADO PARA GUARDAR LA LISTA NEGRA Y PASARLA AL PDF
-  const [listaNegraChoferes, setListaNegraChoferes] = useState<Set<string>>(
-    new Set(),
-  );
-
   const [vistaActiva, setVistaActiva] = useState<"choferes" | "ayudantes">(
     "choferes",
   );
   const [isGenerandoPDF, setIsGenerandoPDF] = useState(false);
-
-  // Renombramos de choferPDF a personalPDF para que aplique a ambos
   const [personalPDF, setPersonalPDF] = useState<string>("TODOS");
 
-  useEffect(() => {
-    const fetchDatos = async () => {
-      setCargando(true);
-      const datos = await obtenerHistorialFirebase();
-      setDatosCrudosNube(datos);
-      setCargando(false);
-    };
-    fetchDatos();
-  }, []);
+  // 🚀 AQUÍ ESTÁ LA MAGIA: Reemplazamos los useEffect de carga por useQuery
+  const {
+    data: datosCrudos = [],
+    isLoading: cargando,
+    isError,
+  } = useQuery({
+    queryKey: ["historial_salidas", "nomina", fechaInicio, fechaFin], // La llave depende de las fechas
+    queryFn: () => obtenerHistorialPorRangoFirebase(fechaInicio, fechaFin),
+  });
 
-  useEffect(() => {
-    if (!datosCrudosNube.length && !cargando) return;
-
-    // CREAR LA "LISTA NEGRA" DE CHOFERES
+  // 🚀 PROCESAMOS LOS DATOS CON USEMEMO (Solo se recalcula si datosCrudos cambia)
+  const {
+    estadisticasChoferes,
+    estadisticasAyudantes,
+    viajesRango,
+    listaNegraChoferes,
+  } = useMemo(() => {
     const setChoferesHistoricos = new Set<string>();
-    datosCrudosNube.forEach((registro) => {
+    const statsCMap: Record<string, { total: number; ultimaFecha: string }> =
+      {};
+    const statsAMap: Record<string, { total: number; ultimaFecha: string }> =
+      {};
+    const listaViajesFiltrados: any[] = [];
+
+    // 1. CREAR LA "LISTA NEGRA" DE CHOFERES (Solo del rango actual)
+    datosCrudos.forEach((registro) => {
       (registro.viajes || []).forEach((viaje: any) => {
         if (viaje.chofer && viaje.chofer !== "-") {
           setChoferesHistoricos.add(viaje.chofer.toUpperCase().trim());
@@ -79,23 +66,13 @@ export default function PanelHistorial() {
       });
     });
 
-    // 🚀 GUARDAMOS LA LISTA EN EL ESTADO
-    setListaNegraChoferes(setChoferesHistoricos);
-
-    const statsCMap: Record<string, { total: number; ultimaFecha: string }> =
-      {};
-    const statsAMap: Record<string, { total: number; ultimaFecha: string }> =
-      {};
-    const listaViajesFiltrados: any[] = [];
-
-    const datosOrdenados = [...datosCrudosNube].sort(
+    const datosOrdenados = [...datosCrudos].sort(
       (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
     );
 
-    // CONTAR LOS VIAJES
+    // 2. CONTAR LOS VIAJES (Ya no necesitamos comprobar 'enRango' porque Firebase ya lo filtró)
     datosOrdenados.forEach((registro) => {
       const fecha = registro.fecha;
-      const enRango = fecha >= fechaInicio && fecha <= fechaFin;
 
       (registro.viajes || []).forEach((viaje: any) => {
         // --- PROCESAR CHOFERES ---
@@ -103,7 +80,7 @@ export default function PanelHistorial() {
           const nombreChofer = viaje.chofer.toUpperCase().trim();
           if (!statsCMap[nombreChofer])
             statsCMap[nombreChofer] = { total: 0, ultimaFecha: "" };
-          if (enRango) statsCMap[nombreChofer].total += 1;
+          statsCMap[nombreChofer].total += 1;
           statsCMap[nombreChofer].ultimaFecha = fecha;
         }
 
@@ -118,7 +95,7 @@ export default function PanelHistorial() {
             !setChoferesHistoricos.has(ay)
           ) {
             if (!statsAMap[ay]) statsAMap[ay] = { total: 0, ultimaFecha: "" };
-            if (enRango) statsAMap[ay].total += 1;
+            statsAMap[ay].total += 1;
             statsAMap[ay].ultimaFecha = fecha;
           }
         };
@@ -126,7 +103,7 @@ export default function PanelHistorial() {
         procesarAyudante(viaje.ayudante1);
         procesarAyudante(viaje.ayudante2);
 
-        if (enRango && viaje.chofer && viaje.chofer !== "-") {
+        if (viaje.chofer && viaje.chofer !== "-") {
           listaViajesFiltrados.push({ fecha, ...viaje });
         }
       });
@@ -148,17 +125,20 @@ export default function PanelHistorial() {
       }))
       .sort((a, b) => a.totalViajes - b.totalViajes);
 
-    setEstadisticasChoferes(arrayChoferes);
-    setEstadisticasAyudantes(arrayAyudantes);
-    setViajesRango(listaViajesFiltrados);
-  }, [datosCrudosNube, fechaInicio, fechaFin, cargando]);
+    return {
+      estadisticasChoferes: arrayChoferes,
+      estadisticasAyudantes: arrayAyudantes,
+      viajesRango: listaViajesFiltrados,
+      listaNegraChoferes: setChoferesHistoricos,
+    };
+  }, [datosCrudos]);
 
-  // 🚀 RESETEAR SELECTOR AL CAMBIAR DE PESTAÑA
+  // RESETEAR SELECTOR AL CAMBIAR DE PESTAÑA
   useEffect(() => {
     setPersonalPDF("TODOS");
   }, [vistaActiva]);
 
-  // 🚀 LÓGICA DE DESCARGA DINÁMICA
+  // LÓGICA DE DESCARGA DINÁMICA
   const handleDescargarPDF = async () => {
     setIsGenerandoPDF(true);
     if (vistaActiva === "choferes") {
@@ -183,7 +163,6 @@ export default function PanelHistorial() {
   const datosMostrar =
     vistaActiva === "choferes" ? estadisticasChoferes : estadisticasAyudantes;
 
-  // 🚀 VARIABLES DINÁMICAS DE COLOR
   const isChofer = vistaActiva === "choferes";
   const colorBgMenu = isChofer
     ? "bg-purple-50 border-purple-100"
@@ -202,6 +181,20 @@ export default function PanelHistorial() {
   const colorHoverFila = isChofer
     ? "hover:bg-purple-50"
     : "hover:bg-emerald-50";
+
+  if (isError) {
+    return (
+      <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-full flex flex-col items-center justify-center">
+        <AlertCircle className="text-rose-500 mb-3" size={40} />
+        <h3 className="text-lg font-semibold text-slate-700">
+          Error al cargar los datos
+        </h3>
+        <p className="text-sm text-slate-500">
+          Hubo un problema al conectar con la base de datos.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full">
@@ -259,9 +252,9 @@ export default function PanelHistorial() {
 
           <button
             onClick={handleDescargarPDF}
-            disabled={isGenerandoPDF}
+            disabled={isGenerandoPDF || cargando}
             className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm w-full sm:w-auto ${
-              isGenerandoPDF
+              isGenerandoPDF || cargando
                 ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                 : `${colorBtnPDF} text-white`
             }`}
@@ -312,18 +305,22 @@ export default function PanelHistorial() {
       </div>
 
       {cargando ? (
-        <div className="flex items-center justify-center p-12 text-slate-500">
-          Cargando datos de la nube...
+        <div className="flex flex-col h-full items-center justify-center p-12 text-slate-500 font-bold animate-pulse gap-2">
+          <History size={24} />
+          Consultando registros...
         </div>
       ) : datosMostrar.length === 0 ? (
-        <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 flex flex-col items-center text-center">
+        <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 flex flex-col items-center text-center mt-4">
           <AlertCircle className="text-slate-400 mb-3" size={40} />
           <h3 className="text-lg font-semibold text-slate-700">
             No hay personal registrado
           </h3>
+          <p className="text-sm text-slate-500">
+            Intenta ampliando el rango de fechas.
+          </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm mt-2">
           <table className="w-full text-left border-collapse text-sm bg-white">
             <thead>
               <tr

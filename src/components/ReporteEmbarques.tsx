@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query"; // 🚀 1. IMPORTAMOS TANSTACK
 import {
   FileSpreadsheet,
   Calculator,
@@ -9,7 +10,7 @@ import {
 import * as XLSX from "xlsx";
 import { guardarHistorialFirebase } from "../firebase/historialService";
 
-// 🚀 1. IMPORTAMOS EL SERVICIO DE REGLAS DE NÓMINA
+// IMPORTAMOS EL SERVICIO DE REGLAS DE NÓMINA
 import {
   obtenerAjustesNomina,
   type AjustesNomina,
@@ -36,7 +37,6 @@ export interface FilaReporte {
   embCtdo: string;
   totalMonto: number;
   kgTotal: number;
-  // 🚀 2. NUEVOS CAMPOS OCULTOS PARA FIREBASE
   viaticoRuta: number;
   comisionChofer: number;
   comisionAyudante: number;
@@ -72,8 +72,7 @@ const MAPA_CAMIONES: Record<string, string> = {
   "39": "28",
 };
 
-// 🚀 FUNCIÓN: BUSCADOR INTELIGENTE (FUZZY MATCHER) DE RUTAS
-// Compara la ruta del Excel con las reglas de Firebase de forma flexible
+// FUNCIÓN: BUSCADOR INTELIGENTE (FUZZY MATCHER) DE RUTAS
 const calcularFinanzas = (
   rutaRaw: string,
   montoBase: number,
@@ -85,14 +84,12 @@ const calcularFinanzas = (
   let viaticoEncontrado = 0;
 
   if (rutaRaw) {
-    // Normalizamos quitando acentos y espacios extra
     const rutaNormalizada = rutaRaw
       .toUpperCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .trim();
 
-    // Buscamos coincidencia en el catálogo
     for (const [rutaCatalogo, montoViatico] of Object.entries(
       reglas.viaticosRutas,
     )) {
@@ -102,13 +99,12 @@ const calcularFinanzas = (
         .replace(/[\u0300-\u036f]/g, "")
         .trim();
 
-      // Si la ruta del catálogo incluye la palabra del excel, o viceversa, hay match
       if (
         rutaNormalizada.includes(catNorm) ||
         catNorm.includes(rutaNormalizada)
       ) {
         viaticoEncontrado = montoViatico;
-        break; // Detenemos la búsqueda al primer match exitoso
+        break;
       }
     }
   }
@@ -121,6 +117,8 @@ const calcularFinanzas = (
 };
 
 export default function ReporteEmbarques() {
+  const queryClient = useQueryClient(); // 🚀 HERRAMIENTA PARA AVISARLE AL DASHBOARD QUE HAY DATOS NUEVOS
+
   const [datosProcesados, setDatosProcesados] = useState<FilaReporte[]>([]);
   const [nombreArchivo, setNombreArchivo] = useState("");
   const [archivoAyudantes, setArchivoAyudantes] = useState("");
@@ -134,16 +132,19 @@ export default function ReporteEmbarques() {
   );
   const [guardandoNube, setGuardandoNube] = useState(false);
 
-  // 🚀 3. ESTADO PARA GUARDAR LAS REGLAS DE NÓMINA EN MEMORIA
-  const [reglasNomina, setReglasNomina] = useState<AjustesNomina | null>(null);
-
   const [mostrarModalTraspaso, setMostrarModalTraspaso] = useState(false);
   const [unidadTraspaso, setUnidadTraspaso] = useState("");
   const [choferTraspaso, setChoferTraspaso] = useState("");
   const [rutaTraspaso, setRutaTraspaso] = useState("");
 
+  // 🚀 2. USAMOS CACHÉ PARA REGLAS (Ya no gastamos lecturas aquí)
+  const { data: reglasNomina } = useQuery({
+    queryKey: ["ajustes_nomina"],
+    queryFn: obtenerAjustesNomina,
+  });
+
   useEffect(() => {
-    // Cargar datos locales
+    // Solo cargamos los datos del localStorage (borramos el useEffect que pedía Firebase)
     const datosGuardados = localStorage.getItem("embarques_datos");
     if (datosGuardados) setDatosProcesados(JSON.parse(datosGuardados));
     if (localStorage.getItem("embarques_archivo"))
@@ -152,16 +153,8 @@ export default function ReporteEmbarques() {
       setArchivoAyudantes(localStorage.getItem("embarques_ayudantes_archivo")!);
     if (localStorage.getItem("embarques_fecha"))
       setFechaSalida(localStorage.getItem("embarques_fecha")!);
-
-    // 🚀 DESCARGAR REGLAS FINANCIERAS EN SEGUNDO PLANO
-    const cargarReglas = async () => {
-      const reglas = await obtenerAjustesNomina();
-      setReglasNomina(reglas);
-    };
-    cargarReglas();
   }, []);
 
-  // Función para forzar el recálculo financiero a toda la tabla (Útil cuando se actualizan datos)
   const recalcularFinanzasCompletas = (
     datos: FilaReporte[],
     reglas: AjustesNomina | null,
@@ -191,21 +184,23 @@ export default function ReporteEmbarques() {
     ) {
       setGuardandoNube(true);
 
-      // 🚀 ASEGURAR RE-CÁLCULO FINANCIERO ANTES DE SUBIR
       const datosListos = recalcularFinanzasCompletas(
         datosProcesados,
-        reglasNomina,
+        reglasNomina || null, // 🚀 Usamos la variable directa de la caché
       );
 
       const resultado = await guardarHistorialFirebase(
         fechaSalida,
         datosListos,
       );
-      alert(
-        resultado.success
-          ? "¡Historial y finanzas guardados en la nube exitosamente!"
-          : "Error al guardar en la nube. Verifica tu conexión.",
-      );
+
+      if (resultado.success) {
+        alert("¡Historial y finanzas guardados en la nube exitosamente!");
+        // 🚀 3. EL GRITO AL SISTEMA: "¡Limpiamos la caché del historial para que el Dashboard vea el nuevo Excel!"
+        queryClient.invalidateQueries({ queryKey: ["historial_salidas"] });
+      } else {
+        alert("Error al guardar en la nube. Verifica tu conexión.");
+      }
       setGuardandoNube(false);
     }
   };
@@ -264,7 +259,6 @@ export default function ReporteEmbarques() {
     setIsGenerandoPDF(false);
   };
 
-  // LOGICA EXCEL BMS
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -302,7 +296,6 @@ export default function ReporteEmbarques() {
             embCtdo: "0",
             totalMonto: 0,
             kgTotal: 0,
-            // 🚀 VALORES FINANCIEROS INICIALES
             viaticoRuta: 0,
             comisionChofer: 0,
             comisionAyudante: 0,
@@ -319,11 +312,11 @@ export default function ReporteEmbarques() {
           String(fila.peso || 0).replace(/,/g, ""),
         );
 
-        // 🚀 INYECTAR CÁLCULO FINANCIERO INMEDIATO
+        // Pasamos reglasNomina (que viene de la caché)
         const finanzas = calcularFinanzas(
           acc[unidadReal].ruta,
           acc[unidadReal].totalMonto,
-          reglasNomina,
+          reglasNomina || null,
         );
         acc[unidadReal] = { ...acc[unidadReal], ...finanzas };
 
@@ -339,7 +332,6 @@ export default function ReporteEmbarques() {
     );
   };
 
-  // LÓGICA EXCEL AYUDANTES
   const handleAyudantesFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -380,7 +372,6 @@ export default function ReporteEmbarques() {
 
         let rawRuta = match["RUTA/DIA"] || match["Ruta"] || "";
 
-        // 🚀 PROTECCIÓN CONTRA FECHAS DE EXCEL (Ej: "18 de Marzo" convertido en número serial)
         if (typeof rawRuta === "number") {
           const fechaExcel = new Date((rawRuta - (25567 + 2)) * 86400 * 1000);
           const dia = fechaExcel.getDate();
@@ -405,8 +396,7 @@ export default function ReporteEmbarques() {
         };
       });
 
-      // 🚀 RECALCULAMOS LAS FINANZAS PORQUE LA RUTA PUDO HABER CAMBIADO AQUÍ
-      return recalcularFinanzasCompletas(nuevosDatos, reglasNomina);
+      return recalcularFinanzasCompletas(nuevosDatos, reglasNomina || null);
     });
 
     alert(
@@ -436,7 +426,6 @@ export default function ReporteEmbarques() {
       ? `TRASPASO - ${rutaTraspaso.toUpperCase()}`
       : "TRASPASO";
 
-    // 🚀 AL SER TRASPASO, LAS COMISIONES Y VIÁTICOS SERÁN $0
     const nuevaFila: FilaReporte = {
       ruta: rutaFinal,
       unidad: unidadTraspaso.padStart(2, "0"),
@@ -509,11 +498,11 @@ export default function ReporteEmbarques() {
                 type="date"
                 value={fechaSalida}
                 onChange={(e) => setFechaSalida(e.target.value)}
-                className="border-none bg-transparent text-sm font-medium text-slate-700"
+                className="border-none bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
               />
             </div>
             <div className="flex gap-3">
-              <label className="bg-white border border-slate-300 px-4 py-2.5 rounded-lg cursor-pointer text-sm font-semibold">
+              <label className="bg-white border border-slate-300 px-4 py-2.5 rounded-lg cursor-pointer text-sm font-semibold hover:bg-slate-50 transition-colors shadow-sm">
                 Cargar Otro XLSX
                 <input
                   type="file"
@@ -524,7 +513,7 @@ export default function ReporteEmbarques() {
               </label>
               <button
                 onClick={() => setMostrarModalTraspaso(true)}
-                className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2.5 rounded-lg text-sm font-semibold"
+                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 transition-colors text-white px-4 py-2.5 rounded-lg text-sm font-semibold shadow-sm"
               >
                 <Plus size={18} /> Añadir Traspaso
               </button>
