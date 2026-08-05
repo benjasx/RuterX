@@ -11,6 +11,7 @@ export const generarPDFGerencial = (datos: any) => {
     choferesViajes,
     ayudantesViajes,
     finanzas,
+    graficoBase64, // 🚀 NUEVO: Recibimos la imagen del gráfico
   } = datos;
 
   // FORMATOS
@@ -22,9 +23,12 @@ export const generarPDFGerencial = (datos: any) => {
   const fNum = (n: number) =>
     new Intl.NumberFormat("es-MX", { maximumFractionDigits: 2 }).format(n);
 
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+
   // --- 1. ENCABEZADO ---
   doc.setFillColor(30, 41, 59); // slate-800
-  doc.rect(0, 0, doc.internal.pageSize.width, 60, "F");
+  doc.rect(0, 0, pageWidth, 60, "F");
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18);
@@ -37,7 +41,16 @@ export const generarPDFGerencial = (datos: any) => {
 
   let yPos = 90;
 
+  // Función auxiliar para evitar que el contenido choque o se corte
+  const verificarEspacio = (espacioRequerido: number) => {
+    if (yPos + espacioRequerido > pageHeight - 40) {
+      doc.addPage();
+      yPos = 40;
+    }
+  };
+
   // --- 2. RESUMEN EJECUTIVO (KPIs) ---
+  verificarEspacio(150);
   doc.setTextColor(30, 41, 59);
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
@@ -78,35 +91,53 @@ export const generarPDFGerencial = (datos: any) => {
       ],
     ],
   });
-  yPos = (doc as any).lastAutoTable.finalY + 30;
+  yPos = (doc as any).lastAutoTable.finalY + 25;
 
-  // --- 3. TOP 5 RUTAS MÁS RENTABLES ---
+  // --- 🚀 NUEVO: GRÁFICO DE TENDENCIA ---
+  if (graficoBase64) {
+    verificarEspacio(260); // Validamos que quepa la imagen
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("2. Tendencia de Venta", 40, yPos);
+    
+    // addImage(imagen, formato, x, y, ancho, alto)
+    doc.addImage(graficoBase64, "PNG", 40, yPos + 10, 515, 200);
+    yPos += 230; 
+  }
+
+  // --- 🚀 MODIFICADO: DESGLOSE TOTAL POR RUTA ---
+  verificarEspacio(100);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("2. Top 5 Rutas de Mayor Ingreso", 40, yPos);
+  doc.text(`${graficoBase64 ? "3" : "2"}. Desglose Operativo por Ruta`, 40, yPos);
 
   autoTable(doc, {
     startY: yPos + 10,
     theme: "striped",
     headStyles: { fillColor: [16, 185, 129] }, // emerald-500
-    head: [["Rank", "Ruta", "Ingreso Generado"]],
+    head: [["Rank", "Ruta", "Ingreso Generado", "Volumen Movido (KG)"]],
     body: rutas
-      .slice(0, 5)
-      .map((r: any, idx: number) => [idx + 1, r.nombre, fMoneda(r.venta)]),
+      .sort((a: any, b: any) => b.venta - a.venta) // Ordenamos de mayor a menor venta
+      .map((r: any, idx: number) => [
+        idx + 1,
+        r.nombre,
+        fMoneda(r.venta),
+        `${fNum(r.peso || 0)} KG`,
+      ]),
   });
-  yPos = (doc as any).lastAutoTable.finalY + 30;
+  yPos = (doc as any).lastAutoTable.finalY + 25;
 
-  // --- 4. FINANZAS: NÓMINA Y VIÁTICOS ---
+  // --- FINANZAS: NÓMINA Y VIÁTICOS ---
+  verificarEspacio(200);
   doc.setFontSize(12);
   doc.text(
-    "3. Análisis Financiero de Tripulación (Top 5 Más y Menos Costosos)",
+    `${graficoBase64 ? "4" : "3"}. Análisis Financiero de Tripulación (Top 5 Más y Menos Costosos)`,
     40,
     yPos,
   );
   yPos += 10;
 
   const top5Mas = finanzas.slice(0, 5);
-  // Filtramos los que tienen $0 o tomamos los últimos 5
   const top5Menos = [...finanzas].reverse().slice(0, 5);
 
   autoTable(doc, {
@@ -123,7 +154,7 @@ export const generarPDFGerencial = (datos: any) => {
       fMoneda(c.total),
     ]),
   });
-  yPos = (doc as any).lastAutoTable.finalY + 5;
+  yPos = (doc as any).lastAutoTable.finalY + 10;
 
   autoTable(doc, {
     startY: yPos,
@@ -139,18 +170,13 @@ export const generarPDFGerencial = (datos: any) => {
       fMoneda(c.total),
     ]),
   });
-  yPos = (doc as any).lastAutoTable.finalY + 30;
+  yPos = (doc as any).lastAutoTable.finalY + 25;
 
-  // Validar salto de página
-  if (yPos > 700) {
-    doc.addPage();
-    yPos = 40;
-  }
-
-  // --- 5. PRODUCTIVIDAD Y CARGA FÍSICA ---
+  // --- PRODUCTIVIDAD Y CARGA FÍSICA ---
+  verificarEspacio(160);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("4. Esfuerzo Físico: Top Choferes por Kilos Movidos", 40, yPos);
+  doc.text(`${graficoBase64 ? "5" : "4"}. Esfuerzo Físico: Top Choferes por Kilos Movidos`, 40, yPos);
 
   autoTable(doc, {
     startY: yPos + 10,
@@ -161,24 +187,23 @@ export const generarPDFGerencial = (datos: any) => {
       .slice(0, 10)
       .map((c: any, idx: number) => [idx + 1, c.nombre, fNum(c.peso)]),
   });
-  yPos = (doc as any).lastAutoTable.finalY + 30;
+  yPos = (doc as any).lastAutoTable.finalY + 25;
 
-  if (yPos > 650) {
-    doc.addPage();
-    yPos = 40;
-  }
-
-  // --- 6. FRECUENCIA DE SALIDAS (EQUIDAD) ---
+  // --- FRECUENCIA DE SALIDAS (EQUIDAD) ---
+  verificarEspacio(180);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("5. Frecuencia de Salidas (Equidad de Viajes)", 40, yPos);
+  doc.text(`${graficoBase64 ? "6" : "5"}. Frecuencia de Salidas (Equidad de Viajes)`, 40, yPos);
   yPos += 15;
 
-  // Dos tablas lado a lado para Choferes y Ayudantes
   doc.setFontSize(10);
   doc.text("Viajes por Chofer:", 40, yPos);
+  doc.text("Viajes por Ayudante:", 320, yPos);
+
+  const yTablasParalelas = yPos + 5;
+
   autoTable(doc, {
-    startY: yPos + 5,
+    startY: yTablasParalelas,
     margin: { left: 40, right: 310 },
     theme: "plain",
     headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0] },
@@ -186,9 +211,8 @@ export const generarPDFGerencial = (datos: any) => {
     body: choferesViajes.map((c: any) => [c.nombre, c.viajes]),
   });
 
-  doc.text("Viajes por Ayudante:", 320, yPos);
   autoTable(doc, {
-    startY: yPos + 5,
+    startY: yTablasParalelas,
     margin: { left: 320, right: 40 },
     theme: "plain",
     headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0] },
@@ -196,6 +220,5 @@ export const generarPDFGerencial = (datos: any) => {
     body: ayudantesViajes.map((a: any) => [a.nombre, a.viajes]),
   });
 
-  // Descargar Documento
   doc.save(`Reporte_Gerencial_${fechas.inicio}_a_${fechas.fin}.pdf`);
 };
