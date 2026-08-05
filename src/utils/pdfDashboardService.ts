@@ -96,12 +96,11 @@ export const generarPDFGerencial = (datos: any) => {
 
   // --- GRÁFICO DE TENDENCIA (OPCIONAL) ---
   if (graficoBase64) {
-    verificarEspacio(260); // Validamos que quepa la imagen
+    verificarEspacio(260); 
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.text("2. Tendencia de Venta", 40, yPos);
     
-    // addImage(imagen, formato, x, y, ancho, alto)
     doc.addImage(graficoBase64, "PNG", 40, yPos + 10, 515, 200);
     yPos += 230; 
   }
@@ -118,12 +117,11 @@ export const generarPDFGerencial = (datos: any) => {
     headStyles: { fillColor: [16, 185, 129] }, // emerald-500
     head: [["Rank", "Ruta", "Ingreso Generado", "Volumen Movido (KG)"]],
     body: rutas
-      .sort((a: any, b: any) => b.venta - a.venta) // Ordenamos de mayor a menor venta
+      .sort((a: any, b: any) => b.venta - a.venta)
       .map((r: any, idx: number) => [
         idx + 1,
         r.nombre,
         fMoneda(r.venta),
-        // Busca cualquier variante del nombre para los kilos
         `${fNum(r.peso || r.kg || r.kgTotal || r.kilos || 0)} KG`, 
       ]),
   });
@@ -133,7 +131,7 @@ export const generarPDFGerencial = (datos: any) => {
   verificarEspacio(200);
   doc.setFontSize(12);
   doc.text(
-    `${graficoBase64 ? "4" : "3"}. Análisis Financiero de Tripulación (Top 5 Más y Menos Costosos)`,
+    `${graficoBase64 ? "4" : "3"}. Análisis Financiero de Tripulación`,
     40,
     yPos,
   );
@@ -147,7 +145,7 @@ export const generarPDFGerencial = (datos: any) => {
     theme: "grid",
     headStyles: { fillColor: [59, 130, 246] }, // blue-500
     head: [
-      ["Personal (Mayor Ingreso)", "Viáticos", "Comisiones", "Costo Total"],
+      ["Top 5 (Mayor Ingreso)", "Viáticos", "Comisiones", "Costo Total"],
     ],
     body: top5Mas.map((c: any) => [
       c.nombre,
@@ -163,7 +161,7 @@ export const generarPDFGerencial = (datos: any) => {
     theme: "grid",
     headStyles: { fillColor: [244, 63, 94] }, // rose-500
     head: [
-      ["Personal (Menor Ingreso)", "Viáticos", "Comisiones", "Costo Total"],
+      ["Top 5 (Menor Ingreso)", "Viáticos", "Comisiones", "Costo Total"],
     ],
     body: top5Menos.map((c: any) => [
       c.nombre,
@@ -191,35 +189,37 @@ export const generarPDFGerencial = (datos: any) => {
   });
   yPos = (doc as any).lastAutoTable.finalY + 25;
 
-  // --- FRECUENCIA DE SALIDAS (EQUIDAD) ---
-  verificarEspacio(180);
+  // --- 🚀 SOLUCIÓN A LA TABLA BRINCANDO (TABLA COMBINADA) ---
+  verificarEspacio(100);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.text(`${graficoBase64 ? "6" : "5"}. Frecuencia de Salidas (Equidad de Viajes)`, 40, yPos);
   yPos += 15;
 
-  doc.setFontSize(10);
-  doc.text("Viajes por Chofer:", 40, yPos);
-  doc.text("Viajes por Ayudante:", 320, yPos);
+  // Creamos un solo arreglo fusionando Choferes y Ayudantes fila por fila
+  const tablaCombinada = [];
+  const maxFilas = Math.max(choferesViajes.length, ayudantesViajes.length);
 
-  const yTablasParalelas = yPos + 5;
+  for (let i = 0; i < maxFilas; i++) {
+    tablaCombinada.push([
+      choferesViajes[i]?.nombre || "",
+      choferesViajes[i]?.viajes !== undefined ? choferesViajes[i].viajes : "",
+      ayudantesViajes[i]?.nombre || "",
+      ayudantesViajes[i]?.viajes !== undefined ? ayudantesViajes[i].viajes : "",
+    ]);
+  }
 
+  // Ahora imprimimos UNA SOLA tabla que se encarga solita de los saltos de página
   autoTable(doc, {
-    startY: yTablasParalelas,
-    margin: { left: 40, right: 310 },
-    theme: "plain",
-    headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0] },
-    head: [["Chofer", "Viajes"]],
-    body: choferesViajes.map((c: any) => [c.nombre, c.viajes]),
-  });
-
-  autoTable(doc, {
-    startY: yTablasParalelas,
-    margin: { left: 320, right: 40 },
-    theme: "plain",
-    headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0] },
-    head: [["Ayudante", "Viajes"]],
-    body: ayudantesViajes.map((a: any) => [a.nombre, a.viajes]),
+    startY: yPos,
+    theme: "grid", 
+    headStyles: { fillColor: [51, 65, 85], textColor: [255, 255, 255] }, // slate-700
+    head: [["Chofer", "Viajes", "Ayudante", "Viajes"]],
+    body: tablaCombinada,
+    columnStyles: {
+      1: { halign: "center", cellWidth: 50 },
+      3: { halign: "center", cellWidth: 50 },
+    },
   });
 
   doc.save(`Reporte_Gerencial_${fechas.inicio}_a_${fechas.fin}.pdf`);
