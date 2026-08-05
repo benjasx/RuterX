@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query"; // 🚀 IMPORTAMOS EL HOOK DE CACHÉ
+import { useQuery } from "@tanstack/react-query";
+import html2canvas from "html2canvas";
 import {
   TrendingUp,
   TrendingDown,
@@ -20,7 +21,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { obtenerHistorialPorRangoFirebase } from "../firebase/historialService"; // 🚀 USAMOS LA NUEVA FUNCIÓN
+import { obtenerHistorialPorRangoFirebase } from "../firebase/historialService";
 import { generarPDFGerencial } from "../utils/pdfDashboardService";
 
 // Función para forzar hora local
@@ -41,8 +42,6 @@ export default function Dashboard() {
   const strHoy = obtenerFechaLocalStr(hoy);
   const strHace7Dias = obtenerFechaLocalStr(hace7Dias);
 
-  // 🚀 AQUÍ ESTÁ LA MAGIA: TANSTACK QUERY
-  // Reemplaza al useEffect, maneja el estado de carga y solo descarga la fecha indicada
   const {
     data: datosCrudos = [],
     isLoading: cargando,
@@ -52,7 +51,6 @@ export default function Dashboard() {
     queryFn: () => obtenerHistorialPorRangoFirebase(strHace7Dias, strHoy),
   });
 
-  // 🚀 EXTRAEMOS TODA LA DATA ORDENADA PARA COMPARTIRLA CON LA UI Y EL PDF
   const dataProcesada = useMemo(() => {
     let totalVentas = 0;
     let totalPeso = 0;
@@ -61,8 +59,8 @@ export default function Dashboard() {
 
     const agrupadoPorDia: Record<string, number> = {};
     const choferesMap: Record<string, number> = {};
-    const rutasMap: Record<string, number> = {};
     const unidadesMap: Record<string, number> = {};
+    const rutasMap: Record<string, { venta: number; peso: number }> = {};
 
     const finanzasChoferes: Record<
       string,
@@ -95,8 +93,6 @@ export default function Dashboard() {
 
     datosCrudos.forEach((registro) => {
       const fecha = registro.fecha;
-      // Ya no es estrictamente necesario este if porque Firebase ya lo filtró,
-      // pero lo dejamos por seguridad extra
       if (fecha >= strHace7Dias && fecha <= strHoy) {
         const viajes = registro.viajes || [];
 
@@ -119,7 +115,13 @@ export default function Dashboard() {
               agrupadoPorDia[fecha] += venta;
 
             choferesMap[nombreChofer] = (choferesMap[nombreChofer] || 0) + peso;
-            rutasMap[v.ruta] = (rutasMap[v.ruta] || 0) + venta;
+            
+            const nombreRuta = v.ruta || "SIN RUTA";
+            if (!rutasMap[nombreRuta]) {
+              rutasMap[nombreRuta] = { venta: 0, peso: 0 };
+            }
+            rutasMap[nombreRuta].venta += venta;
+            rutasMap[nombreRuta].peso += peso;
 
             if (v.unidad && v.unidad !== "-")
               unidadesMap[v.unidad] = (unidadesMap[v.unidad] || 0) + peso;
@@ -156,8 +158,8 @@ export default function Dashboard() {
           ventas: agrupadoPorDia[fecha],
         })),
       todasRutas: Object.entries(rutasMap)
-        .sort((a, b) => b[1] - a[1])
-        .map(([nombre, venta]) => ({ nombre, venta })),
+        .sort((a, b) => b[1].venta - a[1].venta)
+        .map(([nombre, datos]) => ({ nombre, venta: datos.venta, peso: datos.peso })),
       todosChoferesPeso: Object.entries(choferesMap)
         .sort((a, b) => b[1] - a[1])
         .map(([nombre, peso]) => ({ nombre, peso })),
@@ -185,9 +187,20 @@ export default function Dashboard() {
       maximumFractionDigits: 2,
     }).format(c);
 
-  // 🚀 MANEJADOR PARA GENERAR EL PDF
-  const handleDescargarReporte = () => {
+  const handleDescargarReporte = async () => {
     setGenerandoPDF(true);
+    let graficoBase64 = null;
+    
+    try {
+      const elementoGrafico = document.getElementById("grafico-ventas");
+      if (elementoGrafico) {
+        const canvas = await html2canvas(elementoGrafico, { scale: 2 });
+        graficoBase64 = canvas.toDataURL("image/png");
+      }
+    } catch (error) {
+      console.error("Error capturando el gráfico:", error);
+    }
+
     generarPDFGerencial({
       fechas: { inicio: strHace7Dias, fin: strHoy },
       kpis: dataProcesada.kpis,
@@ -197,6 +210,7 @@ export default function Dashboard() {
       ayudantesViajes: dataProcesada.todosAyudantesViajes,
       finanzas: dataProcesada.todasFinanzas,
       unidades: dataProcesada.todasUnidades,
+      graficoBase64,
     });
     setGenerandoPDF(false);
   };
@@ -223,7 +237,6 @@ export default function Dashboard() {
 
   return (
     <div className="w-full bg-slate-50/50 p-6 rounded-xl flex flex-col h-full overflow-y-auto custom-scrollbar">
-      {/* 🚀 ENCABEZADO Y BOTÓN PDF */}
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
@@ -306,7 +319,7 @@ export default function Dashboard() {
           <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
             Tendencia de Ventas (7 Días)
           </h3>
-          <div className="w-full flex-1 min-h-100">
+          <div className="w-full flex-1 min-h-100" id="grafico-ventas">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={dataProcesada.datosGrafico}
@@ -452,7 +465,6 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 shrink-0 mb-6">
-        {/* TOP 10 MÁS */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm border-t-4 border-t-emerald-500">
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-5 flex items-center gap-2">
             <TrendingUp className="text-emerald-500" size={18} /> Top 10
@@ -491,45 +503,37 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* TOP 10 MENOS */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm border-t-4 border-t-rose-500">
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-5 flex items-center gap-2">
-            <TrendingDown className="text-rose-500" size={18} /> Top 10 Choferes
-            (Menos Percibido)
+            <TrendingDown className="text-rose-500" size={18} /> Top 10 Choferes (Menos Percibido)
           </h3>
           <div className="space-y-2">
-            {/* INVERTIMOS EL ARREGLO PARA VER LOS ÚLTIMOS 10 */}
-            {[...dataProcesada.todasFinanzas]
-              .reverse()
-              .slice(0, 10)
-              .map((c, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 shrink-0 rounded-md bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
-                      {idx + 1}
-                    </div>
-                    <p className="font-semibold text-slate-700 text-xs pr-2 leading-tight">
-                      {c.nombre}
-                    </p>
+            {[...dataProcesada.todasFinanzas].reverse().slice(0, 10).map((c, idx) => (
+              <div
+                key={idx}
+                className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 shrink-0 rounded-md bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
+                    {idx + 1}
                   </div>
-                  <div className="flex flex-col items-end text-xs shrink-0">
-                    <span
-                      className={`font-black ${c.total === 0 ? "text-rose-500" : "text-slate-700"}`}
-                    >
-                      {fMoneda(c.total)}
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      <span className="font-semibold text-slate-500">
-                        {c.viajes} {c.viajes === 1 ? "viaje" : "viajes"}
-                      </span>{" "}
-                      | V: {fMoneda(c.viaticos)} | C: {fMoneda(c.comisiones)}
-                    </span>
-                  </div>
+                  <p className="font-semibold text-slate-700 text-xs pr-2 leading-tight">
+                    {c.nombre}
+                  </p>
                 </div>
-              ))}
+                <div className="flex flex-col items-end text-xs shrink-0">
+                  <span className="font-black text-rose-700">
+                    {fMoneda(c.total)}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    <span className="font-semibold text-slate-500">
+                      {c.viajes} {c.viajes === 1 ? "viaje" : "viajes"}
+                    </span>{" "}
+                    | V: {fMoneda(c.viaticos)} | C: {fMoneda(c.comisiones)}
+                  </span>
+                </div>
+              </div>
+            ))}
             {dataProcesada.todasFinanzas.length === 0 && (
               <p className="text-xs text-slate-400">Sin datos registrados.</p>
             )}
