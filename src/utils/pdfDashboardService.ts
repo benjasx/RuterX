@@ -11,15 +11,16 @@ export const generarPDFGerencial = (datos: any) => {
     choferesViajes,
     ayudantesViajes,
     finanzas,
-    graficoBase64, // 🚀 NUEVO: Recibimos la imagen del gráfico
+    graficoBase64, // Recibimos la imagen del gráfico
   } = datos;
 
-  // FORMATOS
+  // --- FORMATOS ---
   const fMoneda = (n: number) =>
     new Intl.NumberFormat("es-MX", {
       style: "currency",
       currency: "MXN",
     }).format(n);
+    
   const fNum = (n: number) =>
     new Intl.NumberFormat("es-MX", { maximumFractionDigits: 2 }).format(n);
 
@@ -41,7 +42,7 @@ export const generarPDFGerencial = (datos: any) => {
 
   let yPos = 90;
 
-  // Función auxiliar para evitar que el contenido choque o se corte
+  // Función auxiliar para saltar de página automáticamente si no hay espacio
   const verificarEspacio = (espacioRequerido: number) => {
     if (yPos + espacioRequerido > pageHeight - 40) {
       doc.addPage();
@@ -93,7 +94,7 @@ export const generarPDFGerencial = (datos: any) => {
   });
   yPos = (doc as any).lastAutoTable.finalY + 25;
 
-  // --- 🚀 NUEVO: GRÁFICO DE TENDENCIA ---
+  // --- GRÁFICO DE TENDENCIA (OPCIONAL) ---
   if (graficoBase64) {
     verificarEspacio(260); // Validamos que quepa la imagen
     doc.setFontSize(12);
@@ -105,7 +106,7 @@ export const generarPDFGerencial = (datos: any) => {
     yPos += 230; 
   }
 
-  // --- 🚀 MODIFICADO: DESGLOSE TOTAL POR RUTA ---
+  // --- DESGLOSE TOTAL POR RUTA ---
   verificarEspacio(100);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
@@ -122,7 +123,8 @@ export const generarPDFGerencial = (datos: any) => {
         idx + 1,
         r.nombre,
         fMoneda(r.venta),
-        `${fNum(r.peso || 0)} KG`,
+        // Busca cualquier variante del nombre para los kilos
+        `${fNum(r.peso || r.kg || r.kgTotal || r.kilos || 0)} KG`, 
       ]),
   });
   yPos = (doc as any).lastAutoTable.finalY + 25;
@@ -185,7 +187,7 @@ export const generarPDFGerencial = (datos: any) => {
     head: [["Rank", "Chofer", "Volumen Movido (KG)"]],
     body: choferesPeso
       .slice(0, 10)
-      .map((c: any, idx: number) => [idx + 1, c.nombre, fNum(c.peso)]),
+      .map((c: any, idx: number) => [idx + 1, c.nombre, fNum(c.peso || c.kg || c.kgTotal || c.kilos || 0)]),
   });
   yPos = (doc as any).lastAutoTable.finalY + 25;
 
