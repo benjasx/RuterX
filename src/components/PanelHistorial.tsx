@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query"; // 🚀 IMPORTAMOS TANSTACK QUERY
+import { useQuery } from "@tanstack/react-query";
 import {
   History,
   Truck,
@@ -10,7 +10,7 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { obtenerHistorialPorRangoFirebase } from "../firebase/historialService"; // 🚀 USAMOS LA NUEVA FUNCIÓN
+import { obtenerHistorialPorRangoFirebase } from "../firebase/historialService";
 
 import {
   generarPDFNominaChoferes,
@@ -33,17 +33,21 @@ export default function PanelHistorial() {
   const [isGenerandoPDF, setIsGenerandoPDF] = useState(false);
   const [personalPDF, setPersonalPDF] = useState<string>("TODOS");
 
-  // 🚀 AQUÍ ESTÁ LA MAGIA: Reemplazamos los useEffect de carga por useQuery
+  // 🚀 NUEVOS ESTADOS PARA CONTROLAR QUÉ COLUMNAS SE MUESTRAN EN EL PDF
+  const [mostrarViaticos, setMostrarViaticos] = useState(true);
+  const [mostrarComisiones, setMostrarComisiones] = useState(true);
+
+  // Consulta de TanStack Query
   const {
     data: datosCrudos = [],
     isLoading: cargando,
     isError,
   } = useQuery({
-    queryKey: ["historial_salidas", "nomina", fechaInicio, fechaFin], // La llave depende de las fechas
+    queryKey: ["historial_salidas", "nomina", fechaInicio, fechaFin],
     queryFn: () => obtenerHistorialPorRangoFirebase(fechaInicio, fechaFin),
   });
 
-  // 🚀 PROCESAMOS LOS DATOS CON USEMEMO (Solo se recalcula si datosCrudos cambia)
+  // Procesamiento de datos con useMemo
   const {
     estadisticasChoferes,
     estadisticasAyudantes,
@@ -57,7 +61,7 @@ export default function PanelHistorial() {
       {};
     const listaViajesFiltrados: any[] = [];
 
-    // 1. CREAR LA "LISTA NEGRA" DE CHOFERES (Solo del rango actual)
+    // 1. CREAR LA "LISTA NEGRA" DE CHOFERES
     datosCrudos.forEach((registro) => {
       (registro.viajes || []).forEach((viaje: any) => {
         if (viaje.chofer && viaje.chofer !== "-") {
@@ -70,7 +74,7 @@ export default function PanelHistorial() {
       (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
     );
 
-    // 2. CONTAR LOS VIAJES (Ya no necesitamos comprobar 'enRango' porque Firebase ya lo filtró)
+    // 2. CONTAR LOS VIAJES
     datosOrdenados.forEach((registro) => {
       const fecha = registro.fecha;
 
@@ -138,7 +142,7 @@ export default function PanelHistorial() {
     setPersonalPDF("TODOS");
   }, [vistaActiva]);
 
-  // LÓGICA DE DESCARGA DINÁMICA
+  // 🚀 LÓGICA DE DESCARGA DINÁMICA (AHORA ENVÍA LAS OPCIONES DE DINERO)
   const handleDescargarPDF = async () => {
     setIsGenerandoPDF(true);
     if (vistaActiva === "choferes") {
@@ -147,6 +151,8 @@ export default function PanelHistorial() {
         fechaInicio,
         fechaFin,
         personalPDF,
+        mostrarViaticos, // Enviamos el valor del checkbox
+        mostrarComisiones, // Enviamos el valor del checkbox
       );
     } else {
       await generarPDFNominaAyudantes(
@@ -155,6 +161,8 @@ export default function PanelHistorial() {
         fechaFin,
         personalPDF,
         listaNegraChoferes,
+        mostrarViaticos, // Enviamos el valor del checkbox
+        mostrarComisiones, // Enviamos el valor del checkbox
       );
     }
     setIsGenerandoPDF(false);
@@ -182,6 +190,9 @@ export default function PanelHistorial() {
     ? "hover:bg-purple-50"
     : "hover:bg-emerald-50";
 
+  // Color del checkbox para que coincida con el tema actual
+  const colorCheckbox = isChofer ? "accent-purple-600" : "accent-emerald-600";
+
   if (isError) {
     return (
       <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-full flex flex-col items-center justify-center">
@@ -204,7 +215,7 @@ export default function PanelHistorial() {
           size={24}
         />
         <h2 className="text-xl font-bold text-slate-800">
-          Control de Equidad y Nómina
+          Control de Equidad y Reportes
         </h2>
       </div>
 
@@ -233,37 +244,61 @@ export default function PanelHistorial() {
           </div>
         </div>
 
-        {/* SELECTOR DE PERSONAL Y BOTÓN DE PDF */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
-          <select
-            value={personalPDF}
-            onChange={(e) => setPersonalPDF(e.target.value)}
-            className={`px-3 py-2.5 rounded-lg border text-sm outline-none text-slate-700 font-bold bg-white shadow-sm w-full sm:w-auto cursor-pointer transition-colors ${colorSelectBorder}`}
-          >
-            <option value="TODOS">Reporte General (Todos)</option>
-            {[...datosMostrar]
-              .sort((a, b) => a.nombre.localeCompare(b.nombre))
-              .map((c) => (
-                <option key={c.nombre} value={c.nombre}>
-                  {c.nombre}
-                </option>
-              ))}
-          </select>
+        {/* 🚀 SELECTOR DE PERSONAL, CHECKBOXES Y BOTÓN PDF */}
+        <div className="flex flex-col items-end gap-3 w-full xl:w-auto">
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+            <select
+              value={personalPDF}
+              onChange={(e) => setPersonalPDF(e.target.value)}
+              className={`px-3 py-2.5 rounded-lg border text-sm outline-none text-slate-700 font-bold bg-white shadow-sm w-full sm:w-auto cursor-pointer transition-colors ${colorSelectBorder}`}
+            >
+              <option value="TODOS">Reporte General (Todos)</option>
+              {[...datosMostrar]
+                .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                .map((c) => (
+                  <option key={c.nombre} value={c.nombre}>
+                    {c.nombre}
+                  </option>
+                ))}
+            </select>
 
-          <button
-            onClick={handleDescargarPDF}
-            disabled={isGenerandoPDF || cargando}
-            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm w-full sm:w-auto ${
-              isGenerandoPDF || cargando
-                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                : `${colorBtnPDF} text-white`
-            }`}
-          >
-            <FileDown size={18} />
-            {isGenerandoPDF
-              ? "Calculando..."
-              : `Descargar Reporte de Rutas ${isChofer ? "Choferes" : "Ayudantes"}`}
-          </button>
+            <button
+              onClick={handleDescargarPDF}
+              disabled={isGenerandoPDF || cargando}
+              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm w-full sm:w-auto ${
+                isGenerandoPDF || cargando
+                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : `${colorBtnPDF} text-white`
+              }`}
+            >
+              <FileDown size={18} />
+              {isGenerandoPDF
+                ? "Calculando..."
+                : `Descargar Reporte ${isChofer ? "Choferes" : "Auxiliares"}`}
+            </button>
+          </div>
+
+          {/* 🚀 CHECKBOXES PARA MOSTRAR/OCULTAR DINERO */}
+          <div className="flex items-center gap-4 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 w-full sm:w-auto">
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer hover:text-slate-900 transition-colors">
+              <input
+                type="checkbox"
+                checked={mostrarViaticos}
+                onChange={(e) => setMostrarViaticos(e.target.checked)}
+                className={`w-4 h-4 cursor-pointer ${colorCheckbox}`}
+              />
+              Incluir Viáticos
+            </label>
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer hover:text-slate-900 transition-colors">
+              <input
+                type="checkbox"
+                checked={mostrarComisiones}
+                onChange={(e) => setMostrarComisiones(e.target.checked)}
+                className={`w-4 h-4 cursor-pointer ${colorCheckbox}`}
+              />
+              Incluir Comisiones
+            </label>
+          </div>
         </div>
       </div>
 
@@ -300,7 +335,7 @@ export default function PanelHistorial() {
               : "border-transparent text-slate-500 hover:text-emerald-600"
           }`}
         >
-          <Users size={16} /> Ayudantes
+          <Users size={16} /> Auxiliares
         </button>
       </div>
 
@@ -327,7 +362,7 @@ export default function PanelHistorial() {
                 className={`${colorTh} text-white uppercase tracking-wider text-xs transition-colors`}
               >
                 <th className="px-6 py-4 font-bold">
-                  {isChofer ? "Nombre del Chofer" : "Nombre del Ayudante"}
+                  {isChofer ? "Nombre del Chofer" : "Nombre del Auxiliar"}
                 </th>
                 <th className="px-6 py-4 font-bold text-center">
                   Viajes en el Rango
