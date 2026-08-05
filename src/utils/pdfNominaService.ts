@@ -33,7 +33,7 @@ export const generarPDFNominaChoferes = async (
   fechaFin: string,
   choferElegido: string = "TODOS",
   mostrarViaticos: boolean = true,
-  mostrarComisiones: boolean = true,
+  mostrarComisiones: boolean = true
 ) => {
   const pdfMake = (window as any).pdfMake;
   if (!pdfMake) return alert("Generador PDF cargando...");
@@ -49,23 +49,10 @@ export const generarPDFNominaChoferes = async (
   });
 
   const contentBlocks: any[] = [];
-  const titulo =
+  const tituloGlobal =
     choferElegido === "TODOS"
-      ? `REPORTE DE RUTAS DE CHOFERES\n(DEL ${fechaInicio} AL ${fechaFin})`
-      : `REPORTE: ${choferElegido}\n(DEL ${fechaInicio} AL ${fechaFin})`;
-
-  contentBlocks.push({
-    columns: [
-      logoBase64 ? { image: logoBase64, width: 70 } : { text: "CIR" },
-      {
-        text: titulo,
-        style: "mainTitle",
-        alignment: "right",
-        margin: [0, 5, 0, 0],
-      },
-    ],
-    margin: [0, 0, 0, 15],
-  });
+      ? "REPORTE DE RUTAS DE CHOFERES"
+      : `REPORTE: ${choferElegido}`;
 
   Object.keys(viajesPorChofer)
     .sort()
@@ -75,7 +62,7 @@ export const generarPDFNominaChoferes = async (
         sumaComisiones = 0,
         sumaKg = 0;
 
-      // 🚀 CORRECCIÓN: "Total Día" SOLO aparece si AMBAS opciones están seleccionadas
+      const cantidadRutas = viajesPorChofer[chofer].length;
       const mostrarTotalDia = mostrarViaticos && mostrarComisiones;
 
       const headerRow: any[] = [
@@ -85,12 +72,9 @@ export const generarPDFNominaChoferes = async (
         { text: "KG", style: "th", alignment: "right" },
         { text: "Venta ($)", style: "th", alignment: "right" },
       ];
-      if (mostrarViaticos)
-        headerRow.push({ text: "Viáticos", style: "th", alignment: "right" });
-      if (mostrarComisiones)
-        headerRow.push({ text: "Comisión", style: "th", alignment: "right" });
-      if (mostrarTotalDia)
-        headerRow.push({ text: "Total Día", style: "th", alignment: "right" });
+      if (mostrarViaticos) headerRow.push({ text: "Viáticos", style: "th", alignment: "right" });
+      if (mostrarComisiones) headerRow.push({ text: "Comisión", style: "th", alignment: "right" });
+      if (mostrarTotalDia) headerRow.push({ text: "Total Día", style: "th", alignment: "right" });
 
       const tableBody: any[][] = [headerRow];
 
@@ -113,61 +97,24 @@ export const generarPDFNominaChoferes = async (
           { text: fNumero(kg), style: "td", alignment: "right" },
           { text: fMoneda(monto), style: "td", alignment: "right" },
         ];
-        if (mostrarViaticos)
-          row.push({
-            text: fMoneda(viatico),
-            style: "td",
-            alignment: "right",
-            color: "#166534",
-          });
-        if (mostrarComisiones)
-          row.push({
-            text: fMoneda(comision),
-            style: "td",
-            alignment: "right",
-            color: "#1d4ed8",
-          });
-        if (mostrarTotalDia)
-          row.push({
-            text: fMoneda(totalDia),
-            style: "tdBold",
-            alignment: "right",
-          });
+        if (mostrarViaticos) row.push({ text: fMoneda(viatico), style: "td", alignment: "right", color: "#166534" });
+        if (mostrarComisiones) row.push({ text: fMoneda(comision), style: "td", alignment: "right", color: "#1d4ed8" });
+        if (mostrarTotalDia) row.push({ text: fMoneda(totalDia), style: "tdBold", alignment: "right" });
 
         tableBody.push(row);
       });
 
       const totalRow: any[] = [
-        {
-          text: "TOTAL SEMANAL",
-          colSpan: 3,
-          style: "thTotal",
-          alignment: "right",
-        },
+        { text: `TOTAL SEMANAL (${cantidadRutas} RUTAS)`, colSpan: 3, style: "thTotal", alignment: "right" },
         {},
         {},
         { text: fNumero(sumaKg), style: "thTotal", alignment: "right" },
         { text: fMoneda(sumaVenta), style: "thTotal", alignment: "right" },
       ];
-      if (mostrarViaticos)
-        totalRow.push({
-          text: fMoneda(sumaViaticos),
-          style: "thTotal",
-          alignment: "right",
-        });
-      if (mostrarComisiones)
-        totalRow.push({
-          text: fMoneda(sumaComisiones),
-          style: "thTotal",
-          alignment: "right",
-        });
+      if (mostrarViaticos) totalRow.push({ text: fMoneda(sumaViaticos), style: "thTotal", alignment: "right" });
+      if (mostrarComisiones) totalRow.push({ text: fMoneda(sumaComisiones), style: "thTotal", alignment: "right" });
       if (mostrarTotalDia) {
-        // Solo sumamos esto si la columna "Total Día" se va a renderizar
-        totalRow.push({
-          text: fMoneda(sumaViaticos + sumaComisiones),
-          style: "thGranTotal",
-          alignment: "right",
-        });
+        totalRow.push({ text: fMoneda(sumaViaticos + sumaComisiones), style: "thGranTotal", alignment: "right" });
       }
 
       tableBody.push(totalRow);
@@ -177,13 +124,29 @@ export const generarPDFNominaChoferes = async (
       if (mostrarComisiones) tableWidths.push("auto");
       if (mostrarTotalDia) tableWidths.push("auto");
 
+      // 🚀 SE RECONSTRUYÓ EL BLOQUE: LOGO + TÍTULOS EN CADA TABLA
       contentBlocks.push({
         stack: [
+          // 1. Logo y Título Principal (Repetido por cada chofer)
+          {
+            columns: [
+              logoBase64 ? { image: logoBase64, width: 70 } : { text: "CIR", bold: true },
+              {
+                text: `${tituloGlobal}\n(DEL ${fechaInicio} AL ${fechaFin})`,
+                style: "mainTitle",
+                alignment: "right",
+                margin: [0, 5, 0, 0],
+              },
+            ],
+            margin: [0, 0, 0, 10],
+          },
+          // 2. Barra Gris del Chofer
           {
             text: `Chofer: ${chofer}`,
             style: "choferTitle",
-            margin: [0, 8, 0, 4],
+            margin: [0, 0, 0, 4],
           },
+          // 3. La Tabla
           {
             table: {
               headerRows: 1,
@@ -192,31 +155,15 @@ export const generarPDFNominaChoferes = async (
             },
             layout: "lightHorizontalLines",
           },
+          // 4. Firmas
           {
             columns: [
               { width: "*", text: "" },
               {
                 width: 170,
                 stack: [
-                  {
-                    canvas: [
-                      {
-                        type: "line",
-                        x1: 0,
-                        y1: 0,
-                        x2: 170,
-                        y2: 0,
-                        lineWidth: 1,
-                      },
-                    ],
-                  },
-                  {
-                    text: `Firma: ${chofer}`,
-                    alignment: "center",
-                    margin: [0, 5, 0, 0],
-                    fontSize: 9,
-                    bold: true,
-                  },
+                  { canvas: [{ type: "line", x1: 0, y1: 0, x2: 170, y2: 0, lineWidth: 1 }] },
+                  { text: `Firma: ${chofer}`, alignment: "center", margin: [0, 5, 0, 0], fontSize: 9, bold: true },
                 ],
                 margin: [0, 50, 0, 0],
               },
@@ -224,35 +171,18 @@ export const generarPDFNominaChoferes = async (
               {
                 width: 170,
                 stack: [
-                  {
-                    canvas: [
-                      {
-                        type: "line",
-                        x1: 0,
-                        y1: 0,
-                        x2: 170,
-                        y2: 0,
-                        lineWidth: 1,
-                      },
-                    ],
-                  },
-                  {
-                    text: "Firma: Jefe de Reparto",
-                    alignment: "center",
-                    margin: [0, 5, 0, 0],
-                    fontSize: 9,
-                    bold: true,
-                  },
+                  { canvas: [{ type: "line", x1: 0, y1: 0, x2: 170, y2: 0, lineWidth: 1 }] },
+                  { text: "Firma: Jefe de Reparto", alignment: "center", margin: [0, 5, 0, 0], fontSize: 9, bold: true },
                 ],
                 margin: [0, 50, 0, 0],
               },
               { width: "*", text: "" },
             ],
             margin: [0, 10, 0, 20],
-          },
+          }
         ],
-        unbreakable: true,
-        margin: [0, 0, 0, 15],
+        unbreakable: true, // Esto fuerza a que si el recibo no cabe en la página, se pase completo a la siguiente.
+        margin: [0, 0, 0, 30], // Separación entre recibos
       });
     });
 
@@ -304,7 +234,7 @@ export const generarPDFNominaAyudantes = async (
   ayudanteElegido: string = "TODOS",
   listaNegraChoferes: Set<string>,
   mostrarViaticos: boolean = true,
-  mostrarComisiones: boolean = true,
+  mostrarComisiones: boolean = true
 ) => {
   const pdfMake = (window as any).pdfMake;
   if (!pdfMake) return alert("Generador PDF cargando...");
@@ -330,23 +260,10 @@ export const generarPDFNominaAyudantes = async (
   });
 
   const contentBlocks: any[] = [];
-  const titulo =
+  const tituloGlobal =
     ayudanteElegido === "TODOS"
-      ? `REPORTE DE RUTAS DE AUXILIARES\n(DEL ${fechaInicio} AL ${fechaFin})`
-      : `REPORTE: ${ayudanteElegido}\n(DEL ${fechaInicio} AL ${fechaFin})`;
-
-  contentBlocks.push({
-    columns: [
-      logoBase64 ? { image: logoBase64, width: 70 } : { text: "CIR" },
-      {
-        text: titulo,
-        style: "mainTitle",
-        alignment: "right",
-        margin: [0, 5, 0, 0],
-      },
-    ],
-    margin: [0, 0, 0, 15],
-  });
+      ? "REPORTE DE RUTAS DE AUXILIARES"
+      : `REPORTE: ${ayudanteElegido}`;
 
   Object.keys(viajesPorAyudante)
     .sort()
@@ -356,7 +273,7 @@ export const generarPDFNominaAyudantes = async (
         sumaComisiones = 0,
         sumaKg = 0;
 
-      // 🚀 CORRECCIÓN: "Total Día" SOLO aparece si AMBAS opciones están seleccionadas
+      const cantidadRutas = viajesPorAyudante[ayudante].length;
       const mostrarTotalDia = mostrarViaticos && mostrarComisiones;
 
       const headerRow: any[] = [
@@ -366,12 +283,9 @@ export const generarPDFNominaAyudantes = async (
         { text: "KG", style: "th", alignment: "right" },
         { text: "Venta ($)", style: "th", alignment: "right" },
       ];
-      if (mostrarViaticos)
-        headerRow.push({ text: "Viáticos", style: "th", alignment: "right" });
-      if (mostrarComisiones)
-        headerRow.push({ text: "Comisión", style: "th", alignment: "right" });
-      if (mostrarTotalDia)
-        headerRow.push({ text: "Total Día", style: "th", alignment: "right" });
+      if (mostrarViaticos) headerRow.push({ text: "Viáticos", style: "th", alignment: "right" });
+      if (mostrarComisiones) headerRow.push({ text: "Comisión", style: "th", alignment: "right" });
+      if (mostrarTotalDia) headerRow.push({ text: "Total Día", style: "th", alignment: "right" });
 
       const tableBody: any[][] = [headerRow];
 
@@ -394,60 +308,24 @@ export const generarPDFNominaAyudantes = async (
           { text: fNumero(kg), style: "td", alignment: "right" },
           { text: fMoneda(monto), style: "td", alignment: "right" },
         ];
-        if (mostrarViaticos)
-          row.push({
-            text: fMoneda(viatico),
-            style: "td",
-            alignment: "right",
-            color: "#166534",
-          });
-        if (mostrarComisiones)
-          row.push({
-            text: fMoneda(comision),
-            style: "td",
-            alignment: "right",
-            color: "#1d4ed8",
-          });
-        if (mostrarTotalDia)
-          row.push({
-            text: fMoneda(totalDia),
-            style: "tdBold",
-            alignment: "right",
-          });
+        if (mostrarViaticos) row.push({ text: fMoneda(viatico), style: "td", alignment: "right", color: "#166534" });
+        if (mostrarComisiones) row.push({ text: fMoneda(comision), style: "td", alignment: "right", color: "#1d4ed8" });
+        if (mostrarTotalDia) row.push({ text: fMoneda(totalDia), style: "tdBold", alignment: "right" });
 
         tableBody.push(row);
       });
 
       const totalRow: any[] = [
-        {
-          text: "TOTAL SEMANAL",
-          colSpan: 3,
-          style: "thTotal",
-          alignment: "right",
-        },
+        { text: `TOTAL SEMANAL (${cantidadRutas} RUTAS)`, colSpan: 3, style: "thTotal", alignment: "right" },
         {},
         {},
         { text: fNumero(sumaKg), style: "thTotal", alignment: "right" },
         { text: fMoneda(sumaVenta), style: "thTotal", alignment: "right" },
       ];
-      if (mostrarViaticos)
-        totalRow.push({
-          text: fMoneda(sumaViaticos),
-          style: "thTotal",
-          alignment: "right",
-        });
-      if (mostrarComisiones)
-        totalRow.push({
-          text: fMoneda(sumaComisiones),
-          style: "thTotal",
-          alignment: "right",
-        });
+      if (mostrarViaticos) totalRow.push({ text: fMoneda(sumaViaticos), style: "thTotal", alignment: "right" });
+      if (mostrarComisiones) totalRow.push({ text: fMoneda(sumaComisiones), style: "thTotal", alignment: "right" });
       if (mostrarTotalDia) {
-        totalRow.push({
-          text: fMoneda(sumaViaticos + sumaComisiones),
-          style: "thGranTotal",
-          alignment: "right",
-        });
+        totalRow.push({ text: fMoneda(sumaViaticos + sumaComisiones), style: "thGranTotal", alignment: "right" });
       }
 
       tableBody.push(totalRow);
@@ -457,13 +335,29 @@ export const generarPDFNominaAyudantes = async (
       if (mostrarComisiones) tableWidths.push("auto");
       if (mostrarTotalDia) tableWidths.push("auto");
 
+      // 🚀 SE RECONSTRUYÓ EL BLOQUE: LOGO + TÍTULOS EN CADA TABLA (AUXILIARES)
       contentBlocks.push({
         stack: [
+          // 1. Logo y Título Principal
+          {
+            columns: [
+              logoBase64 ? { image: logoBase64, width: 70 } : { text: "CIR", bold: true },
+              {
+                text: `${tituloGlobal}\n(DEL ${fechaInicio} AL ${fechaFin})`,
+                style: "mainTitle",
+                alignment: "right",
+                margin: [0, 5, 0, 0],
+              },
+            ],
+            margin: [0, 0, 0, 10],
+          },
+          // 2. Barra Gris del Auxiliar
           {
             text: `Auxiliar: ${ayudante}`,
             style: "choferTitle",
-            margin: [0, 8, 0, 4],
+            margin: [0, 0, 0, 4],
           },
+          // 3. La Tabla
           {
             table: {
               headerRows: 1,
@@ -472,31 +366,15 @@ export const generarPDFNominaAyudantes = async (
             },
             layout: "lightHorizontalLines",
           },
+          // 4. Firmas
           {
             columns: [
               { width: "*", text: "" },
               {
                 width: 170,
                 stack: [
-                  {
-                    canvas: [
-                      {
-                        type: "line",
-                        x1: 0,
-                        y1: 0,
-                        x2: 170,
-                        y2: 0,
-                        lineWidth: 1,
-                      },
-                    ],
-                  },
-                  {
-                    text: `Firma: ${ayudante}`,
-                    alignment: "center",
-                    margin: [0, 5, 0, 0],
-                    fontSize: 9,
-                    bold: true,
-                  },
+                  { canvas: [{ type: "line", x1: 0, y1: 0, x2: 170, y2: 0, lineWidth: 1 }] },
+                  { text: `Firma: ${ayudante}`, alignment: "center", margin: [0, 5, 0, 0], fontSize: 9, bold: true },
                 ],
                 margin: [0, 50, 0, 0],
               },
@@ -504,35 +382,18 @@ export const generarPDFNominaAyudantes = async (
               {
                 width: 170,
                 stack: [
-                  {
-                    canvas: [
-                      {
-                        type: "line",
-                        x1: 0,
-                        y1: 0,
-                        x2: 170,
-                        y2: 0,
-                        lineWidth: 1,
-                      },
-                    ],
-                  },
-                  {
-                    text: "Firma: Jefe de Reparto",
-                    alignment: "center",
-                    margin: [0, 5, 0, 0],
-                    fontSize: 9,
-                    bold: true,
-                  },
+                  { canvas: [{ type: "line", x1: 0, y1: 0, x2: 170, y2: 0, lineWidth: 1 }] },
+                  { text: "Firma: Jefe de Reparto", alignment: "center", margin: [0, 5, 0, 0], fontSize: 9, bold: true },
                 ],
                 margin: [0, 50, 0, 0],
               },
               { width: "*", text: "" },
             ],
             margin: [0, 10, 0, 20],
-          },
+          }
         ],
         unbreakable: true,
-        margin: [0, 0, 0, 15],
+        margin: [0, 0, 0, 30],
       });
     });
 
