@@ -37,7 +37,6 @@ export const generarPDFNominaChoferes = async (
   if (!pdfMake) return alert("Generador PDF cargando...");
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
 
-  // 🚀 Identificamos a los choferes históricos
   const setChoferes = new Set<string>();
   viajes.forEach((v) => {
     if (v.chofer && v.chofer !== "-") {
@@ -47,7 +46,6 @@ export const generarPDFNominaChoferes = async (
 
   const viajesPorChofer: Record<string, any[]> = {};
 
-  // 🚀 Agrupamos viajes manejando y viajes de apoyo en el mismo recibo
   viajes.forEach((v) => {
     const c = v.chofer ? v.chofer.toUpperCase().trim() : "";
     const a1 = v.ayudante1 ? v.ayudante1.toUpperCase().trim() : "";
@@ -98,21 +96,19 @@ export const generarPDFNominaChoferes = async (
       const tableBody: any[][] = [headerRow];
 
       viajesPorChofer[chofer].forEach((v) => {
-        const rol = v.rolGenerado; // "CHOFER" o "AYUDANTE"
+        const rol = v.rolGenerado;
         const nombreRuta = (v.ruta || "").toUpperCase().trim();
         const monto = Number(v.totalMonto) || 0;
 
         let viatico = 0;
         let comision = 0;
 
-        // 🚀 CÁLCULO INTELIGENTE SEGÚN SU ROL EN ESE VIAJE
         if (rol === "CHOFER") {
           viatico = Number(v.viaticoRuta) || 0;
           comision = Number(v.comisionChofer) || 0;
           if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2")
             comision = monto * 0.001;
         } else {
-          // FUE DE AYUDANTE (No cobra viáticos, solo su comisión)
           viatico = 0;
           comision = Number(v.comisionAyudante) || 0;
           if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2")
@@ -127,9 +123,7 @@ export const generarPDFNominaChoferes = async (
         sumaComisiones += comision;
         sumaKg += kg;
 
-        // 🚀 AGREGAMOS LA ETIQUETA (APOYO) A LA RUTA SI FUE DE AYUDANTE
-        const textoRuta =
-          rol === "AYUDANTE" ? `${v.ruta || "-"} (APOYO)` : v.ruta || "-";
+        const textoRuta = v.ruta || "-";
 
         const row: any[] = [
           { text: v.fecha, style: "td" },
@@ -356,7 +350,6 @@ export const generarPDFNominaAyudantes = async (
     if (nombre === "-" || nombre === "SIN AYUDANTE" || nombre === "UNDEFINED")
       return;
 
-    // Aquí la "lista negra" funciona perfecto: bloquea que los choferes aparezcan en este PDF.
     if (listaNegraChoferes.has(nombre)) return;
 
     if (ayudanteElegido !== "TODOS" && nombre !== ayudanteElegido) return;
@@ -619,4 +612,271 @@ export const generarPDFNominaAyudantes = async (
       },
     })
     .download(`Reporte_Rutas_Auxiliares_${fechaInicio}.pdf`);
+};
+
+// ============================================================================
+// PDF: RESUMEN GENERAL DE PAGOS (TODOS) - CON CHECKS DE COLUMNAS 🚀
+// ============================================================================
+export const generarPDFResumenGeneral = async (
+  viajes: any[],
+  fechaInicio: string,
+  fechaFin: string,
+  mostrarViaticos: boolean = true, // 🚀 AHORA RECIBE EL VALOR
+  mostrarComisiones: boolean = true, // 🚀 AHORA RECIBE EL VALOR
+) => {
+  const pdfMake = (window as any).pdfMake;
+  if (!pdfMake) return alert("Generador PDF cargando...");
+  const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
+
+  const totales: Record<
+    string,
+    { rol: string; viaticos: number; comisiones: number }
+  > = {};
+  const setChoferes = new Set<string>();
+
+  viajes.forEach((v) => {
+    if (v.chofer && v.chofer !== "-")
+      setChoferes.add(v.chofer.toUpperCase().trim());
+  });
+
+  viajes.forEach((v) => {
+    const c = v.chofer ? v.chofer.toUpperCase().trim() : "";
+    const a1 = v.ayudante1 ? v.ayudante1.toUpperCase().trim() : "";
+    const a2 = v.ayudante2 ? v.ayudante2.toUpperCase().trim() : "";
+    const nombreRuta = (v.ruta || "").toUpperCase().trim();
+    const monto = Number(v.totalMonto) || 0;
+
+    if (c && c !== "-") {
+      if (!totales[c])
+        totales[c] = { rol: "CHOFER", viaticos: 0, comisiones: 0 };
+      totales[c].viaticos += Number(v.viaticoRuta) || 0;
+      let comision = Number(v.comisionChofer) || 0;
+      if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2")
+        comision = monto * 0.001;
+      totales[c].comisiones += comision;
+    }
+
+    const procesarAyudante = (ay: string) => {
+      if (ay && ay !== "-" && ay !== "SIN AYUDANTE" && ay !== "UNDEFINED") {
+        const esChofer = setChoferes.has(ay);
+        if (!totales[ay]) {
+          totales[ay] = {
+            rol: esChofer ? "CHOFER" : "AUXILIAR",
+            viaticos: 0,
+            comisiones: 0,
+          };
+        }
+
+        let comision = Number(v.comisionAyudante) || 0;
+        if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2")
+          comision = monto * 0.001;
+        totales[ay].comisiones += comision;
+
+        if (!esChofer) {
+          totales[ay].viaticos += Number(v.viaticoRuta) || 0;
+        }
+      }
+    };
+
+    procesarAyudante(a1);
+    procesarAyudante(a2);
+  });
+
+  // 🚀 CONSTRUIMOS EL ENCABEZADO DEPENDIENDO DE LOS CHECKBOXES
+  const headerRow: any[] = [
+    { text: "Personal", style: "th" },
+    { text: "Puesto", style: "th", alignment: "center" },
+  ];
+  if (mostrarViaticos)
+    headerRow.push({ text: "Viáticos", style: "th", alignment: "right" });
+  if (mostrarComisiones)
+    headerRow.push({ text: "Comisión", style: "th", alignment: "right" });
+  headerRow.push({ text: "Total a Pagar", style: "th", alignment: "right" });
+
+  const tableBody: any[][] = [headerRow];
+
+  let sumaViaticos = 0,
+    sumaComisiones = 0,
+    sumaTotal = 0;
+
+  Object.keys(totales)
+    .sort()
+    .forEach((nombre) => {
+      const data = totales[nombre];
+
+      // 🚀 SOLO SUMAMOS AL TOTAL LO QUE ESTÉ ACTIVADO
+      const viaticoCobrado = mostrarViaticos ? data.viaticos : 0;
+      const comisionCobrada = mostrarComisiones ? data.comisiones : 0;
+      const total = viaticoCobrado + comisionCobrada;
+
+      if (mostrarViaticos) sumaViaticos += data.viaticos;
+      if (mostrarComisiones) sumaComisiones += data.comisiones;
+      sumaTotal += total;
+
+      const row: any[] = [
+        { text: nombre, style: "td", bold: true },
+        { text: data.rol, style: "td", alignment: "center" },
+      ];
+      if (mostrarViaticos)
+        row.push({
+          text: fMoneda(data.viaticos),
+          style: "td",
+          alignment: "right",
+          color: "#166534",
+        });
+      if (mostrarComisiones)
+        row.push({
+          text: fMoneda(data.comisiones),
+          style: "td",
+          alignment: "right",
+          color: "#1d4ed8",
+        });
+      row.push({ text: fMoneda(total), style: "tdBold", alignment: "right" });
+
+      tableBody.push(row);
+    });
+
+  // 🚀 TOTAL GENERAL DINÁMICO
+  const totalRow: any[] = [
+    { text: "TOTAL GENERAL", colSpan: 2, style: "thTotal", alignment: "right" },
+    {},
+  ];
+  if (mostrarViaticos)
+    totalRow.push({
+      text: fMoneda(sumaViaticos),
+      style: "thTotal",
+      alignment: "right",
+    });
+  if (mostrarComisiones)
+    totalRow.push({
+      text: fMoneda(sumaComisiones),
+      style: "thTotal",
+      alignment: "right",
+    });
+  totalRow.push({
+    text: fMoneda(sumaTotal),
+    style: "thGranTotal",
+    alignment: "right",
+  });
+
+  tableBody.push(totalRow);
+
+  // 🚀 TAMAÑO DE COLUMNAS DINÁMICO
+  const tableWidths: string[] = ["*", "auto"];
+  if (mostrarViaticos) tableWidths.push("auto");
+  if (mostrarComisiones) tableWidths.push("auto");
+  tableWidths.push("auto"); // Para el Total a Pagar
+
+  const contentBlocks = [
+    {
+      columns: [
+        logoBase64
+          ? { image: logoBase64, width: 70 }
+          : { text: "CIR", bold: true },
+        {
+          text: `RESUMEN GENERAL DE NÓMINA\n(DEL ${fechaInicio} AL ${fechaFin})`,
+          style: "mainTitle",
+          alignment: "right",
+          margin: [0, 5, 0, 0],
+        },
+      ],
+      margin: [0, 0, 0, 15],
+    },
+    {
+      table: {
+        headerRows: 1,
+        widths: tableWidths,
+        body: tableBody,
+      },
+      layout: "lightHorizontalLines",
+    },
+    {
+      columns: [
+        { width: "*", text: "" },
+        {
+          width: 120,
+          stack: [
+            {
+              canvas: [
+                { type: "line", x1: 0, y1: 0, x2: 120, y2: 0, lineWidth: 1 },
+              ],
+            },
+            {
+              text: "Recursos Humanos",
+              alignment: "center",
+              margin: [0, 5, 0, 0],
+              fontSize: 8,
+              bold: true,
+            },
+          ],
+        },
+        { width: "*", text: "" },
+        {
+          width: 120,
+          stack: [
+            {
+              canvas: [
+                { type: "line", x1: 0, y1: 0, x2: 120, y2: 0, lineWidth: 1 },
+              ],
+            },
+            {
+              text: "Jefe de Embarques",
+              alignment: "center",
+              margin: [0, 5, 0, 0],
+              fontSize: 8,
+              bold: true,
+            },
+          ],
+        },
+        { width: "*", text: "" },
+        {
+          width: 120,
+          stack: [
+            {
+              canvas: [
+                { type: "line", x1: 0, y1: 0, x2: 120, y2: 0, lineWidth: 1 },
+              ],
+            },
+            {
+              text: "Jefe de Reparto",
+              alignment: "center",
+              margin: [0, 5, 0, 0],
+              fontSize: 8,
+              bold: true,
+            },
+          ],
+        },
+        { width: "*", text: "" },
+      ],
+      margin: [0, 60, 0, 0],
+    },
+  ];
+
+  pdfMake
+    .createPdf({
+      pageOrientation: "portrait",
+      pageMargins: [30, 30, 30, 30],
+      content: contentBlocks,
+      styles: {
+        mainTitle: { fontSize: 13, bold: true },
+        th: {
+          bold: true,
+          fontSize: 9,
+          fillColor: "#0f172a",
+          color: "white",
+          margin: 4,
+        },
+        td: { fontSize: 8, margin: 4 },
+        tdBold: { fontSize: 8, bold: true, margin: 4 },
+        thTotal: { bold: true, fontSize: 9, fillColor: "#e2e8f0", margin: 4 },
+        thGranTotal: {
+          bold: true,
+          fontSize: 9,
+          fillColor: "#dcfce3",
+          color: "#166534",
+          margin: 4,
+        },
+      },
+    })
+    .download(`Resumen_General_Nomina_${fechaInicio}.pdf`);
 };

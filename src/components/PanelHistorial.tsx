@@ -7,6 +7,7 @@ import {
   AlertCircle,
   Clock,
   FileDown,
+  FileText,
   User,
   Users,
 } from "lucide-react";
@@ -15,6 +16,7 @@ import { obtenerHistorialPorRangoFirebase } from "../firebase/historialService";
 import {
   generarPDFNominaChoferes,
   generarPDFNominaAyudantes,
+  generarPDFResumenGeneral,
 } from "../utils/pdfNominaService";
 
 export default function PanelHistorial() {
@@ -58,7 +60,6 @@ export default function PanelHistorial() {
       {};
     const listaViajesFiltrados: any[] = [];
 
-    // 1. CREAR LA "LISTA NEGRA" DE CHOFERES
     datosCrudos.forEach((registro) => {
       (registro.viajes || []).forEach((viaje: any) => {
         if (viaje.chofer && viaje.chofer !== "-") {
@@ -71,14 +72,12 @@ export default function PanelHistorial() {
       (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
     );
 
-    // 2. CONTAR LOS VIAJES (CON APOYOS INCLUIDOS)
     datosOrdenados.forEach((registro) => {
       const fecha = registro.fecha;
 
       (registro.viajes || []).forEach((viaje: any) => {
         let agregadoAFiltrados = false;
 
-        // --- PROCESAR CHOFERES (Manejando) ---
         const c = viaje.chofer ? viaje.chofer.toUpperCase().trim() : "";
         if (c && c !== "-") {
           if (!statsCMap[c]) statsCMap[c] = { total: 0, ultimaFecha: "" };
@@ -89,23 +88,19 @@ export default function PanelHistorial() {
           agregadoAFiltrados = true;
         }
 
-        // --- PROCESAR AYUDANTES (O Choferes de apoyo) ---
         const procesarAyudante = (ayRaw: string) => {
           const ay = ayRaw ? ayRaw.toUpperCase().trim() : "";
           if (ay && ay !== "-" && ay !== "SIN AYUDANTE" && ay !== "UNDEFINED") {
-            // 🚀 AQUI ESTÁ LA MAGIA: Si el ayudante es en realidad un Chofer
             if (setChoferesHistoricos.has(ay)) {
               if (!statsCMap[ay]) statsCMap[ay] = { total: 0, ultimaFecha: "" };
               statsCMap[ay].total += 1;
               statsCMap[ay].ultimaFecha = fecha;
             } else {
-              // Es un ayudante normal
               if (!statsAMap[ay]) statsAMap[ay] = { total: 0, ultimaFecha: "" };
               statsAMap[ay].total += 1;
               statsAMap[ay].ultimaFecha = fecha;
             }
 
-            // Asegurarnos de que el viaje esté en la lista si no había chofer
             if (!agregadoAFiltrados) {
               listaViajesFiltrados.push({ fecha, ...viaje });
               agregadoAFiltrados = true;
@@ -168,6 +163,19 @@ export default function PanelHistorial() {
         mostrarComisiones,
       );
     }
+    setIsGenerandoPDF(false);
+  };
+
+  // 🚀 AHORA EL REPORTE MAESTRO SÍ RECIBE LOS CHECKBOXES
+  const handleDescargarResumenGeneral = async () => {
+    setIsGenerandoPDF(true);
+    await generarPDFResumenGeneral(
+      viajesRango,
+      fechaInicio,
+      fechaFin,
+      mostrarViaticos,
+      mostrarComisiones,
+    );
     setIsGenerandoPDF(false);
   };
 
@@ -246,7 +254,7 @@ export default function PanelHistorial() {
         </div>
 
         <div className="flex flex-col items-end gap-3 w-full xl:w-auto">
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
             <select
               value={personalPDF}
               onChange={(e) => setPersonalPDF(e.target.value)}
@@ -272,9 +280,20 @@ export default function PanelHistorial() {
               }`}
             >
               <FileDown size={18} />
-              {isGenerandoPDF
-                ? "Calculando..."
-                : `Descargar Reporte ${isChofer ? "Choferes" : "Auxiliares"}`}
+              Reporte {isChofer ? "Choferes" : "Auxiliares"}
+            </button>
+
+            <button
+              onClick={handleDescargarResumenGeneral}
+              disabled={isGenerandoPDF || cargando}
+              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm w-full sm:w-auto ${
+                isGenerandoPDF || cargando
+                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : "bg-slate-800 hover:bg-slate-900 text-white"
+              }`}
+            >
+              <FileText size={18} />
+              Resumen Maestro
             </button>
           </div>
 
@@ -299,6 +318,19 @@ export default function PanelHistorial() {
             </label>
           </div>
         </div>
+      </div>
+
+      <div className="flex items-start gap-2 mb-6 bg-slate-50 p-3 rounded-lg border border-slate-200">
+        <Clock className="text-slate-500 shrink-0 mt-0.5" size={18} />
+        <p className="text-sm text-slate-600">
+          Esta tabla calcula los viajes basándose{" "}
+          <strong>en el rango de fechas seleccionado arriba</strong>. Los
+          empleados con{" "}
+          <strong>
+            menos viajes ({fechaInicio} al {fechaFin})
+          </strong>{" "}
+          aparecen primero en la lista.
+        </p>
       </div>
 
       <div className="flex gap-2 mb-4 border-b border-slate-200">
