@@ -33,11 +33,9 @@ export default function PanelHistorial() {
   const [isGenerandoPDF, setIsGenerandoPDF] = useState(false);
   const [personalPDF, setPersonalPDF] = useState<string>("TODOS");
 
-  // 🚀 NUEVOS ESTADOS PARA CONTROLAR QUÉ COLUMNAS SE MUESTRAN EN EL PDF
   const [mostrarViaticos, setMostrarViaticos] = useState(true);
   const [mostrarComisiones, setMostrarComisiones] = useState(true);
 
-  // Consulta de TanStack Query
   const {
     data: datosCrudos = [],
     isLoading: cargando,
@@ -47,7 +45,6 @@ export default function PanelHistorial() {
     queryFn: () => obtenerHistorialPorRangoFirebase(fechaInicio, fechaFin),
   });
 
-  // Procesamiento de datos con useMemo
   const {
     estadisticasChoferes,
     estadisticasAyudantes,
@@ -74,42 +71,50 @@ export default function PanelHistorial() {
       (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
     );
 
-    // 2. CONTAR LOS VIAJES
+    // 2. CONTAR LOS VIAJES (CON APOYOS INCLUIDOS)
     datosOrdenados.forEach((registro) => {
       const fecha = registro.fecha;
 
       (registro.viajes || []).forEach((viaje: any) => {
-        // --- PROCESAR CHOFERES ---
-        if (viaje.chofer && viaje.chofer !== "-") {
-          const nombreChofer = viaje.chofer.toUpperCase().trim();
-          if (!statsCMap[nombreChofer])
-            statsCMap[nombreChofer] = { total: 0, ultimaFecha: "" };
-          statsCMap[nombreChofer].total += 1;
-          statsCMap[nombreChofer].ultimaFecha = fecha;
+        let agregadoAFiltrados = false;
+
+        // --- PROCESAR CHOFERES (Manejando) ---
+        const c = viaje.chofer ? viaje.chofer.toUpperCase().trim() : "";
+        if (c && c !== "-") {
+          if (!statsCMap[c]) statsCMap[c] = { total: 0, ultimaFecha: "" };
+          statsCMap[c].total += 1;
+          statsCMap[c].ultimaFecha = fecha;
+
+          listaViajesFiltrados.push({ fecha, ...viaje });
+          agregadoAFiltrados = true;
         }
 
-        // --- PROCESAR AYUDANTES ---
+        // --- PROCESAR AYUDANTES (O Choferes de apoyo) ---
         const procesarAyudante = (ayRaw: string) => {
           const ay = ayRaw ? ayRaw.toUpperCase().trim() : "";
-          if (
-            ay &&
-            ay !== "-" &&
-            ay !== "SIN AYUDANTE" &&
-            ay !== "UNDEFINED" &&
-            !setChoferesHistoricos.has(ay)
-          ) {
-            if (!statsAMap[ay]) statsAMap[ay] = { total: 0, ultimaFecha: "" };
-            statsAMap[ay].total += 1;
-            statsAMap[ay].ultimaFecha = fecha;
+          if (ay && ay !== "-" && ay !== "SIN AYUDANTE" && ay !== "UNDEFINED") {
+            // 🚀 AQUI ESTÁ LA MAGIA: Si el ayudante es en realidad un Chofer
+            if (setChoferesHistoricos.has(ay)) {
+              if (!statsCMap[ay]) statsCMap[ay] = { total: 0, ultimaFecha: "" };
+              statsCMap[ay].total += 1;
+              statsCMap[ay].ultimaFecha = fecha;
+            } else {
+              // Es un ayudante normal
+              if (!statsAMap[ay]) statsAMap[ay] = { total: 0, ultimaFecha: "" };
+              statsAMap[ay].total += 1;
+              statsAMap[ay].ultimaFecha = fecha;
+            }
+
+            // Asegurarnos de que el viaje esté en la lista si no había chofer
+            if (!agregadoAFiltrados) {
+              listaViajesFiltrados.push({ fecha, ...viaje });
+              agregadoAFiltrados = true;
+            }
           }
         };
 
         procesarAyudante(viaje.ayudante1);
         procesarAyudante(viaje.ayudante2);
-
-        if (viaje.chofer && viaje.chofer !== "-") {
-          listaViajesFiltrados.push({ fecha, ...viaje });
-        }
       });
     });
 
@@ -137,12 +142,10 @@ export default function PanelHistorial() {
     };
   }, [datosCrudos]);
 
-  // RESETEAR SELECTOR AL CAMBIAR DE PESTAÑA
   useEffect(() => {
     setPersonalPDF("TODOS");
   }, [vistaActiva]);
 
-  // 🚀 LÓGICA DE DESCARGA DINÁMICA (AHORA ENVÍA LAS OPCIONES DE DINERO)
   const handleDescargarPDF = async () => {
     setIsGenerandoPDF(true);
     if (vistaActiva === "choferes") {
@@ -151,8 +154,8 @@ export default function PanelHistorial() {
         fechaInicio,
         fechaFin,
         personalPDF,
-        mostrarViaticos, // Enviamos el valor del checkbox
-        mostrarComisiones, // Enviamos el valor del checkbox
+        mostrarViaticos,
+        mostrarComisiones,
       );
     } else {
       await generarPDFNominaAyudantes(
@@ -161,8 +164,8 @@ export default function PanelHistorial() {
         fechaFin,
         personalPDF,
         listaNegraChoferes,
-        mostrarViaticos, // Enviamos el valor del checkbox
-        mostrarComisiones, // Enviamos el valor del checkbox
+        mostrarViaticos,
+        mostrarComisiones,
       );
     }
     setIsGenerandoPDF(false);
@@ -190,7 +193,6 @@ export default function PanelHistorial() {
     ? "hover:bg-purple-50"
     : "hover:bg-emerald-50";
 
-  // Color del checkbox para que coincida con el tema actual
   const colorCheckbox = isChofer ? "accent-purple-600" : "accent-emerald-600";
 
   if (isError) {
@@ -220,7 +222,6 @@ export default function PanelHistorial() {
       </div>
 
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
-        {/* SELECTORES DE FECHA */}
         <div
           className={`flex flex-col sm:flex-row items-center gap-3 p-2.5 rounded-lg border shadow-sm w-full xl:w-auto transition-colors ${colorBgMenu}`}
         >
@@ -244,7 +245,6 @@ export default function PanelHistorial() {
           </div>
         </div>
 
-        {/* 🚀 SELECTOR DE PERSONAL, CHECKBOXES Y BOTÓN PDF */}
         <div className="flex flex-col items-end gap-3 w-full xl:w-auto">
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
             <select
@@ -278,7 +278,6 @@ export default function PanelHistorial() {
             </button>
           </div>
 
-          {/* 🚀 CHECKBOXES PARA MOSTRAR/OCULTAR DINERO */}
           <div className="flex items-center gap-4 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 w-full sm:w-auto">
             <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer hover:text-slate-900 transition-colors">
               <input
@@ -302,20 +301,6 @@ export default function PanelHistorial() {
         </div>
       </div>
 
-      <div className="flex items-start gap-2 mb-6 bg-slate-50 p-3 rounded-lg border border-slate-200">
-        <Clock className="text-slate-500 shrink-0 mt-0.5" size={18} />
-        <p className="text-sm text-slate-600">
-          Esta tabla calcula los viajes basándose{" "}
-          <strong>en el rango de fechas seleccionado arriba</strong>. Los
-          empleados con{" "}
-          <strong>
-            menos viajes ({fechaInicio} al {fechaFin})
-          </strong>{" "}
-          aparecen primero en la lista.
-        </p>
-      </div>
-
-      {/* --- PESTAÑAS (TABS) --- */}
       <div className="flex gap-2 mb-4 border-b border-slate-200">
         <button
           onClick={() => setVistaActiva("choferes")}
