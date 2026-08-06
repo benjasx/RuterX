@@ -5,6 +5,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 export interface AjustesNomina {
   comisionChofer: number;
   comisionAyudante: number;
+  comisionTLMK?: number; // 🚀 AQUÍ ESTÁ EL CAMPO NUEVO
   viaticosRutas: Record<string, number>; // Ej: { "MAZATLAN": 300, "VALLARTA": 190 }
 }
 
@@ -20,6 +21,7 @@ export const obtenerAjustesNomina = async (): Promise<AjustesNomina> => {
       return {
         comisionChofer: 0.00075,
         comisionAyudante: 0.00035,
+        comisionTLMK: 0.001, // 🚀 Valor por defecto
         viaticosRutas: {},
       };
     }
@@ -28,6 +30,7 @@ export const obtenerAjustesNomina = async (): Promise<AjustesNomina> => {
     return {
       comisionChofer: 0.00075,
       comisionAyudante: 0.00035,
+      comisionTLMK: 0.001, // 🚀 Valor por defecto en caso de error
       viaticosRutas: {},
     };
   }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query"; // 🚀 IMPORTAMOS TANSTACK
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Settings,
   Save,
@@ -16,9 +16,8 @@ import {
 } from "../firebase/ajustesNominaService";
 
 export default function PanelAjustesNomina() {
-  const queryClient = useQueryClient(); // 🚀 HERRAMIENTA PARA AVISARLE A LA CACHÉ
+  const queryClient = useQueryClient();
 
-  // 🚀 1. DESCARGAMOS LOS AJUSTES CON CACHÉ
   const {
     data: ajustesNube,
     isLoading,
@@ -28,15 +27,12 @@ export default function PanelAjustesNomina() {
     queryFn: obtenerAjustesNomina,
   });
 
-  // Estado local para poder editar los inputs antes de guardarlos
   const [ajustes, setAjustes] = useState<AjustesNomina | null>(null);
   const [guardando, setGuardando] = useState(false);
 
-  // Estados para el formulario de nueva ruta
   const [nuevaRuta, setNuevaRuta] = useState("");
   const [nuevoViatico, setNuevoViatico] = useState("");
 
-  // 🚀 2. CUANDO LLEGAN LOS DATOS DE LA CACHÉ, LOS COPIAMOS AL FORMULARIO LOCAL
   useEffect(() => {
     if (ajustesNube) {
       setAjustes(ajustesNube);
@@ -50,7 +46,6 @@ export default function PanelAjustesNomina() {
 
     if (exito) {
       alert("Ajustes de nómina guardados correctamente en la nube.");
-      // 🚀 3. INVALIDAMOS LA CACHÉ PARA QUE TODA LA APP RECIBA LAS NUEVAS REGLAS
       queryClient.invalidateQueries({ queryKey: ["ajustes_nomina"] });
     } else {
       alert("Hubo un error al guardar los ajustes.");
@@ -161,6 +156,30 @@ export default function PanelAjustesNomina() {
                   className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-700 font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-shadow bg-white"
                 />
               </div>
+
+              {/* 🚀 NUEVO BLOQUE: COMISIÓN ESPECIAL TLMK */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">
+                  Comisión Especial TLMK y TLMK 2 (Ej. 0.001)
+                </label>
+                <input
+                  type="number"
+                  step="0.00001"
+                  // Si no existe en BD, por defecto muestra 0.001
+                  value={
+                    ajustes.comisionTLMK !== undefined
+                      ? ajustes.comisionTLMK
+                      : 0.001
+                  }
+                  onChange={(e) =>
+                    setAjustes({
+                      ...ajustes,
+                      comisionTLMK: Number(e.target.value),
+                    })
+                  }
+                  className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-700 font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-shadow bg-white"
+                />
+              </div>
             </div>
           </div>
 
@@ -183,7 +202,6 @@ export default function PanelAjustesNomina() {
             Viáticos por Ruta
           </h3>
 
-          {/* Formulario rápido para agregar ruta */}
           <div className="flex gap-2 mb-6 shrink-0">
             <input
               type="text"
@@ -208,7 +226,6 @@ export default function PanelAjustesNomina() {
             </button>
           </div>
 
-          {/* Lista de rutas guardadas */}
           <div className="flex-1 overflow-y-auto bg-white border border-slate-200 rounded-lg custom-scrollbar">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-100 sticky top-0 z-10 shadow-sm">

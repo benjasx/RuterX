@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query"; // 🚀 1. IMPORTAMOS TANSTACK
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FileSpreadsheet,
   Calculator,
@@ -10,19 +10,16 @@ import {
 import * as XLSX from "xlsx";
 import { guardarHistorialFirebase } from "../firebase/historialService";
 
-// IMPORTAMOS EL SERVICIO DE REGLAS DE NÓMINA
 import {
   obtenerAjustesNomina,
   type AjustesNomina,
 } from "../firebase/ajustesNominaService";
 
-// IMPORTAMOS LA LÓGICA DE LOS PDF DESDE NUESTRO NUEVO ARCHIVO
 import {
   generarPDFFinanciero,
   generarPDFTripulacion,
 } from "../utils/pdfGenerator";
 
-// IMPORTAMOS LOS HIJOS
 import ModalTraspaso from "./ModalTraspaso";
 import TablaFinanciera from "./TablaFinanciera";
 import TablaTripulacion from "./TablaTripulacion";
@@ -72,7 +69,6 @@ const MAPA_CAMIONES: Record<string, string> = {
   "39": "28",
 };
 
-// FUNCIÓN: BUSCADOR INTELIGENTE (FUZZY MATCHER) DE RUTAS
 const calcularFinanzas = (
   rutaRaw: string,
   montoBase: number,
@@ -82,9 +78,10 @@ const calcularFinanzas = (
     return { viaticoRuta: 0, comisionChofer: 0, comisionAyudante: 0 };
 
   let viaticoEncontrado = 0;
+  let rutaNormalizada = "";
 
   if (rutaRaw) {
-    const rutaNormalizada = rutaRaw
+    rutaNormalizada = rutaRaw
       .toUpperCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -109,15 +106,26 @@ const calcularFinanzas = (
     }
   }
 
+  // 🚀 DETECTOR DE TLMK
+  const esTLMK = rutaNormalizada === "TLMK" || rutaNormalizada === "TLMK 2";
+  const porcentajeTLMK =
+    reglas.comisionTLMK !== undefined ? reglas.comisionTLMK : 0.001;
+
+  // Si es TLMK, el chofer cobra su comisión especial. Si no, cobra lo normal.
+  const porcentajeChofer = esTLMK ? porcentajeTLMK : reglas.comisionChofer;
+
+  // 🚀 REGLA DE ORO: Si es TLMK, los ayudantes/apoyos cobran 0% de comisión.
+  const porcentajeAyudante = esTLMK ? 0 : reglas.comisionAyudante;
+
   return {
     viaticoRuta: viaticoEncontrado,
-    comisionChofer: montoBase * reglas.comisionChofer,
-    comisionAyudante: montoBase * reglas.comisionAyudante,
+    comisionChofer: montoBase * porcentajeChofer,
+    comisionAyudante: montoBase * porcentajeAyudante,
   };
 };
 
 export default function ReporteEmbarques() {
-  const queryClient = useQueryClient(); // 🚀 HERRAMIENTA PARA AVISARLE AL DASHBOARD QUE HAY DATOS NUEVOS
+  const queryClient = useQueryClient();
 
   const [datosProcesados, setDatosProcesados] = useState<FilaReporte[]>([]);
   const [nombreArchivo, setNombreArchivo] = useState("");
@@ -137,14 +145,12 @@ export default function ReporteEmbarques() {
   const [choferTraspaso, setChoferTraspaso] = useState("");
   const [rutaTraspaso, setRutaTraspaso] = useState("");
 
-  // 🚀 2. USAMOS CACHÉ PARA REGLAS (Ya no gastamos lecturas aquí)
   const { data: reglasNomina } = useQuery({
     queryKey: ["ajustes_nomina"],
     queryFn: obtenerAjustesNomina,
   });
 
   useEffect(() => {
-    // Solo cargamos los datos del localStorage (borramos el useEffect que pedía Firebase)
     const datosGuardados = localStorage.getItem("embarques_datos");
     if (datosGuardados) setDatosProcesados(JSON.parse(datosGuardados));
     if (localStorage.getItem("embarques_archivo"))
@@ -186,7 +192,7 @@ export default function ReporteEmbarques() {
 
       const datosListos = recalcularFinanzasCompletas(
         datosProcesados,
-        reglasNomina || null, // 🚀 Usamos la variable directa de la caché
+        reglasNomina || null,
       );
 
       const resultado = await guardarHistorialFirebase(
@@ -196,7 +202,6 @@ export default function ReporteEmbarques() {
 
       if (resultado.success) {
         alert("¡Historial y finanzas guardados en la nube exitosamente!");
-        // 🚀 3. EL GRITO AL SISTEMA: "¡Limpiamos la caché del historial para que el Dashboard vea el nuevo Excel!"
         queryClient.invalidateQueries({ queryKey: ["historial_salidas"] });
       } else {
         alert("Error al guardar en la nube. Verifica tu conexión.");
@@ -312,7 +317,6 @@ export default function ReporteEmbarques() {
           String(fila.peso || 0).replace(/,/g, ""),
         );
 
-        // Pasamos reglasNomina (que viene de la caché)
         const finanzas = calcularFinanzas(
           acc[unidadReal].ruta,
           acc[unidadReal].totalMonto,
