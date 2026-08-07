@@ -1,20 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  useMap,
-  Polyline,
-} from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx"; 
 
 import { obtenerClientesFirebase } from "../firebase/clientesService";
 import { obtenerRutasFirebase } from "../firebase/rutasService";
-import { Download, FileText, Route } from "lucide-react";
+import { Download, FileText, Route, Loader2 } from "lucide-react"; 
 
 // 1. INTERFAZ
 interface ClienteMapa {
@@ -30,13 +23,8 @@ interface ClienteMapa {
 const BASE_XALISCO = { lat: 21.453237, lng: -104.890221 };
 
 // Fórmula de Haversine
-const calcularDistancia = (
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-) => {
-  const R = 6371;
+const calcularDistancia = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; 
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
   const a =
@@ -63,15 +51,15 @@ const obtenerLogoBase64Local = async (path: string) => {
   }
 };
 
-// 🚀 CÁMARA CORREGIDA: Ahora solo enfoca a los clientes, ignorando a Xalisco en el cálculo del Zoom
-function MapUpdater({ markers }: { markers: [number, number][] }) {
+function MapUpdater({ markers, polylineBounds }: { markers: [number, number][], polylineBounds?: [number, number][] }) {
   const map = useMap();
   useEffect(() => {
-    if (markers.length > 0) {
-      // fitBounds centrará el mapa SOLO en el área donde están los clientes
-      map.fitBounds(markers, { padding: [50, 50] });
+    const puntosAEnfocar = polylineBounds && polylineBounds.length > 0 ? polylineBounds : markers;
+    const puntosConBase = [[BASE_XALISCO.lat, BASE_XALISCO.lng] as [number, number], ...puntosAEnfocar];
+    if (puntosConBase.length > 1) {
+      map.fitBounds(puntosConBase, { padding: [50, 50] });
     }
-  }, [markers, map]);
+  }, [markers, polylineBounds, map]);
   return null;
 }
 
@@ -104,8 +92,10 @@ const baseIcon = new L.DivIcon({
 export default function MapaRutero() {
   const [rutaSeleccionada, setRutaSeleccionada] = useState<string>("");
   const [selectedClienteIds, setSelectedClienteIds] = useState<string[]>([]);
-
+  
   const [rutaOptima, setRutaOptima] = useState<ClienteMapa[] | null>(null);
+  const [rutaCarretera, setRutaCarretera] = useState<[number, number][] | null>(null);
+  const [cargandoRuta, setCargandoRuta] = useState(false);
 
   const { data: clientesData = [], isLoading: cargandoClientes } = useQuery({
     queryKey: ["clientes"],
@@ -147,9 +137,9 @@ export default function MapaRutero() {
     );
   }, [rutaSeleccionada, clientesTotales]);
 
-  // Si cambia la selección, borramos la ruta trazada
   useEffect(() => {
     setRutaOptima(null);
+    setRutaCarretera(null);
   }, [selectedClienteIds, rutaSeleccionada]);
 
   useEffect(() => {
@@ -204,16 +194,14 @@ export default function MapaRutero() {
     localStorage.setItem("rutasmart_clientes", JSON.stringify([]));
   };
 
-  // 🚀 CEREBRO ALGORITMO TSP (VECINO MÁS CERCANO - CÁLCULO INSTANTÁNEO)
-  const trazarRutaOptima = () => {
+  const trazarRutaOptima = async () => {
     const clientesValidos = clientesDeRuta.filter(
-      (c) =>
-        selectedClienteIds.includes(c.id) &&
-        Array.isArray(c.posicion) &&
-        c.posicion.length === 2,
+      (c) => selectedClienteIds.includes(c.id) && Array.isArray(c.posicion) && c.posicion.length === 2
     );
 
     if (clientesValidos.length === 0) return;
+
+    setCargandoRuta(true);
 
     let noVisitados = [...clientesValidos];
     let ubicacionActual = BASE_XALISCO;
@@ -228,7 +216,7 @@ export default function MapaRutero() {
           ubicacionActual.lat,
           ubicacionActual.lng,
           noVisitados[i].posicion[0],
-          noVisitados[i].posicion[1],
+          noVisitados[i].posicion[1]
         );
 
         if (d < distanciaMinima) {
@@ -239,49 +227,71 @@ export default function MapaRutero() {
 
       const clienteSiguiente = noVisitados.splice(indexMasCercano, 1)[0];
       rutaCalculada.push(clienteSiguiente);
-      ubicacionActual = {
-        lat: clienteSiguiente.posicion[0],
-        lng: clienteSiguiente.posicion[1],
-      };
+      ubicacionActual = { lat: clienteSiguiente.posicion[0], lng: clienteSiguiente.posicion[1] };
     }
 
     setRutaOptima(rutaCalculada);
+
+    try {
+      const puntosOSRM = [
+        [BASE_XALISCO.lng, BASE_XALISCO.lat],
+        ...rutaCalculada.map((c) => [c.posicion[1], c.posicion[0]])
+      ];
+
+      const coordenadasUrl = puntosOSRM.map(p => p.join(',')).join(';');
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordenadasUrl}?overview=full&geometries=geojson`;
+
+      const response = await fetch(osrmUrl);
+      const data = await response.json();
+
+      if (data.code === 'Ok' && data.routes.length > 0) {
+        const coordsCarretera = data.routes[0].geometry.coordinates.map(
+          (c: [number, number]) => [c[1], c[0]] as [number, number]
+        );
+        setRutaCarretera(coordsCarretera);
+      }
+    } catch (error) {
+      console.error("Error al trazar carretera:", error);
+      alert("Problemas de conexión con el satélite de carreteras. Se trazará en línea recta temporalmente.");
+    } finally {
+      setCargandoRuta(false);
+    }
   };
 
   const handleExportarExcel = () => {
     if (!rutaOptima) return;
-
+    
     const datosExcel = rutaOptima.map((c, i) => ({
       "Orden de Visita": i + 1,
       "Nombre del Cliente": c.nombre,
-      Domicilio: c.descripcion,
-      Ruta: c.ruta,
-      Vendedor: c.vendedor,
+      "Domicilio": c.descripcion,
+      "Ruta": c.ruta,
+      "Vendedor": c.vendedor,
+      "Notas": "", // Espacio en blanco en el Excel
     }));
 
     const ws = XLSX.utils.json_to_sheet(datosExcel);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Hoja de Ruta");
-    XLSX.writeFile(
-      wb,
-      `Ruta_Optima_${rutaSeleccionada}_${new Date().toISOString().split("T")[0]}.xlsx`,
-    );
+    XLSX.writeFile(wb, `Ruta_Optima_${rutaSeleccionada}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const handleExportarPDF = async () => {
     if (!rutaOptima) return;
     const pdfMake = (window as any).pdfMake;
     if (!pdfMake) return alert("Generador PDF cargando...");
-
+    
     const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
-
+    
+    // 🚀 NUEVO ENCABEZADO DE TABLA (CON COLUMNA DE NOTAS)
     const tableBody: any[][] = [
       [
         { text: "N°", style: "th", alignment: "center" },
         { text: "Cliente", style: "th" },
         { text: "Domicilio", style: "th" },
+        { text: "Notas", style: "th" },
         { text: "Entrega", style: "th", alignment: "center" },
-      ],
+      ]
     ];
 
     rutaOptima.forEach((cliente, index) => {
@@ -289,7 +299,8 @@ export default function MapaRutero() {
         { text: `${index + 1}`, style: "td", alignment: "center" },
         { text: cliente.nombre, style: "td", bold: true },
         { text: cliente.descripcion, style: "td" },
-        { text: "[   ]", style: "tdCheckbox", alignment: "center" },
+        { text: "", style: "td" }, // 🚀 ESPACIO VACÍO PARA QUE EL CHOFER ESCRIBA
+        { text: "[   ]", style: "tdCheckbox", alignment: "center" }
       ]);
     });
 
@@ -299,9 +310,7 @@ export default function MapaRutero() {
       content: [
         {
           columns: [
-            logoBase64
-              ? { image: logoBase64, width: 70 }
-              : { text: "CIR", bold: true },
+            logoBase64 ? { image: logoBase64, width: 70 } : { text: "CIR", bold: true },
             {
               text: `HOJA DE RUTA ÓPTIMA\nRUTA: ${rutaSeleccionada}`,
               style: "mainTitle",
@@ -310,6 +319,14 @@ export default function MapaRutero() {
             },
           ],
           margin: [0, 0, 0, 15],
+        },
+        // 🚀 NUEVA SECCIÓN PARA EL NOMBRE Y FIRMA DEL CHOFER
+        {
+          text: "Nombre del Chofer: ________________________________________________________    Firma: ________________________",
+          fontSize: 10,
+          bold: true,
+          color: "#334155",
+          margin: [0, 0, 0, 10],
         },
         {
           text: `Fecha de emisión: ${new Date().toLocaleDateString("es-MX")} - Total a visitar: ${rutaOptima.length} clientes.`,
@@ -320,37 +337,26 @@ export default function MapaRutero() {
         {
           table: {
             headerRows: 1,
-            widths: ["auto", "35%", "*", "auto"],
+            // 🚀 AJUSTE DE ANCHOS: Asignamos 25% para cliente, resto para domicilio y 20% para notas
+            widths: ["auto", "25%", "*", "20%", "auto"],
             body: tableBody,
           },
           layout: "lightHorizontalLines",
-        },
+        }
       ],
       styles: {
         mainTitle: { fontSize: 13, bold: true, color: "#1e293b" },
-        th: {
-          bold: true,
-          fontSize: 10,
-          fillColor: "#2563eb",
-          color: "white",
-          margin: 4,
-        },
+        th: { bold: true, fontSize: 10, fillColor: "#2563eb", color: "white", margin: 4 },
         td: { fontSize: 9, margin: 4, color: "#334155" },
         tdCheckbox: { fontSize: 12, margin: 4, color: "#94a3b8", bold: true },
       },
     };
 
-    pdfMake
-      .createPdf(docDefinition)
-      .download(`Ruta_Logistica_${rutaSeleccionada}.pdf`);
+    pdfMake.createPdf(docDefinition).download(`Ruta_Logistica_${rutaSeleccionada}.pdf`);
   };
 
-  // Esta línea ahora unirá los puntos rectos, lo cual dibuja perfectamente el ORDEN de visita
   const posicionesLíneaRecta = rutaOptima
-    ? [
-        [BASE_XALISCO.lat, BASE_XALISCO.lng],
-        ...rutaOptima.map((c) => c.posicion),
-      ]
+    ? [[BASE_XALISCO.lat, BASE_XALISCO.lng], ...rutaOptima.map((c) => c.posicion)]
     : [];
 
   if (cargando) {
@@ -365,6 +371,7 @@ export default function MapaRutero() {
 
   return (
     <div className="flex w-full h-[calc(100vh-100px)] p-5 gap-5 bg-slate-50">
+      
       <aside className="w-80 bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex flex-col shrink-0">
         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 px-2">
           Seleccionar Ruta
@@ -437,10 +444,14 @@ export default function MapaRutero() {
           {!rutaOptima ? (
             <button
               onClick={trazarRutaOptima}
-              disabled={selectedClienteIds.length < 2}
+              disabled={selectedClienteIds.length < 2 || cargandoRuta}
               className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold py-3 rounded-lg transition-colors shadow-sm"
             >
-              <Route size={18} /> Trazar Ruta Óptima
+              {cargandoRuta ? (
+                <><Loader2 size={18} className="animate-spin"/> Generando Asfalto...</>
+              ) : (
+                <><Route size={18} /> Trazar Ruta Óptima</>
+              )}
             </button>
           ) : (
             <>
@@ -466,43 +477,42 @@ export default function MapaRutero() {
         </div>
       </aside>
 
-      {/* 🗺️ MAPA */}
       <div className="flex-1 rounded-xl overflow-hidden shadow-sm border border-slate-200">
         <MapContainer
           center={[BASE_XALISCO.lat, BASE_XALISCO.lng]}
           zoom={12}
           style={{ height: "100%", width: "100%" }}
         >
-          {/* 🚀 Ahora la cámara SOLO toma en cuenta a los clientes (markerPositions) */}
-          <MapUpdater markers={markerPositions} />
+          <MapUpdater 
+            markers={markerPositions} 
+            polylineBounds={rutaCarretera || (posicionesLíneaRecta as [number, number][])} 
+          />
 
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-          {/* Marcador fijo de la Base Xalisco */}
-          <Marker
-            position={[BASE_XALISCO.lat, BASE_XALISCO.lng]}
-            icon={baseIcon}
-          >
+          <Marker position={[BASE_XALISCO.lat, BASE_XALISCO.lng]} icon={baseIcon}>
             <Popup>
               <div className="text-sm font-bold text-slate-800 text-center">
-                ⭐ BODEGA CENTRAL
-                <br />
-                XALISCO
+                ⭐ BODEGA CENTRAL<br/>XALISCO
               </div>
             </Popup>
           </Marker>
 
-          {/* 🚀 Línea directa y limpia para mostrar la secuencia */}
-          {rutaOptima && (
-            <Polyline
-              positions={posicionesLíneaRecta as [number, number][]}
-              color="#3b82f6" // Azul intenso
-              weight={4}
-              opacity={0.8}
+          {rutaCarretera ? (
+             <Polyline 
+              positions={rutaCarretera} 
+              color="#2563eb" 
+              weight={5} 
             />
-          )}
+          ) : rutaOptima ? (
+            <Polyline 
+              positions={posicionesLíneaRecta as [number, number][]} 
+              color="#94a3b8" 
+              weight={4} 
+              dashArray="8, 8" 
+            />
+          ) : null}
 
-          {/* Marcadores de clientes */}
           {clientesDeRuta
             .filter(
               (c) =>
@@ -525,8 +535,7 @@ export default function MapaRutero() {
                     </p>
                     {rutaOptima && (
                       <p className="text-xs bg-blue-100 text-blue-800 font-bold px-2 py-1 rounded inline-block mt-2">
-                        Parada N°{" "}
-                        {rutaOptima.findIndex((c) => c.id === cliente.id) + 1}
+                        Parada N° {rutaOptima.findIndex(c => c.id === cliente.id) + 1}
                       </p>
                     )}
                   </div>
