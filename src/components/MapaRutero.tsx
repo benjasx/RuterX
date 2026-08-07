@@ -7,7 +7,7 @@ import * as XLSX from "xlsx";
 
 import { obtenerClientesFirebase } from "../firebase/clientesService";
 import { obtenerRutasFirebase } from "../firebase/rutasService";
-import { Download, FileText, Route } from "lucide-react"; 
+import { Download, FileText, Route, Loader2 } from "lucide-react"; 
 
 // 1. INTERFAZ
 interface ClienteMapa {
@@ -51,7 +51,6 @@ const obtenerLogoBase64Local = async (path: string) => {
   }
 };
 
-// 🚀 ENFOQUE: Siempre encuadrar a los clientes para no perderlos de vista
 function MapUpdater({ markers }: { markers: [number, number][] }) {
   const map = useMap();
   useEffect(() => {
@@ -93,6 +92,8 @@ export default function MapaRutero() {
   const [selectedClienteIds, setSelectedClienteIds] = useState<string[]>([]);
   
   const [rutaOptima, setRutaOptima] = useState<ClienteMapa[] | null>(null);
+  const [rutaCarretera, setRutaCarretera] = useState<[number, number][] | null>(null);
+  const [cargandoRuta, setCargandoRuta] = useState(false);
 
   const { data: clientesData = [], isLoading: cargandoClientes } = useQuery({
     queryKey: ["clientes"],
@@ -134,9 +135,9 @@ export default function MapaRutero() {
     );
   }, [rutaSeleccionada, clientesTotales]);
 
-  // Limpiar la línea si el usuario cambia los clientes seleccionados
   useEffect(() => {
     setRutaOptima(null);
+    setRutaCarretera(null);
   }, [selectedClienteIds, rutaSeleccionada]);
 
   useEffect(() => {
@@ -191,42 +192,98 @@ export default function MapaRutero() {
     localStorage.setItem("rutasmart_clientes", JSON.stringify([]));
   };
 
-  // 🚀 ALGORITMO TSP: SOLO ORDENA MATEMÁTICAMENTE (INSTANTÁNEO)
-  const trazarRutaOptima = () => {
+  // 🚀 CEREBRO LOGÍSTICO COMPLETO (2-OPT + OSRM CHUNKS)
+  const trazarRutaOptima = async () => {
     const clientesValidos = clientesDeRuta.filter(
       (c) => selectedClienteIds.includes(c.id) && Array.isArray(c.posicion) && c.posicion.length === 2
     );
 
     if (clientesValidos.length === 0) return;
 
+    setCargandoRuta(true);
+
+    // PASO 1: Calcular ruta inicial (Vecino Más Cercano)
     let noVisitados = [...clientesValidos];
-    let ubicacionActual = BASE_XALISCO;
+    let ubicacionActual: [number, number] = [BASE_XALISCO.lat, BASE_XALISCO.lng];
     let rutaCalculada: ClienteMapa[] = [];
 
     while (noVisitados.length > 0) {
       let indexMasCercano = -1;
       let distanciaMinima = Infinity;
-
       for (let i = 0; i < noVisitados.length; i++) {
-        const d = calcularDistancia(
-          ubicacionActual.lat,
-          ubicacionActual.lng,
-          noVisitados[i].posicion[0],
-          noVisitados[i].posicion[1]
-        );
-
+        const d = calcularDistancia(ubicacionActual[0], ubicacionActual[1], noVisitados[i].posicion[0], noVisitados[i].posicion[1]);
         if (d < distanciaMinima) {
           distanciaMinima = d;
           indexMasCercano = i;
         }
       }
+      const cliente = noVisitados.splice(indexMasCercano, 1)[0];
+      rutaCalculada.push(cliente);
+      ubicacionActual = cliente.posicion;
+    }
 
-      const clienteSiguiente = noVisitados.splice(indexMasCercano, 1)[0];
-      rutaCalculada.push(clienteSiguiente);
-      ubicacionActual = { lat: clienteSiguiente.posicion[0], lng: clienteSiguiente.posicion[1] };
+    // PASO 2: Optimización Matemática (Algoritmo 2-Opt) para desenredar cruces
+    let fullRouteCoords = [ [BASE_XALISCO.lat, BASE_XALISCO.lng] as [number, number], ...rutaCalculada.map(c => c.posicion) ];
+    let improved = true;
+    let iteraciones = 0;
+
+    while (improved && iteraciones < 100) {
+      improved = false;
+      for (let i = 1; i < fullRouteCoords.length - 2; i++) {
+        for (let j = i + 1; j < fullRouteCoords.length - 1; j++) {
+          const d1 = calcularDistancia(fullRouteCoords[i - 1][0], fullRouteCoords[i - 1][1], fullRouteCoords[i][0], fullRouteCoords[i][1]) + 
+                     calcularDistancia(fullRouteCoords[j][0], fullRouteCoords[j][1], fullRouteCoords[j + 1][0], fullRouteCoords[j + 1][1]);
+          const d2 = calcularDistancia(fullRouteCoords[i - 1][0], fullRouteCoords[i - 1][1], fullRouteCoords[j][0], fullRouteCoords[j][1]) + 
+                     calcularDistancia(fullRouteCoords[i][0], fullRouteCoords[i][1], fullRouteCoords[j + 1][0], fullRouteCoords[j + 1][1]);
+          
+          if (d2 < d1 - 0.001) { 
+            const subArrayCoords = fullRouteCoords.slice(i, j + 1).reverse();
+            fullRouteCoords.splice(i, j - i + 1, ...subArrayCoords);
+            const subArrayClientes = rutaCalculada.slice(i - 1, j).reverse();
+            rutaCalculada.splice(i - 1, j - i + 1, ...subArrayClientes);
+            improved = true;
+          }
+        }
+      }
+      iteraciones++;
     }
 
     setRutaOptima(rutaCalculada);
+
+    // PASO 3: Trazar Carreteras Reales (OSRM) en "Bloques" para evitar límites del servidor
+    try {
+      const puntosOSRM = [
+        [BASE_XALISCO.lng, BASE_XALISCO.lat],
+        ...rutaCalculada.map((c) => [c.posicion[1], c.posicion[0]]) // OSRM pide [Longitud, Latitud]
+      ];
+
+      let coordsCarreteraFinal: [number, number][] = [];
+      const CHUNK_SIZE = 90; // Cortamos en grupos de 90 para que no falle
+
+      for (let i = 0; i < puntosOSRM.length - 1; i += (CHUNK_SIZE - 1)) {
+        const chunk = puntosOSRM.slice(i, i + CHUNK_SIZE);
+        const coordenadasUrl = chunk.map(p => p.join(',')).join(';');
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordenadasUrl}?overview=full&geometries=geojson`;
+
+        const response = await fetch(osrmUrl);
+        const data = await response.json();
+
+        if (data.code === 'Ok' && data.routes.length > 0) {
+          const chunkCoords = data.routes[0].geometry.coordinates.map(
+            (c: [number, number]) => [c[1], c[0]] as [number, number]
+          );
+          if (i > 0) chunkCoords.shift(); // Quitar duplicado en las uniones
+          coordsCarreteraFinal = coordsCarreteraFinal.concat(chunkCoords);
+        }
+      }
+
+      setRutaCarretera(coordsCarreteraFinal.length > 0 ? coordsCarreteraFinal : null);
+    } catch (error) {
+      console.error("Error al trazar carretera:", error);
+      alert("Problemas de conexión con el satélite. Se dibujará una línea azul recta temporalmente.");
+    } finally {
+      setCargandoRuta(false);
+    }
   };
 
   const handleExportarExcel = () => {
@@ -323,7 +380,6 @@ export default function MapaRutero() {
     pdfMake.createPdf(docDefinition).download(`Ruta_Logistica_${rutaSeleccionada}.pdf`);
   };
 
-  // 🚀 COORDENADAS PARA LA LÍNEA AZUL Y RECTA
   const posicionesLíneaRecta = rutaOptima
     ? [[BASE_XALISCO.lat, BASE_XALISCO.lng], ...rutaOptima.map((c) => c.posicion)]
     : [];
@@ -413,10 +469,14 @@ export default function MapaRutero() {
           {!rutaOptima ? (
             <button
               onClick={trazarRutaOptima}
-              disabled={selectedClienteIds.length < 2}
+              disabled={selectedClienteIds.length < 2 || cargandoRuta}
               className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold py-3 rounded-lg transition-colors shadow-sm"
             >
-              <Route size={18} /> Trazar Ruta Óptima
+              {cargandoRuta ? (
+                <><Loader2 size={18} className="animate-spin"/> Generando Asfalto...</>
+              ) : (
+                <><Route size={18} /> Trazar Ruta Óptima</>
+              )}
             </button>
           ) : (
             <>
@@ -448,7 +508,7 @@ export default function MapaRutero() {
           zoom={12}
           style={{ height: "100%", width: "100%" }}
         >
-          {/* Cámara enfocada estrictamente en la zona de clientes */}
+          {/* Cámara siempre enfocada en la zona de clientes */}
           <MapUpdater markers={markerPositions} />
 
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -461,15 +521,20 @@ export default function MapaRutero() {
             </Popup>
           </Marker>
 
-          {/* 🚀 LÍNEA AZUL Y RECTA */}
-          {rutaOptima && (
+          {/* 🚀 LÍNEA AZUL SÓLIDA (Muestra la Carretera Real o la Recta como respaldo) */}
+          {rutaCarretera ? (
+             <Polyline 
+              positions={rutaCarretera} 
+              color="#2563eb" 
+              weight={5} 
+            />
+          ) : rutaOptima ? (
             <Polyline 
               positions={posicionesLíneaRecta as [number, number][]} 
-              color="#2563eb" // Azul Rey
-              weight={4}      // Grosor
-              opacity={0.8}
+              color="#2563eb" 
+              weight={5} 
             />
-          )}
+          ) : null}
 
           {clientesDeRuta
             .filter(
