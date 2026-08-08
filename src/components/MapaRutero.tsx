@@ -1,13 +1,20 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  useMap,
+  Polyline,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import * as XLSX from "xlsx"; 
+import * as XLSX from "xlsx";
 
 import { obtenerClientesFirebase } from "../firebase/clientesService";
 import { obtenerRutasFirebase } from "../firebase/rutasService";
-import { Download, FileText, Route, Loader2 } from "lucide-react"; 
+import { Download, FileText, Route, Loader2 } from "lucide-react";
 
 // 1. INTERFAZ
 interface ClienteMapa {
@@ -19,12 +26,22 @@ interface ClienteMapa {
   posicion: [number, number];
 }
 
+// 🚀 NUEVA INTERFAZ PARA RECIBIR SI ES ADMIN
+interface MapaRuteroProps {
+  esAdmin?: boolean;
+}
+
 // 2. COORDENADAS BASE: BODEGA XALISCO
 const BASE_XALISCO = { lat: 21.453237, lng: -104.890221 };
 
 // Fórmula de Haversine
-const calcularDistancia = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const R = 6371; 
+const calcularDistancia = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+) => {
+  const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
   const a =
@@ -87,12 +104,15 @@ const baseIcon = new L.DivIcon({
   popupAnchor: [0, -15],
 });
 
-export default function MapaRutero() {
+// 🚀 Recibimos la propiedad esAdmin (por defecto en false por seguridad)
+export default function MapaRutero({ esAdmin = false }: MapaRuteroProps) {
   const [rutaSeleccionada, setRutaSeleccionada] = useState<string>("");
   const [selectedClienteIds, setSelectedClienteIds] = useState<string[]>([]);
-  
+
   const [rutaOptima, setRutaOptima] = useState<ClienteMapa[] | null>(null);
-  const [rutaCarretera, setRutaCarretera] = useState<[number, number][] | null>(null);
+  const [rutaCarretera, setRutaCarretera] = useState<[number, number][] | null>(
+    null,
+  );
   const [cargandoRuta, setCargandoRuta] = useState(false);
 
   const { data: clientesData = [], isLoading: cargandoClientes } = useQuery({
@@ -192,26 +212,35 @@ export default function MapaRutero() {
     localStorage.setItem("rutasmart_clientes", JSON.stringify([]));
   };
 
-  // 🚀 CEREBRO LOGÍSTICO COMPLETO (2-OPT + OSRM CHUNKS)
   const trazarRutaOptima = async () => {
     const clientesValidos = clientesDeRuta.filter(
-      (c) => selectedClienteIds.includes(c.id) && Array.isArray(c.posicion) && c.posicion.length === 2
+      (c) =>
+        selectedClienteIds.includes(c.id) &&
+        Array.isArray(c.posicion) &&
+        c.posicion.length === 2,
     );
 
     if (clientesValidos.length === 0) return;
 
     setCargandoRuta(true);
 
-    // PASO 1: Calcular ruta inicial (Vecino Más Cercano)
     let noVisitados = [...clientesValidos];
-    let ubicacionActual: [number, number] = [BASE_XALISCO.lat, BASE_XALISCO.lng];
+    let ubicacionActual: [number, number] = [
+      BASE_XALISCO.lat,
+      BASE_XALISCO.lng,
+    ];
     let rutaCalculada: ClienteMapa[] = [];
 
     while (noVisitados.length > 0) {
       let indexMasCercano = -1;
       let distanciaMinima = Infinity;
       for (let i = 0; i < noVisitados.length; i++) {
-        const d = calcularDistancia(ubicacionActual[0], ubicacionActual[1], noVisitados[i].posicion[0], noVisitados[i].posicion[1]);
+        const d = calcularDistancia(
+          ubicacionActual[0],
+          ubicacionActual[1],
+          noVisitados[i].posicion[0],
+          noVisitados[i].posicion[1],
+        );
         if (d < distanciaMinima) {
           distanciaMinima = d;
           indexMasCercano = i;
@@ -222,8 +251,10 @@ export default function MapaRutero() {
       ubicacionActual = cliente.posicion;
     }
 
-    // PASO 2: Optimización Matemática (Algoritmo 2-Opt) para desenredar cruces
-    let fullRouteCoords = [ [BASE_XALISCO.lat, BASE_XALISCO.lng] as [number, number], ...rutaCalculada.map(c => c.posicion) ];
+    let fullRouteCoords = [
+      [BASE_XALISCO.lat, BASE_XALISCO.lng] as [number, number],
+      ...rutaCalculada.map((c) => c.posicion),
+    ];
     let improved = true;
     let iteraciones = 0;
 
@@ -231,12 +262,34 @@ export default function MapaRutero() {
       improved = false;
       for (let i = 1; i < fullRouteCoords.length - 2; i++) {
         for (let j = i + 1; j < fullRouteCoords.length - 1; j++) {
-          const d1 = calcularDistancia(fullRouteCoords[i - 1][0], fullRouteCoords[i - 1][1], fullRouteCoords[i][0], fullRouteCoords[i][1]) + 
-                     calcularDistancia(fullRouteCoords[j][0], fullRouteCoords[j][1], fullRouteCoords[j + 1][0], fullRouteCoords[j + 1][1]);
-          const d2 = calcularDistancia(fullRouteCoords[i - 1][0], fullRouteCoords[i - 1][1], fullRouteCoords[j][0], fullRouteCoords[j][1]) + 
-                     calcularDistancia(fullRouteCoords[i][0], fullRouteCoords[i][1], fullRouteCoords[j + 1][0], fullRouteCoords[j + 1][1]);
-          
-          if (d2 < d1 - 0.001) { 
+          const d1 =
+            calcularDistancia(
+              fullRouteCoords[i - 1][0],
+              fullRouteCoords[i - 1][1],
+              fullRouteCoords[i][0],
+              fullRouteCoords[i][1],
+            ) +
+            calcularDistancia(
+              fullRouteCoords[j][0],
+              fullRouteCoords[j][1],
+              fullRouteCoords[j + 1][0],
+              fullRouteCoords[j + 1][1],
+            );
+          const d2 =
+            calcularDistancia(
+              fullRouteCoords[i - 1][0],
+              fullRouteCoords[i - 1][1],
+              fullRouteCoords[j][0],
+              fullRouteCoords[j][1],
+            ) +
+            calcularDistancia(
+              fullRouteCoords[i][0],
+              fullRouteCoords[i][1],
+              fullRouteCoords[j + 1][0],
+              fullRouteCoords[j + 1][1],
+            );
+
+          if (d2 < d1 - 0.001) {
             const subArrayCoords = fullRouteCoords.slice(i, j + 1).reverse();
             fullRouteCoords.splice(i, j - i + 1, ...subArrayCoords);
             const subArrayClientes = rutaCalculada.slice(i - 1, j).reverse();
@@ -250,37 +303,40 @@ export default function MapaRutero() {
 
     setRutaOptima(rutaCalculada);
 
-    // PASO 3: Trazar Carreteras Reales (OSRM) en "Bloques" para evitar límites del servidor
     try {
       const puntosOSRM = [
         [BASE_XALISCO.lng, BASE_XALISCO.lat],
-        ...rutaCalculada.map((c) => [c.posicion[1], c.posicion[0]]) // OSRM pide [Longitud, Latitud]
+        ...rutaCalculada.map((c) => [c.posicion[1], c.posicion[0]]),
       ];
 
       let coordsCarreteraFinal: [number, number][] = [];
-      const CHUNK_SIZE = 90; // Cortamos en grupos de 90 para que no falle
+      const CHUNK_SIZE = 90;
 
-      for (let i = 0; i < puntosOSRM.length - 1; i += (CHUNK_SIZE - 1)) {
+      for (let i = 0; i < puntosOSRM.length - 1; i += CHUNK_SIZE - 1) {
         const chunk = puntosOSRM.slice(i, i + CHUNK_SIZE);
-        const coordenadasUrl = chunk.map(p => p.join(',')).join(';');
+        const coordenadasUrl = chunk.map((p) => p.join(",")).join(";");
         const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordenadasUrl}?overview=full&geometries=geojson`;
 
         const response = await fetch(osrmUrl);
         const data = await response.json();
 
-        if (data.code === 'Ok' && data.routes.length > 0) {
+        if (data.code?.toLowerCase() === "ok" && data.routes?.length > 0) {
           const chunkCoords = data.routes[0].geometry.coordinates.map(
-            (c: [number, number]) => [c[1], c[0]] as [number, number]
+            (c: [number, number]) => [c[1], c[0]] as [number, number],
           );
-          if (i > 0) chunkCoords.shift(); // Quitar duplicado en las uniones
+          if (i > 0) chunkCoords.shift();
           coordsCarreteraFinal = coordsCarreteraFinal.concat(chunkCoords);
         }
       }
 
-      setRutaCarretera(coordsCarreteraFinal.length > 0 ? coordsCarreteraFinal : null);
+      setRutaCarretera(
+        coordsCarreteraFinal.length > 0 ? coordsCarreteraFinal : null,
+      );
     } catch (error) {
       console.error("Error al trazar carretera:", error);
-      alert("Problemas de conexión con el satélite. Se dibujará una línea azul recta temporalmente.");
+      alert(
+        "Problemas de conexión con el satélite. Se dibujará una línea recta temporalmente.",
+      );
     } finally {
       setCargandoRuta(false);
     }
@@ -288,29 +344,30 @@ export default function MapaRutero() {
 
   const handleExportarExcel = () => {
     if (!rutaOptima) return;
-    
     const datosExcel = rutaOptima.map((c, i) => ({
       "Orden de Visita": i + 1,
       "Nombre del Cliente": c.nombre,
-      "Domicilio": c.descripcion,
-      "Ruta": c.ruta,
-      "Vendedor": c.vendedor,
-      "Notas": "", 
+      Domicilio: c.descripcion,
+      Ruta: c.ruta,
+      Vendedor: c.vendedor,
+      Notas: "",
     }));
-
     const ws = XLSX.utils.json_to_sheet(datosExcel);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Hoja de Ruta");
-    XLSX.writeFile(wb, `Ruta_Optima_${rutaSeleccionada}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(
+      wb,
+      `Ruta_Optima_${rutaSeleccionada}_${new Date().toISOString().split("T")[0]}.xlsx`,
+    );
   };
 
   const handleExportarPDF = async () => {
     if (!rutaOptima) return;
     const pdfMake = (window as any).pdfMake;
     if (!pdfMake) return alert("Generador PDF cargando...");
-    
+
     const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
-    
+
     const tableBody: any[][] = [
       [
         { text: "N°", style: "th", alignment: "center" },
@@ -318,7 +375,7 @@ export default function MapaRutero() {
         { text: "Domicilio", style: "th" },
         { text: "Notas", style: "th" },
         { text: "Entrega", style: "th", alignment: "center" },
-      ]
+      ],
     ];
 
     rutaOptima.forEach((cliente, index) => {
@@ -327,7 +384,7 @@ export default function MapaRutero() {
         { text: cliente.nombre, style: "td", bold: true },
         { text: cliente.descripcion, style: "td" },
         { text: "", style: "td" },
-        { text: "[   ]", style: "tdCheckbox", alignment: "center" }
+        { text: "[   ]", style: "tdCheckbox", alignment: "center" },
       ]);
     });
 
@@ -337,7 +394,9 @@ export default function MapaRutero() {
       content: [
         {
           columns: [
-            logoBase64 ? { image: logoBase64, width: 70 } : { text: "CIR", bold: true },
+            logoBase64
+              ? { image: logoBase64, width: 70 }
+              : { text: "CIR", bold: true },
             {
               text: `HOJA DE RUTA ÓPTIMA\nRUTA: ${rutaSeleccionada}`,
               style: "mainTitle",
@@ -367,21 +426,32 @@ export default function MapaRutero() {
             body: tableBody,
           },
           layout: "lightHorizontalLines",
-        }
+        },
       ],
       styles: {
         mainTitle: { fontSize: 13, bold: true, color: "#1e293b" },
-        th: { bold: true, fontSize: 10, fillColor: "#2563eb", color: "white", margin: 4 },
+        th: {
+          bold: true,
+          fontSize: 10,
+          fillColor: "#2563eb",
+          color: "white",
+          margin: 4,
+        },
         td: { fontSize: 9, margin: 4, color: "#334155" },
         tdCheckbox: { fontSize: 12, margin: 4, color: "#94a3b8", bold: true },
       },
     };
 
-    pdfMake.createPdf(docDefinition).download(`Ruta_Logistica_${rutaSeleccionada}.pdf`);
+    pdfMake
+      .createPdf(docDefinition)
+      .download(`Ruta_Logistica_${rutaSeleccionada}.pdf`);
   };
 
   const posicionesLíneaRecta = rutaOptima
-    ? [[BASE_XALISCO.lat, BASE_XALISCO.lng], ...rutaOptima.map((c) => c.posicion)]
+    ? [
+        [BASE_XALISCO.lat, BASE_XALISCO.lng],
+        ...rutaOptima.map((c) => c.posicion),
+      ]
     : [];
 
   if (cargando) {
@@ -396,143 +466,162 @@ export default function MapaRutero() {
 
   return (
     <div className="flex w-full h-[calc(100vh-100px)] p-5 gap-5 bg-slate-50">
-      
-      <aside className="w-80 bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex flex-col shrink-0">
-        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 px-2">
-          Seleccionar Ruta
-        </h3>
+      {/* 🚀 CONDICIÓN: SOLO DIBUJAR ESTE PANEL SI EL USUARIO ES ADMIN */}
+      {esAdmin && (
+        <aside className="w-80 bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex flex-col shrink-0">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 px-2">
+            Seleccionar Ruta
+          </h3>
 
-        <select
-          value={rutaSeleccionada}
-          onChange={(e) => setRutaSeleccionada(e.target.value)}
-          className="w-full p-3 mb-4 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium focus:ring-2 focus:ring-blue-500 cursor-pointer outline-none"
-        >
-          {rutasDisponibles.map((ruta) => (
-            <option key={ruta.id} value={ruta.nombre}>
-              {ruta.nombre}
-            </option>
-          ))}
-        </select>
+          <select
+            value={rutaSeleccionada}
+            onChange={(e) => setRutaSeleccionada(e.target.value)}
+            className="w-full p-3 mb-4 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium focus:ring-2 focus:ring-blue-500 cursor-pointer outline-none"
+          >
+            {rutasDisponibles.map((ruta) => (
+              <option key={ruta.id} value={ruta.nombre}>
+                {ruta.nombre}
+              </option>
+            ))}
+          </select>
 
-        <div className="flex items-center justify-between mb-3 px-1">
-          <span className="text-sm text-slate-500 font-medium">
-            <span className="text-blue-600 font-bold">
-              {selectedClienteIds.length}
+          <div className="flex items-center justify-between mb-3 px-1">
+            <span className="text-sm text-slate-500 font-medium">
+              <span className="text-blue-600 font-bold">
+                {selectedClienteIds.length}
+              </span>
+              <span className="text-slate-400"> de </span>
+              <span className="text-slate-800 font-bold">
+                {clientesDeRuta.length}
+              </span>{" "}
+              seleccionados
             </span>
-            <span className="text-slate-400"> de </span>
-            <span className="text-slate-800 font-bold">
-              {clientesDeRuta.length}
-            </span>{" "}
-            seleccionados
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={seleccionarTodos}
-              className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
-            >
-              Todos
-            </button>
-            <button
-              onClick={deseleccionarTodos}
-              className="text-xs text-red-500 hover:text-red-700 font-semibold underline"
-            >
-              Ninguno
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={seleccionarTodos}
+                className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
+              >
+                Todos
+              </button>
+              <button
+                onClick={deseleccionarTodos}
+                className="text-xs text-red-500 hover:text-red-700 font-semibold underline"
+              >
+                Ninguno
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar mb-4">
-          {clientesDeRuta.map((cliente) => (
-            <label
-              key={cliente.id}
-              className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg hover:border-blue-300 transition-colors cursor-pointer"
-            >
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-slate-800">
-                  {cliente.nombre}
-                </span>
-                <span className="text-xs text-slate-500">
-                  {cliente.descripcion}
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                checked={selectedClienteIds.includes(cliente.id)}
-                onChange={() => toggleCliente(cliente.id)}
-                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-              />
-            </label>
-          ))}
-        </div>
+          <div className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar mb-4">
+            {clientesDeRuta.map((cliente) => (
+              <label
+                key={cliente.id}
+                className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg hover:border-blue-300 transition-colors cursor-pointer"
+              >
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-slate-800">
+                    {cliente.nombre}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {cliente.descripcion}
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={selectedClienteIds.includes(cliente.id)}
+                  onChange={() => toggleCliente(cliente.id)}
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+              </label>
+            ))}
+          </div>
 
-        <div className="pt-4 border-t border-slate-100 flex flex-col gap-2 shrink-0">
-          {!rutaOptima ? (
-            <button
-              onClick={trazarRutaOptima}
-              disabled={selectedClienteIds.length < 2 || cargandoRuta}
-              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold py-3 rounded-lg transition-colors shadow-sm"
-            >
-              {cargandoRuta ? (
-                <><Loader2 size={18} className="animate-spin"/> Generando Asfalto...</>
-              ) : (
-                <><Route size={18} /> Trazar Ruta Óptima</>
-              )}
-            </button>
-          ) : (
-            <>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleExportarExcel}
-                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg transition-colors shadow-sm text-sm"
-                >
-                  <Download size={16} /> Excel
-                </button>
-                <button
-                  onClick={handleExportarPDF}
-                  className="flex-1 flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-lg transition-colors shadow-sm text-sm"
-                >
-                  <FileText size={16} /> PDF
-                </button>
-              </div>
-              <p className="text-xs text-center text-slate-500 mt-1">
-                La ruta ha sido optimizada logísticamente.
-              </p>
-            </>
-          )}
-        </div>
-      </aside>
+          <div className="pt-4 border-t border-slate-100 flex flex-col gap-2 shrink-0">
+            {!rutaOptima ? (
+              <button
+                onClick={trazarRutaOptima}
+                disabled={selectedClienteIds.length < 2 || cargandoRuta}
+                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold py-3 rounded-lg transition-colors shadow-sm"
+              >
+                {cargandoRuta ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" /> Generando
+                    Ruta...
+                  </>
+                ) : (
+                  <>
+                    <Route size={18} /> Trazar Ruta Óptima
+                  </>
+                )}
+              </button>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleExportarExcel}
+                    className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg transition-colors shadow-sm text-sm"
+                  >
+                    <Download size={16} /> Excel
+                  </button>
+                  <button
+                    onClick={handleExportarPDF}
+                    className="flex-1 flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-lg transition-colors shadow-sm text-sm"
+                  >
+                    <FileText size={16} /> PDF
+                  </button>
+                </div>
+                <p className="text-xs text-center text-slate-500 mt-1">
+                  La ruta ha sido optimizada logísticamente.
+                </p>
+              </>
+            )}
+          </div>
+        </aside>
+      )}
+      {/* 🚀 FIN DE LA CONDICIÓN DEL PANEL */}
 
-      <div className="flex-1 rounded-xl overflow-hidden shadow-sm border border-slate-200">
+      <div className="flex-1 rounded-xl overflow-hidden shadow-sm border border-slate-200 relative">
+        {/* 🚀 INDICADOR COMPACTO MODO REPARTO */}
+        {!esAdmin && (
+          <div
+            className="absolute top-3 left-1/2 -translate-x-1/2 z-1000 bg-slate-900/95 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-full shadow-md flex items-center justify-center border border-slate-700/50 backdrop-blur-sm"
+            style={{ whiteSpace: "nowrap", minWidth: "max-content" }}
+          >
+            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
+            <span className="text-[10px] sm:text-sm font-bold tracking-wide uppercase">
+              Reparto Activo
+            </span>
+          </div>
+        )}
+
         <MapContainer
           center={[BASE_XALISCO.lat, BASE_XALISCO.lng]}
           zoom={12}
           style={{ height: "100%", width: "100%" }}
         >
-          {/* Cámara siempre enfocada en la zona de clientes */}
           <MapUpdater markers={markerPositions} />
-
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-          <Marker position={[BASE_XALISCO.lat, BASE_XALISCO.lng]} icon={baseIcon}>
+          <Marker
+            position={[BASE_XALISCO.lat, BASE_XALISCO.lng]}
+            icon={baseIcon}
+          >
             <Popup>
               <div className="text-sm font-bold text-slate-800 text-center">
-                ⭐ BODEGA CENTRAL<br/>XALISCO
+                ⭐ BODEGA CENTRAL
+                <br />
+                XALISCO
               </div>
             </Popup>
           </Marker>
 
-          {/* 🚀 LÍNEA AZUL SÓLIDA (Muestra la Carretera Real o la Recta como respaldo) */}
           {rutaCarretera ? (
-             <Polyline 
-              positions={rutaCarretera} 
-              color="#2563eb" 
-              weight={5} 
-            />
+            <Polyline positions={rutaCarretera} color="#2563eb" weight={5} />
           ) : rutaOptima ? (
-            <Polyline 
-              positions={posicionesLíneaRecta as [number, number][]} 
-              color="#2563eb" 
-              weight={5} 
+            <Polyline
+              positions={posicionesLíneaRecta as [number, number][]}
+              color="#2563eb"
+              weight={5}
             />
           ) : null}
 
@@ -558,7 +647,8 @@ export default function MapaRutero() {
                     </p>
                     {rutaOptima && (
                       <p className="text-xs bg-blue-100 text-blue-800 font-bold px-2 py-1 rounded inline-block mt-2">
-                        Parada N° {rutaOptima.findIndex(c => c.id === cliente.id) + 1}
+                        Parada N°{" "}
+                        {rutaOptima.findIndex((c) => c.id === cliente.id) + 1}
                       </p>
                     )}
                   </div>
