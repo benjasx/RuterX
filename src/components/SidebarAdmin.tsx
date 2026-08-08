@@ -7,19 +7,21 @@ import {
   History,
   ClipboardList,
   Settings,
-  LayoutDashboard, // 🚀 1. Importamos el icono para el Dashboard
+  LayoutDashboard,
+  UserCheck, // 🚀 1. Importamos el icono para los choferes
 } from "lucide-react";
 
-// 2. Agregamos "dashboard" a los tipos permitidos
+// 2. Agregamos "choferes" a los tipos permitidos
 export type SubVistaAdmin =
-  | "dashboard" // 🚀 Nuevo
+  | "dashboard"
   | "clientes"
   | "rutas"
   | "vendedores"
   | "tablamontos"
   | "historial"
   | "historialCompleto"
-  | "ajustesNomina";
+  | "ajustesNomina"
+  | "choferes"; // 🚀 Nuevo
 
 interface SidebarAdminProps {
   menuActivo: SubVistaAdmin;
@@ -39,7 +41,6 @@ export default function SidebarAdmin({
           Opciones
         </h3>
         <ul className="space-y-2 mb-2">
-          {/* 🚀 3. NUEVO BOTÓN: DASHBOARD (Al principio por ser el principal) */}
           <li>
             <button
               onClick={() => setMenuActivo("dashboard")}
@@ -133,7 +134,7 @@ export default function SidebarAdmin({
         {/* BOTÓN: AJUSTES DE NÓMINA Y VIÁTICOS */}
         <button
           onClick={() => setMenuActivo("ajustesNomina")}
-          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mt-2 ${
+          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mb-1 ${
             menuActivo === "ajustesNomina"
               ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
               : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
@@ -141,6 +142,19 @@ export default function SidebarAdmin({
         >
           <Settings size={20} />
           <span>Reglas de viaticos</span>
+        </button>
+
+        {/* 🚀 NUEVO BOTÓN: AÑADIR CHOFERES (En el espacio que indicaste) */}
+        <button
+          onClick={() => setMenuActivo("choferes")}
+          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mt-2 ${
+            menuActivo === "choferes"
+              ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
+              : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+          }`}
+        >
+          <UserCheck size={20} />
+          <span>Añadir Choferes</span>
         </button>
       </div>
 
@@ -151,7 +165,7 @@ export default function SidebarAdmin({
             alert("Cerrando sesión de administrador...");
             onLogout();
           }}
-          className="flex items-center w-full gap-3 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors mt-auto"
+          className="flex items-center w-full gap-3 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors mt-auto cursor-pointer"
         >
           <LogOut size={18} /> Cerrar Sesión
         </button>

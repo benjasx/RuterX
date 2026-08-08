@@ -14,6 +14,7 @@ import Dashboard from "./Dashboard";
 import { obtenerVendedoresFirebase } from "../firebase/vendedoresService";
 import { obtenerClientesFirebase } from "../firebase/clientesService";
 import { obtenerRutasFirebase } from "../firebase/rutasService";
+import AdminChoferes from "./AdminChoferes";
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -94,6 +95,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         {menuActivo === "historialCompleto" && <PanelHistorialCompleto />}
 
         {menuActivo === "ajustesNomina" && <PanelAjustesNomina />}
+
+        {menuActivo === "choferes" && <AdminChoferes />}
       </div>
     </div>
   );

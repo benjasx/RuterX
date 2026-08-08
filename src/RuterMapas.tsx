@@ -83,7 +83,7 @@ export default function RuterMapas() {
         {vistaActual === "admin" && esAdmin ? (
           <AdminPanel onLogout={handleLogout} />
         ) : (
-          <MapaRutero esAdmin={esAdmin} />
+          <MapaRutero esAdmin={esAdmin} usuarioEmail={usuarioActual.email} />
         )}
       </main>
     </div>
