@@ -19,6 +19,7 @@ import {
   asignarViajeFirebase,
   obtenerViajeActivoChofer,
   actualizarEstadoEntregaFirebase,
+  finalizarViajeFirebase,
 } from "../firebase/viajesService";
 import {
   Download,
@@ -30,6 +31,7 @@ import {
   CheckCircle2,
   Ban,
   AlertTriangle,
+  Flag,
 } from "lucide-react";
 
 interface ClienteMapa {
@@ -50,6 +52,94 @@ interface MapaRuteroProps {
 }
 
 const BASE_XALISCO = { lat: 21.453237, lng: -104.890221 };
+
+// 🚀 LISTAS DE RUTAS Y UNIDADES
+const LISTA_RUTAS = [
+  "Tomatlan",
+  "Mazatlan",
+  "Ixtlan",
+  "Vallarta",
+  "Ruiz Larga",
+  "Ruiz Corta",
+  "El Pitillal",
+  "Bahia de Banderas",
+  "18 de Marzo",
+  "Escuinapa-Mazatlan",
+  "Las Varas - Zacualpan",
+  "La Peñita de Jaltemba",
+  "Las Juntas - Ixtapa",
+  "San Blas",
+  "Compostela",
+  "Acaponeta - Sayulilla",
+  "TECUALA - MAYORISTAS",
+  "Tuxpan",
+  "Villa Hidalgo",
+  "Magdalena - Tala",
+  "Santiago - Pozo de Ibarra",
+  "Santiago - Sentispac",
+  "Santiago Centro",
+  "JBC - PUEBLA",
+  "Local Tours",
+  "Local Samaniego",
+  "Compostela JBC",
+  "Las Varas - Chacala",
+  "Acaponeta",
+  "Ixtlan - Parra",
+  "Ixtlan - Joel Perez",
+  "Local - JBC - El Surtidor",
+  "Suc.Vallarta (Traspaso)",
+  "Local GrufaNay",
+  "Local - Samao",
+  "las varas - Peñita",
+  "TECUALA - RANCHERIAS",
+  "TLMK",
+  "TLMK 2",
+  "IXTLAN - OSORIO - MACHUCA",
+  "IXTLAN - JOEL - PARRA",
+  "LOCAL - KAPDA",
+  "RUIZ - ALMANZA",
+  "Vallarta - Cueto",
+  "Santiago",
+  "GRUFARNAY 1",
+  "GRUFARNAY 2",
+  "la peñita larga",
+  "la peñita corta",
+  "mazatlan - Juarez",
+  "Vallarta - Pitillal",
+  "Bahia de Banderas 2",
+  "Escuinapa",
+  "Mazatlan - Mayoristas",
+].sort();
+
+const LISTA_UNIDADES = [
+  "01",
+  "02",
+  "03",
+  "04",
+  "05",
+  "06",
+  "07",
+  "08",
+  "09",
+  "10",
+  "11",
+  "12",
+  "13",
+  "14",
+  "16",
+  "17",
+  "18",
+  "19",
+  "20",
+  "21",
+  "22",
+  "23",
+  "24",
+  "25",
+  "26",
+  "27",
+  "28",
+];
 
 const calcularDistancia = (
   lat1: number,
@@ -156,21 +246,39 @@ export default function MapaRutero({
 
   const [viajeActivoChofer, setViajeActivoChofer] = useState<any>(null);
   const [cargandoViajeChofer, setCargandoViajeChofer] = useState(false);
-
   const [centroMapa, setCentroMapa] = useState<[number, number] | null>(null);
 
-  // Consultas con useQuery
+  // 🚀 Nuevos estados para Finalizar Viaje
+  const [mostrarModalFinalizar, setMostrarModalFinalizar] = useState(false);
+  const [motivoFinalizacion, setMotivoFinalizacion] = useState(
+    "Término de recorrido",
+  );
+  const [rutaRealChofer, setRutaRealChofer] = useState(LISTA_RUTAS[0]);
+  const [unidadChofer, setUnidadChofer] = useState(LISTA_UNIDADES[0]);
+  const [foliosNoEmbarcados, setFoliosNoEmbarcados] = useState("");
+  const [finalizandoViaje, setFinalizandoViaje] = useState(false);
+
   const { data: choferesData = [] } = useQuery({
     queryKey: ["choferes"],
     queryFn: obtenerChoferesFirebase,
-    enabled: esAdmin,
+    enabled: esAdmin || !esAdmin, // Cargamos siempre para obtener el nombre del chofer
   });
 
   const choferesDisponibles = useMemo(() => {
     return [...choferesData];
   }, [choferesData]);
 
-  // Asignar el primer chofer por defecto si la lista se carga y no hay uno seleccionado
+  // 🚀 Obtenemos el nombre real del chofer conectado
+  const nombreChoferConectado = useMemo(() => {
+    if (!usuarioEmail) return "Chofer Desconocido";
+    const choferInfo = choferesDisponibles.find(
+      (c) => c.email === usuarioEmail || c.correo === usuarioEmail,
+    );
+    return choferInfo?.nombre
+      ? `${choferInfo.nombre} (${usuarioEmail})`
+      : usuarioEmail;
+  }, [choferesDisponibles, usuarioEmail]);
+
   useEffect(() => {
     if (choferesDisponibles.length > 0 && !choferSeleccionado) {
       const primerChofer =
@@ -203,8 +311,15 @@ export default function MapaRutero({
   const cargarViajeChofer = async () => {
     if (!esAdmin && usuarioEmail) {
       setCargandoViajeChofer(true);
-      const viaje = await obtenerViajeActivoChofer(usuarioEmail, hoyStr);
+      // 🚀 Agregamos ": any" aquí para quitar el error de TypeScript
+      const viaje: any = await obtenerViajeActivoChofer(usuarioEmail, hoyStr);
       setViajeActivoChofer(viaje);
+
+      // Auto-seleccionar la ruta predeterminada si existe
+      if (viaje && viaje.ruta_nombre) {
+        setRutaRealChofer(viaje.ruta_nombre);
+      }
+
       setCargandoViajeChofer(false);
     }
   };
@@ -217,7 +332,7 @@ export default function MapaRutero({
     clienteId: string,
     nuevoEstado: "entregado" | "cancelado" | "no_entregado",
   ) => {
-    if (!viajeActivoChofer) return;
+    if (!viajeActivoChofer || viajeActivoChofer.estado === "finalizado") return;
     try {
       const clienteActual = viajeActivoChofer.clientes.find(
         (c: any) => c.id === clienteId,
@@ -561,6 +676,236 @@ export default function MapaRutero({
       .download(`Ruta_Logistica_${rutaSeleccionada}.pdf`);
   };
 
+  // 🚀 Lógica para generar el PDF Final del Chofer (Incluyendo las nuevas variables)
+  const generarPDFFinalChofer = async (viaje: any, datosCierre: any) => {
+    const pdfMake = (window as any).pdfMake;
+    if (!pdfMake) return alert("Generador PDF cargando...");
+
+    const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
+
+    const tableBody: any[][] = [
+      [
+        { text: "Cliente", style: "th" },
+        { text: "Dirección", style: "th" },
+        { text: "Estatus", style: "th", alignment: "center" },
+        { text: "Hora Modif.", style: "th", alignment: "center" },
+      ],
+    ];
+
+    const clientesOrdenados = [...viaje.clientes].sort(
+      (a, b) => (a.orden || 0) - (b.orden || 0),
+    );
+    let entregados = 0,
+      cancelados = 0,
+      noEntregados = 0,
+      pendientes = 0;
+
+    clientesOrdenados.forEach((c) => {
+      let estatusStr = c.estado_entrega || "pendiente";
+      let colorEstatus = "#334155";
+
+      if (estatusStr === "entregado") {
+        entregados++;
+        colorEstatus = "#16a34a";
+      } else if (estatusStr === "cancelado") {
+        cancelados++;
+        colorEstatus = "#dc2626";
+      } else if (estatusStr === "no_entregado") {
+        noEntregados++;
+        colorEstatus = "#ca8a04";
+      } else {
+        pendientes++;
+        colorEstatus = "#2563eb";
+      }
+
+      tableBody.push([
+        { text: c.nombre, style: "td", bold: true },
+        { text: c.descripcion, style: "td" },
+        {
+          text: estatusStr.replace("_", " ").toUpperCase(),
+          style: "td",
+          color: colorEstatus,
+          bold: true,
+          alignment: "center",
+        },
+        { text: c.hora_entrega || "--:--", style: "td", alignment: "center" },
+      ]);
+    });
+
+    const fechaHoy = new Date().toLocaleDateString("es-MX");
+
+    const docDefinition = {
+      pageOrientation: "portrait",
+      pageMargins: [30, 30, 30, 30],
+      content: [
+        {
+          columns: [
+            logoBase64
+              ? { image: logoBase64, width: 70 }
+              : { text: "CIR", bold: true },
+            {
+              text: `REPORTE FINAL DE VIAJE\nRUTA ASIGNADA: ${viaje.ruta_nombre}`,
+              style: "mainTitle",
+              alignment: "right",
+              margin: [0, 5, 0, 0],
+            },
+          ],
+          margin: [0, 0, 0, 10],
+        },
+        {
+          columns: [
+            {
+              text: `Responsable: ${nombreChoferConectado}`,
+              fontSize: 10,
+              bold: true,
+              color: "#475569",
+            },
+            {
+              text: `Fecha: ${fechaHoy}`,
+              fontSize: 10,
+              alignment: "right",
+              color: "#475569",
+            },
+          ],
+          margin: [0, 0, 0, 3],
+        },
+        {
+          columns: [
+            {
+              text: `Ruta Realizada: ${datosCierre.rutaReal}`,
+              fontSize: 10,
+              bold: true,
+              color: "#475569",
+            },
+            {
+              text: `Unidad: ${datosCierre.unidad}`,
+              fontSize: 10,
+              alignment: "right",
+              bold: true,
+              color: "#475569",
+            },
+          ],
+          margin: [0, 0, 0, 5],
+        },
+        {
+          text: `Condición de cierre: ${datosCierre.motivo.toUpperCase()}`,
+          fontSize: 10,
+          bold: true,
+          color: "#dc2626",
+          margin: [0, 0, 0, 5],
+        },
+        {
+          text: `Folios no embarcados: ${datosCierre.foliosNoEmbarcados || "Ninguno"}`,
+          fontSize: 10,
+          bold: true,
+          color: "#d97706",
+          margin: [0, 0, 0, 15],
+        },
+        {
+          table: {
+            widths: ["*", "*", "*", "*"],
+            body: [
+              [
+                { text: `Entregados: ${entregados}`, style: "summaryEn" },
+                { text: `Cancelados: ${cancelados}`, style: "summaryCa" },
+                { text: `No Entreg.: ${noEntregados}`, style: "summaryNo" },
+                { text: `Pendientes: ${pendientes}`, style: "summaryPe" },
+              ],
+            ],
+          },
+          layout: "noBorders",
+          margin: [0, 0, 0, 15],
+        },
+        {
+          table: {
+            headerRows: 1,
+            widths: ["30%", "40%", "15%", "15%"],
+            body: tableBody,
+          },
+          layout: "lightHorizontalLines",
+        },
+      ],
+      styles: {
+        mainTitle: { fontSize: 13, bold: true, color: "#1e293b" },
+        th: {
+          bold: true,
+          fontSize: 9,
+          fillColor: "#1e293b",
+          color: "white",
+          margin: 4,
+        },
+        td: { fontSize: 8, margin: 4, color: "#334155" },
+        summaryEn: {
+          fontSize: 10,
+          bold: true,
+          color: "#16a34a",
+          alignment: "center",
+        },
+        summaryCa: {
+          fontSize: 10,
+          bold: true,
+          color: "#dc2626",
+          alignment: "center",
+        },
+        summaryNo: {
+          fontSize: 10,
+          bold: true,
+          color: "#ca8a04",
+          alignment: "center",
+        },
+        summaryPe: {
+          fontSize: 10,
+          bold: true,
+          color: "#2563eb",
+          alignment: "center",
+        },
+      },
+    };
+
+    pdfMake
+      .createPdf(docDefinition)
+      .download(`Cierre_Ruta_${datosCierre.rutaReal}_${fechaHoy}.pdf`);
+  };
+
+  const handleCerrarViajeChofer = async () => {
+    if (!viajeActivoChofer) return;
+    setFinalizandoViaje(true);
+    try {
+      const datosCierre = {
+        motivo: motivoFinalizacion,
+        rutaReal: rutaRealChofer,
+        unidad: unidadChofer,
+        foliosNoEmbarcados: foliosNoEmbarcados,
+      };
+
+      await generarPDFFinalChofer(viajeActivoChofer, datosCierre);
+      await finalizarViajeFirebase(viajeActivoChofer.id, datosCierre);
+
+      await cargarViajeChofer();
+      setMostrarModalFinalizar(false);
+    } catch (error) {
+      alert("Hubo un error al cerrar el viaje. Revisa tu conexión a internet.");
+    } finally {
+      setFinalizandoViaje(false);
+    }
+  };
+
+  const resumenViaje = useMemo(() => {
+    if (!viajeActivoChofer || viajeActivoChofer.estado !== "finalizado")
+      return null;
+    let entregados = 0,
+      cancelados = 0,
+      noEntregados = 0,
+      pendientes = 0;
+    viajeActivoChofer.clientes.forEach((c: any) => {
+      if (c.estado_entrega === "entregado") entregados++;
+      else if (c.estado_entrega === "cancelado") cancelados++;
+      else if (c.estado_entrega === "no_entregado") noEntregados++;
+      else pendientes++;
+    });
+    return { entregados, cancelados, noEntregados, pendientes };
+  }, [viajeActivoChofer]);
+
   const clientesADibujar: ClienteMapa[] = esAdmin
     ? clientesDeRuta.filter(
         (c) => selectedClienteIds.includes(c.id) && Array.isArray(c.posicion),
@@ -601,8 +946,124 @@ export default function MapaRutero({
 
   return (
     <div className="flex w-full h-[calc(100vh-80px)] p-2 sm:p-5 gap-2 sm:gap-5 bg-slate-50 relative">
+      {/* 🚀 MODAL AZUL PARA FINALIZAR VIAJE CON NUEVOS CAMPOS */}
+      {!esAdmin && mostrarModalFinalizar && (
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
+            <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <Flag size={18} className="text-blue-400" /> Finalizar Recorrido
+              </h3>
+              <button
+                onClick={() => setMostrarModalFinalizar(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-slate-600 font-medium">
+                Confirma los datos finales de la ruta para generar tu reporte de
+                cierre.
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Ruta Realizada
+                  </label>
+                  <select
+                    value={rutaRealChofer}
+                    onChange={(e) => setRutaRealChofer(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 font-medium cursor-pointer text-sm"
+                  >
+                    {LISTA_RUTAS.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Unidad
+                  </label>
+                  <select
+                    value={unidadChofer}
+                    onChange={(e) => setUnidadChofer(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 font-medium cursor-pointer text-sm"
+                  >
+                    {LISTA_UNIDADES.map((u) => (
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Motivo de cierre
+                </label>
+                <select
+                  value={motivoFinalizacion}
+                  onChange={(e) => setMotivoFinalizacion(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 font-medium cursor-pointer text-sm"
+                >
+                  <option value="Término de recorrido">
+                    Término de recorrido (Ruta completa)
+                  </option>
+                  <option value="Falla en la unidad">
+                    Falla mecánica en la unidad
+                  </option>
+                  <option value="Corte de turno / Fin de horario">
+                    Corte de turno / Fin de horario
+                  </option>
+                  <option value="Emergencia médica / Accidente">
+                    Emergencia / Accidente
+                  </option>
+                  <option value="Clima extremo / Bloqueos">
+                    Clima extremo / Camino bloqueado
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Folios no embarcados (Opcional)
+                </label>
+                <textarea
+                  value={foliosNoEmbarcados}
+                  onChange={(e) => setFoliosNoEmbarcados(e.target.value)}
+                  placeholder="Ej. B1045678, B109556, B987654..."
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 font-medium text-sm resize-none h-16"
+                />
+              </div>
+
+              <button
+                onClick={handleCerrarViajeChofer}
+                disabled={finalizandoViaje}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2 mt-2 cursor-pointer"
+              >
+                {finalizandoViaje ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" /> Procesando...
+                  </>
+                ) : (
+                  <>
+                    <Flag size={18} /> Confirmar Cierre y Descargar PDF
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {mostrarModalDespacho && (
-        <div className="fixed inset-0 z-9999 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200">
             <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
               <h3 className="font-bold text-lg flex items-center gap-2">
@@ -628,10 +1089,7 @@ export default function MapaRutero({
                 >
                   {choferesDisponibles.length > 0 ? (
                     choferesDisponibles.map((chofer) => {
-                      // Usamos el email como valor interno para que la app no se rompa
                       const valorEmail = chofer.email || chofer.correo;
-
-                      // Preparamos el texto a mostrar: "Juan Perez (chofer2@ruterx.com)"
                       const textoMostrar = chofer.nombre
                         ? `${chofer.nombre} (${valorEmail})`
                         : valorEmail;
@@ -793,18 +1251,91 @@ export default function MapaRutero({
       )}
 
       <div className="flex-1 rounded-xl overflow-hidden shadow-sm border border-slate-200 relative">
+        {!esAdmin &&
+          viajeActivoChofer &&
+          viajeActivoChofer.estado !== "finalizado" && (
+            <button
+              onClick={() => setMostrarModalFinalizar(true)}
+              className="absolute bottom-6 right-6 z-[1000] bg-red-600 hover:bg-red-700 text-white px-5 py-3.5 rounded-2xl shadow-xl shadow-red-600/20 font-bold flex items-center gap-2 transition-transform hover:scale-105 cursor-pointer border border-red-500"
+            >
+              <Flag size={20} /> Finalizar Viaje
+            </button>
+          )}
+
         {!esAdmin && (
           <>
             {viajeActivoChofer ? (
-              <div
-                className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900/95 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-full shadow-md flex items-center justify-center border border-slate-700/50 backdrop-blur-sm"
-                style={{ whiteSpace: "nowrap", minWidth: "max-content" }}
-              >
-                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
-                <span className="text-[10px] sm:text-sm font-bold tracking-wide uppercase">
-                  Reparto Activo
-                </span>
-              </div>
+              viajeActivoChofer.estado === "finalizado" ? (
+                <div className="absolute inset-0 z-[2000] bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4">
+                  <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center border border-slate-100">
+                    <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle2 size={36} />
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-800 mb-1">
+                      Jornada Finalizada
+                    </h2>
+                    <p className="text-slate-500 text-sm mb-6">
+                      Resumen de ruta:{" "}
+                      <b>
+                        {viajeActivoChofer.ruta_real_realizada ||
+                          viajeActivoChofer.ruta_nombre}
+                      </b>
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-3 mb-6">
+                      <div className="bg-green-50 border border-green-100 rounded-xl p-3">
+                        <p className="text-green-600 text-[10px] font-bold uppercase mb-1">
+                          Entregados
+                        </p>
+                        <p className="text-2xl font-black text-green-700">
+                          {resumenViaje?.entregados}
+                        </p>
+                      </div>
+                      <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
+                        <p className="text-blue-600 text-[10px] font-bold uppercase mb-1">
+                          Pendientes
+                        </p>
+                        <p className="text-2xl font-black text-blue-700">
+                          {resumenViaje?.pendientes}
+                        </p>
+                      </div>
+                      <div className="bg-red-50 border border-red-100 rounded-xl p-3">
+                        <p className="text-red-600 text-[10px] font-bold uppercase mb-1">
+                          Cancelados
+                        </p>
+                        <p className="text-xl font-bold text-red-700">
+                          {resumenViaje?.cancelados}
+                        </p>
+                      </div>
+                      <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                        <p className="text-amber-600 text-[10px] font-bold uppercase mb-1">
+                          No Entregados
+                        </p>
+                        <p className="text-xl font-bold text-amber-700">
+                          {resumenViaje?.noEntregados}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-lg p-3 text-sm text-slate-600 border border-slate-200">
+                      <span className="font-bold block text-xs text-slate-400 uppercase mb-1">
+                        Motivo de cierre
+                      </span>
+                      {viajeActivoChofer.motivo_finalizacion}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900/95 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-full shadow-md flex items-center justify-center border border-slate-700/50 backdrop-blur-sm"
+                  style={{ whiteSpace: "nowrap", minWidth: "max-content" }}
+                >
+                  <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
+                  <span className="text-[10px] sm:text-sm font-bold tracking-wide uppercase">
+                    Reparto Activo
+                  </span>
+                </div>
+              )
             ) : (
               <div className="absolute inset-0 z-[1000] bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
                 <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
@@ -900,39 +1431,44 @@ export default function MapaRutero({
                           </p>
                         )}
 
-                        {/* Botones de Acción para el Chofer */}
-                        <div className="grid grid-cols-3 gap-1 pt-1">
-                          <button
-                            onClick={() =>
-                              handleCambiarEstado(cliente.id, "entregado")
-                            }
-                            className="flex flex-col items-center justify-center bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 p-1.5 rounded text-[10px] font-bold transition-colors cursor-pointer"
-                            title="Entregado"
-                          >
-                            <CheckCircle2 size={14} className="mb-0.5" />
-                            Entregado
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleCambiarEstado(cliente.id, "cancelado")
-                            }
-                            className="flex flex-col items-center justify-center bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 p-1.5 rounded text-[10px] font-bold transition-colors cursor-pointer"
-                            title="Cancelado"
-                          >
-                            <Ban size={14} className="mb-0.5" />
-                            Cancelado
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleCambiarEstado(cliente.id, "no_entregado")
-                            }
-                            className="flex flex-col items-center justify-center bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 p-1.5 rounded text-[10px] font-bold transition-colors cursor-pointer"
-                            title="No Entregado"
-                          >
-                            <AlertTriangle size={14} className="mb-0.5" />
-                            No Entregado
-                          </button>
-                        </div>
+                        {!esAdmin &&
+                          viajeActivoChofer?.estado !== "finalizado" && (
+                            <div className="grid grid-cols-3 gap-1 pt-1">
+                              <button
+                                onClick={() =>
+                                  handleCambiarEstado(cliente.id, "entregado")
+                                }
+                                className="flex flex-col items-center justify-center bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 p-1.5 rounded text-[10px] font-bold transition-colors cursor-pointer"
+                                title="Entregado"
+                              >
+                                <CheckCircle2 size={14} className="mb-0.5" />
+                                Entregado
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleCambiarEstado(cliente.id, "cancelado")
+                                }
+                                className="flex flex-col items-center justify-center bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 p-1.5 rounded text-[10px] font-bold transition-colors cursor-pointer"
+                                title="Cancelado"
+                              >
+                                <Ban size={14} className="mb-0.5" />
+                                Cancelado
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleCambiarEstado(
+                                    cliente.id,
+                                    "no_entregado",
+                                  )
+                                }
+                                className="flex flex-col items-center justify-center bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 p-1.5 rounded text-[10px] font-bold transition-colors cursor-pointer"
+                                title="No Entregado"
+                              >
+                                <AlertTriangle size={14} className="mb-0.5" />
+                                No Entregado
+                              </button>
+                            </div>
+                          )}
                       </div>
                     )
                   )}

@@ -63,27 +63,33 @@ export const obtenerViajeActivoChofer = async (
     );
 
     const querySnapshot = await getDocs(q);
-    let viajeEncontrado = null;
+    let viajePendiente = null;
+    let viajeFinalizado = null;
 
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      if (data.estado === "pendiente" && data.fecha_salida === fechaHoy) {
-        // 🚀 Re-convertimos los objetos planos de vuelta al formato de tuplas [lat, lng] que usa Leaflet
+      if (data.fecha_salida === fechaHoy) {
+        // Re-convertimos la carretera
         const carreteraConvertida = data.ruta_carretera
           ? data.ruta_carretera.map(
               (pt: any) => [pt.lat, pt.lng] as [number, number],
             )
           : null;
 
-        viajeEncontrado = {
+        const viajeActual = {
           id: doc.id,
           ...data,
           ruta_carretera: carreteraConvertida,
         };
+
+        // Guardamos si es pendiente o finalizado
+        if (data.estado === "pendiente") viajePendiente = viajeActual;
+        if (data.estado === "finalizado") viajeFinalizado = viajeActual;
       }
     });
 
-    return viajeEncontrado;
+    // Damos prioridad al pendiente, si no hay pendiente, mandamos el finalizado para mostrar el resumen
+    return viajePendiente || viajeFinalizado || null;
   } catch (error) {
     console.error("Error al obtener el viaje del chofer:", error);
     return null;
@@ -123,6 +129,38 @@ export const actualizarEstadoEntregaFirebase = async (
     return { estado: nuevoEstado, hora: horaActual };
   } catch (error) {
     console.error("Error al actualizar la entrega:", error);
+    throw error;
+  }
+};
+
+// Finalizar el viaje completo
+export const finalizarViajeFirebase = async (
+  viajeId: string,
+  datosCierre: {
+    motivo: string;
+    rutaReal: string;
+    unidad: string;
+    foliosNoEmbarcados: string;
+  },
+) => {
+  try {
+    const viajeRef = doc(db, "viajes_activos", viajeId);
+    const horaFinalizacion = new Date().toLocaleTimeString("es-MX", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+
+    await updateDoc(viajeRef, {
+      estado: "finalizado",
+      motivo_finalizacion: datosCierre.motivo,
+      ruta_real_realizada: datosCierre.rutaReal,
+      unidad_utilizada: datosCierre.unidad,
+      folios_no_embarcados: datosCierre.foliosNoEmbarcados || "Ninguno",
+      hora_finalizacion: horaFinalizacion,
+    });
+  } catch (error) {
+    console.error("Error al finalizar el viaje:", error);
     throw error;
   }
 };
