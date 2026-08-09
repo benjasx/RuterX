@@ -225,6 +225,25 @@ export const generarPDFFinalChofer = async (
         ],
         margin: [0, 0, 0, 5],
       },
+      // 🚀 AQUI AGREGAMOS LAS HORAS EN EL PDF
+      {
+        columns: [
+          {
+            text: `Hora Inicio: ${viaje.hora_inicio || "--:--"}`,
+            fontSize: 10,
+            bold: true,
+            color: "#475569",
+          },
+          {
+            text: `Hora Término: ${viaje.hora_finalizacion || new Date().toLocaleTimeString("es-MX")}`,
+            fontSize: 10,
+            alignment: "right",
+            bold: true,
+            color: "#475569",
+          },
+        ],
+        margin: [0, 0, 0, 5],
+      },
       {
         text: `Condición de cierre: ${datosCierre.motivo.toUpperCase()}`,
         fontSize: 10,

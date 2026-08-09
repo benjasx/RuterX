@@ -164,3 +164,22 @@ export const finalizarViajeFirebase = async (
     throw error;
   }
 };
+
+// Iniciar el viaje (Guardar hora de inicio)
+export const iniciarViajeFirebase = async (viajeId: string) => {
+  try {
+    const viajeRef = doc(db, "viajes_activos", viajeId);
+    const horaInicio = new Date().toLocaleTimeString("es-MX", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+
+    await updateDoc(viajeRef, {
+      hora_inicio: horaInicio,
+    });
+  } catch (error) {
+    console.error("Error al iniciar el viaje:", error);
+    throw error;
+  }
+};

@@ -40,8 +40,17 @@ import {
   obtenerViajeActivoChofer,
   actualizarEstadoEntregaFirebase,
   finalizarViajeFirebase,
+  iniciarViajeFirebase,
 } from "../firebase/viajesService";
-import { Loader2, CheckCircle2, Ban, AlertTriangle, Flag } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle2,
+  Ban,
+  AlertTriangle,
+  Flag,
+  Play,
+  AlertCircle,
+} from "lucide-react"; // 🚀 Agregamos AlertCircle
 
 interface MapaRuteroProps {
   esAdmin?: boolean;
@@ -97,26 +106,24 @@ export default function MapaRutero({
   const [unidadChofer, setUnidadChofer] = useState(LISTA_UNIDADES[0]);
   const [foliosNoEmbarcados, setFoliosNoEmbarcados] = useState("");
   const [finalizandoViaje, setFinalizandoViaje] = useState(false);
+  const [iniciandoViaje, setIniciandoViaje] = useState(false);
 
-  // 🚀 QUERIES CON CACHÉ (Evita sobrecostos por lecturas excesivas en Firestore)
   const { data: choferesData = [] } = useQuery({
     queryKey: ["choferes"],
     queryFn: obtenerChoferesFirebase,
-    staleTime: 1000 * 60 * 10, // 10 minutos en memoria sin volver a consultar a Firebase
+    staleTime: 1000 * 60 * 10,
   });
-
   const { data: clientesData = [], isLoading: cargandoClientes } = useQuery({
     queryKey: ["clientes"],
     queryFn: obtenerClientesFirebase,
     enabled: esAdmin,
-    staleTime: 1000 * 60 * 15, // 15 minutos de caché
+    staleTime: 1000 * 60 * 15,
   });
-
   const { data: rutasData = [] } = useQuery({
     queryKey: ["rutas"],
     queryFn: obtenerRutasFirebase,
     enabled: esAdmin,
-    staleTime: 1000 * 60 * 30, // 30 minutos de caché
+    staleTime: 1000 * 60 * 30,
   });
 
   const choferesDisponibles = useMemo(() => [...choferesData], [choferesData]);
@@ -165,6 +172,19 @@ export default function MapaRutero({
     cargarViajeChofer();
   }, [esAdmin, usuarioEmail, fechaViaje]);
 
+  const handleIniciarViaje = async () => {
+    if (!viajeActivoChofer) return;
+    setIniciandoViaje(true);
+    try {
+      await iniciarViajeFirebase(viajeActivoChofer.id);
+      await cargarViajeChofer();
+    } catch (error) {
+      alert("Error al iniciar la ruta.");
+    } finally {
+      setIniciandoViaje(false);
+    }
+  };
+
   const handleCambiarEstado = async (
     clienteId: string,
     nuevoEstado: "entregado" | "cancelado" | "no_entregado",
@@ -187,7 +207,6 @@ export default function MapaRutero({
     }
   };
 
-  // LOGICA SELECCION ADMIN
   useEffect(() => {
     if (!esAdmin) return;
     if (rutasDisponibles.length > 0 && !rutaSeleccionada) {
@@ -248,7 +267,6 @@ export default function MapaRutero({
     setSelectedClienteIds(todos);
     localStorage.setItem("rutasmart_clientes", JSON.stringify(todos));
   };
-
   const deseleccionarTodos = () => {
     setCentroMapa(null);
     setSelectedClienteIds([]);
@@ -332,16 +350,24 @@ export default function MapaRutero({
     return { entregados, cancelados, noEntregados, pendientes };
   }, [viajeActivoChofer]);
 
+  const conteoPendientes = useMemo(() => {
+    if (!viajeActivoChofer || !viajeActivoChofer.clientes)
+      return { pendientes: 0, total: 0 };
+    const total = viajeActivoChofer.clientes.length;
+    const pendientes = viajeActivoChofer.clientes.filter(
+      (c: any) => !c.estado_entrega || c.estado_entrega === "pendiente",
+    ).length;
+    return { pendientes, total };
+  }, [viajeActivoChofer]);
+
   const clientesADibujar: any[] = esAdmin
     ? clientesDeRuta.filter(
         (c) => selectedClienteIds.includes(c.id) && Array.isArray(c.posicion),
       )
     : viajeActivoChofer?.clientes || [];
-
   const lineaCarreteraADibujar = esAdmin
     ? rutaCarretera
     : viajeActivoChofer?.ruta_carretera || null;
-
   const posicionesLíneaRecta = esAdmin
     ? rutaOptima
       ? [
@@ -355,7 +381,6 @@ export default function MapaRutero({
           ...viajeActivoChofer.clientes.map((c: any) => c.posicion),
         ]
       : [];
-
   const markerPositions = clientesADibujar.map(
     (c) => c.posicion as [number, number],
   );
@@ -372,7 +397,6 @@ export default function MapaRutero({
 
   return (
     <div className="flex w-full h-[calc(100vh-80px)] p-2 sm:p-5 gap-2 sm:gap-5 bg-slate-50 relative">
-      {/* MODALES UI */}
       {!esAdmin && mostrarModalFinalizar && (
         <ModalFinalizarViaje
           onClose={() => setMostrarModalFinalizar(false)}
@@ -429,7 +453,42 @@ export default function MapaRutero({
       <div className="flex-1 rounded-xl overflow-hidden shadow-sm border border-slate-200 relative">
         {!esAdmin &&
           viajeActivoChofer &&
-          viajeActivoChofer.estado !== "finalizado" && (
+          viajeActivoChofer.estado !== "finalizado" &&
+          !viajeActivoChofer.hora_inicio && (
+            <div className="absolute inset-0 z-3000 bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+              <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full border border-slate-100">
+                <h2 className="text-2xl font-black text-slate-800 mb-2">
+                  ¡Ruta Asignada!
+                </h2>
+                <p className="text-slate-500 mb-8 font-medium">
+                  Estás a punto de iniciar el recorrido:
+                  <br />
+                  <b className="text-blue-600 text-lg uppercase">
+                    {viajeActivoChofer.ruta_nombre}
+                  </b>
+                </p>
+                <button
+                  onClick={handleIniciarViaje}
+                  disabled={iniciandoViaje}
+                  className="w-40 h-40 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-full shadow-2xl shadow-blue-600/40 flex flex-col items-center justify-center gap-2 transition-transform hover:scale-105 cursor-pointer"
+                >
+                  {iniciandoViaje ? (
+                    <Loader2 size={40} className="animate-spin" />
+                  ) : (
+                    <Play size={48} className="ml-2 fill-current" />
+                  )}
+                  <span className="font-bold text-lg tracking-wide uppercase">
+                    {iniciandoViaje ? "Iniciando..." : "Iniciar Ruta"}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
+        {!esAdmin &&
+          viajeActivoChofer &&
+          viajeActivoChofer.estado !== "finalizado" &&
+          viajeActivoChofer.hora_inicio && (
             <button
               onClick={() => setMostrarModalFinalizar(true)}
               className="absolute bottom-6 right-6 z-1000 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3.5 rounded-2xl shadow-xl shadow-blue-600/20 font-bold flex items-center gap-2 transition-transform hover:scale-105 cursor-pointer border border-blue-500"
@@ -447,27 +506,40 @@ export default function MapaRutero({
                 nombreChofer={nombreChoferConectado}
               />
             ) : (
-              <div
-                className="absolute top-3 left-1/2 -translate-x-1/2 z-1000 bg-slate-900/95 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-full shadow-md flex items-center justify-center border border-slate-700/50 backdrop-blur-sm"
-                style={{ whiteSpace: "nowrap", minWidth: "max-content" }}
-              >
-                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
-                <span className="text-[10px] sm:text-sm font-bold tracking-wide uppercase">
-                  Reparto Activo
-                </span>
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-1000 bg-slate-900/95 text-white px-4 py-2 rounded-full shadow-lg border border-slate-700/60 backdrop-blur-md flex items-center gap-3">
+                <div className="flex items-center">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-2"></span>
+                  <span className="text-[10px] sm:text-xs font-black tracking-wider uppercase text-slate-200">
+                    Reparto Activo
+                  </span>
+                </div>
+                <div className="h-3.5 w-px bg-slate-700"></div>
+                <div className="flex items-center text-[10px] sm:text-xs font-semibold text-slate-300">
+                  <span>Pendientes:</span>
+                  <span className="text-amber-400 font-black ml-1.5 text-sm">
+                    {conteoPendientes.pendientes}
+                  </span>
+                  <span className="text-slate-500 mx-0.5">/</span>
+                  <span className="text-slate-400 font-bold">
+                    {conteoPendientes.total}
+                  </span>
+                </div>
               </div>
             )
           ) : (
-            <div className="absolute inset-0 z-1000 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                <span className="text-2xl">🚫</span>
+            /* 🚀 NUEVO DISEÑO PARA "SIN RUTA ASIGNADA" */
+            <div className="absolute inset-0 z-3000 bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+              <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full border border-slate-100">
+                <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-4">
+                  <AlertCircle size={32} />
+                </div>
+                <h2 className="text-2xl font-black text-slate-800 mb-2">
+                  Sin ruta asignada
+                </h2>
+                <p className="text-slate-500 font-medium text-lg">
+                  Por favor repórtate en bodega.
+                </p>
               </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">
-                Día Libre
-              </h2>
-              <p className="text-slate-600">
-                No tienes rutas asignadas para hoy ({fechaViaje}).
-              </p>
             </div>
           ))}
 
@@ -540,8 +612,10 @@ export default function MapaRutero({
                             Registrado: <b>{cliente.hora_entrega}</b>
                           </p>
                         )}
+
                         {!esAdmin &&
-                          viajeActivoChofer?.estado !== "finalizado" && (
+                          viajeActivoChofer?.estado !== "finalizado" &&
+                          viajeActivoChofer?.hora_inicio && (
                             <div className="grid grid-cols-3 gap-1 pt-1">
                               <button
                                 onClick={() =>

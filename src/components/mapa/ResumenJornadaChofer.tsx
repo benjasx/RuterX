@@ -5,20 +5,19 @@ export default function ResumenJornadaChofer({
   resumenViaje,
   nombreChofer,
 }: any) {
-  // 🚀 Limpiamos el nombre para quitar el correo que viene entre paréntesis
   const nombreLimpio = nombreChofer
     ? nombreChofer.split(" (")[0]
     : "Chofer Desconocido";
   const rutaReal =
     viajeActivoChofer.ruta_real_realizada || viajeActivoChofer.ruta_nombre;
 
-  // Función para armar el mensaje y abrir WhatsApp
   const compartirPorWhatsApp = () => {
     const textoMensaje = `*REPORTE DE CIERRE DE RUTA* 🚚💨
     
 *Ruta:* ${rutaReal}
 *Chofer:* ${nombreLimpio}
 *Unidad:* ${viajeActivoChofer.unidad_utilizada || "N/A"}
+*Hora de inicio:* ${viajeActivoChofer.hora_inicio || "--:--"}
 *Hora de término:* ${viajeActivoChofer.hora_finalizacion || "--:--"}
 
 *Resumen de Entregas:*
@@ -40,7 +39,6 @@ export default function ResumenJornadaChofer({
           <CheckCircle2 size={32} />
         </div>
 
-        {/* 🚀 NUEVO ENCABEZADO REESTRUCTURADO */}
         <div className="mb-6">
           <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight leading-none mb-2">
             {rutaReal}
@@ -58,7 +56,6 @@ export default function ResumenJornadaChofer({
           </div>
         </div>
 
-        {/* Cajas de métricas */}
         <div className="grid grid-cols-2 gap-3 mb-5">
           <div className="bg-green-50 border border-green-100 rounded-xl p-3">
             <p className="text-green-600 text-[10px] font-bold uppercase mb-1">
@@ -94,18 +91,20 @@ export default function ResumenJornadaChofer({
           </div>
         </div>
 
-        {/* Ticket inferior limpio */}
         <div className="bg-slate-50 rounded-lg p-4 text-sm text-left border border-slate-200 shadow-inner mb-5">
+          {/* 🚀 AQUI AGREGAMOS LA HORA DE INICIO AL TICKET */}
           <div className="grid grid-cols-2 gap-2 mb-3 pb-3 border-b border-slate-200/80">
             <div>
               <span className="font-bold block text-[10px] text-slate-400 uppercase">
-                Estado
+                Hora Inicio
               </span>
-              <span className="font-bold text-emerald-600">Finalizada</span>
+              <span className="font-bold text-slate-700">
+                {viajeActivoChofer.hora_inicio || "--:--"}
+              </span>
             </div>
             <div>
               <span className="font-bold block text-[10px] text-slate-400 uppercase">
-                Hora de término
+                Hora Término
               </span>
               <span className="font-bold text-slate-700">
                 {viajeActivoChofer.hora_finalizacion || "--:--"}
@@ -123,7 +122,6 @@ export default function ResumenJornadaChofer({
           </div>
         </div>
 
-        {/* Botón de WhatsApp */}
         <button
           onClick={compartirPorWhatsApp}
           className="w-full bg-[#25D366] hover:bg-[#1ebd5a] text-white font-bold py-3 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
