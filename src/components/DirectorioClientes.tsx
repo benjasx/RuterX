@@ -1,4 +1,3 @@
-// src/components/DirectorioClientes.tsx
 import { useState, useMemo, useEffect } from "react";
 import {
   Search,
@@ -10,9 +9,9 @@ import {
   Trash2,
   FileText,
   FileSpreadsheet,
+  Loader2,
 } from "lucide-react";
 
-// IMPORTAMOS TUS NUEVAS UTILIDADES DE EXPORTACIÓN
 import {
   generarPDFDirectorio,
   generarCSVDirectorio,
@@ -26,26 +25,26 @@ interface Props {
 }
 
 export default function DirectorioClientes({
-  clientes,
-  rutas,
+  clientes = [],
+  rutas = [],
   onEdit,
   onDelete,
 }: Props) {
   const [busquedaNombre, setBusquedaNombre] = useState("");
   const [filtroRuta, setFiltroRuta] = useState("");
-
   const [paginaActual, setPaginaActual] = useState(1);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
+
   const ITEMS_POR_PAGINA = 13;
 
+  // Filtrado 100% local en memoria (0 consumo de lectura en BD)
   const clientesFiltrados = useMemo(() => {
+    const busqueda = busquedaNombre.toLowerCase();
     return clientes.filter((cliente) => {
-      const nombreSeguro = cliente.nombre || "";
+      const nombreSeguro = (cliente.nombre || "").toLowerCase();
       const rutaSegura = cliente.ruta || "";
 
-      const coincideNombre = nombreSeguro
-        .toLowerCase()
-        .includes(busquedaNombre.toLowerCase());
-
+      const coincideNombre = nombreSeguro.includes(busqueda);
       const coincideRuta = filtroRuta === "" || rutaSegura === filtroRuta;
 
       return coincideNombre && coincideRuta;
@@ -58,17 +57,31 @@ export default function DirectorioClientes({
 
   const totalPaginas =
     Math.ceil(clientesFiltrados.length / ITEMS_POR_PAGINA) || 1;
-  const clientesPaginados = clientesFiltrados.slice(
-    (paginaActual - 1) * ITEMS_POR_PAGINA,
-    paginaActual * ITEMS_POR_PAGINA,
-  );
+  const clientesPaginados = useMemo(() => {
+    return clientesFiltrados.slice(
+      (paginaActual - 1) * ITEMS_POR_PAGINA,
+      paginaActual * ITEMS_POR_PAGINA,
+    );
+  }, [clientesFiltrados, paginaActual]);
 
-  const rutasOrdenadas = [...rutas].sort((a, b) =>
-    a.nombre.localeCompare(b.nombre),
-  );
+  const rutasOrdenadas = useMemo(() => {
+    return [...rutas].sort((a, b) =>
+      (a.nombre || "").localeCompare(b.nombre || ""),
+    );
+  }, [rutas]);
+
+  const handleConfirmarEliminar = async (id: string) => {
+    setEliminandoId(id);
+    try {
+      await onDelete(id);
+    } finally {
+      setEliminandoId(null);
+    }
+  };
 
   return (
     <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full">
+      {/* Encabezado y Exportaciones */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
         <div className="flex items-center gap-3">
           <ListTodo className="text-blue-600" size={24} />
@@ -83,7 +96,7 @@ export default function DirectorioClientes({
         <div className="flex gap-2">
           <button
             onClick={() => generarCSVDirectorio(clientesFiltrados)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 hover:border-emerald-300 transition-colors text-sm font-semibold"
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 hover:border-emerald-300 transition-colors text-sm font-semibold cursor-pointer"
             title="Exportar a Excel/CSV"
           >
             <FileSpreadsheet size={16} />
@@ -91,7 +104,7 @@ export default function DirectorioClientes({
           </button>
           <button
             onClick={() => generarPDFDirectorio(clientesFiltrados, filtroRuta)}
-            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors text-sm font-semibold"
+            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors text-sm font-semibold cursor-pointer"
             title="Generar PDF"
           >
             <FileText size={16} />
@@ -100,6 +113,7 @@ export default function DirectorioClientes({
         </div>
       </div>
 
+      {/* Buscador y Filtro */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-100 shrink-0">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -121,7 +135,7 @@ export default function DirectorioClientes({
           <select
             value={filtroRuta}
             onChange={(e) => setFiltroRuta(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white"
+            className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white cursor-pointer"
           >
             <option value="">Todas las rutas</option>
             {rutasOrdenadas.map((r) => (
@@ -133,6 +147,7 @@ export default function DirectorioClientes({
         </div>
       </div>
 
+      {/* Tabla de Clientes */}
       <div className="flex-1 overflow-y-auto rounded-lg border border-slate-200 shadow-sm">
         <table className="w-full text-left border-collapse min-w-200">
           <thead className="bg-slate-50">
@@ -169,15 +184,25 @@ export default function DirectorioClientes({
                   <td className="py-3 px-4 text-center">
                     <button
                       onClick={() => onEdit(cliente)}
-                      className="text-slate-400 hover:text-blue-600 transition-colors p-2 hover:bg-blue-50 rounded-full"
+                      className="text-slate-400 hover:text-blue-600 transition-colors p-2 hover:bg-blue-50 rounded-full cursor-pointer"
+                      title="Editar"
                     >
                       <Pencil size={18} />
                     </button>
                     <button
-                      onClick={() => onDelete(cliente.id)}
-                      className="text-slate-400 hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-full"
+                      onClick={() => handleConfirmarEliminar(cliente.id)}
+                      disabled={eliminandoId === cliente.id}
+                      className="text-slate-400 hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-full cursor-pointer disabled:opacity-50"
+                      title="Eliminar"
                     >
-                      <Trash2 size={18} />
+                      {eliminandoId === cliente.id ? (
+                        <Loader2
+                          size={18}
+                          className="animate-spin text-red-600"
+                        />
+                      ) : (
+                        <Trash2 size={18} />
+                      )}
                     </button>
                   </td>
                 </tr>
@@ -193,6 +218,7 @@ export default function DirectorioClientes({
         </table>
       </div>
 
+      {/* Paginación */}
       <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 shrink-0">
         <p className="text-sm text-slate-600">
           Mostrando página <span className="font-bold">{paginaActual}</span> de{" "}
@@ -202,7 +228,7 @@ export default function DirectorioClientes({
           <button
             onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
             disabled={paginaActual === 1}
-            className="p-2 rounded-lg border border-slate-300 disabled:opacity-50 hover:bg-slate-50 transition-colors"
+            className="p-2 rounded-lg border border-slate-300 disabled:opacity-50 hover:bg-slate-50 transition-colors cursor-pointer"
           >
             <ChevronLeft size={20} />
           </button>
@@ -211,7 +237,7 @@ export default function DirectorioClientes({
               setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))
             }
             disabled={paginaActual === totalPaginas}
-            className="p-2 rounded-lg border border-slate-300 disabled:opacity-50 hover:bg-slate-50 transition-colors"
+            className="p-2 rounded-lg border border-slate-300 disabled:opacity-50 hover:bg-slate-50 transition-colors cursor-pointer"
           >
             <ChevronRight size={20} />
           </button>

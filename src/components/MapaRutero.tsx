@@ -25,7 +25,7 @@ import {
 } from "../utils/reportesUtils";
 import { calcularRutaOptimaYCarretera } from "../utils/rutasUtils";
 
-// 🚀 COMPONENTES UI (Los que acabamos de crear)
+// 🚀 COMPONENTES UI
 import PanelLateralMapaAdmin from "./mapa/PanelLateralMapaAdmin";
 import ModalAsignarDespacho from "./mapa/ModalAsignarDespacho";
 import ModalFinalizarViaje from "./mapa/ModalFinalizarViaje";
@@ -98,20 +98,25 @@ export default function MapaRutero({
   const [foliosNoEmbarcados, setFoliosNoEmbarcados] = useState("");
   const [finalizandoViaje, setFinalizandoViaje] = useState(false);
 
-  // QUERIES
+  // 🚀 QUERIES CON CACHÉ (Evita sobrecostos por lecturas excesivas en Firestore)
   const { data: choferesData = [] } = useQuery({
     queryKey: ["choferes"],
     queryFn: obtenerChoferesFirebase,
+    staleTime: 1000 * 60 * 10, // 10 minutos en memoria sin volver a consultar a Firebase
   });
+
   const { data: clientesData = [], isLoading: cargandoClientes } = useQuery({
     queryKey: ["clientes"],
     queryFn: obtenerClientesFirebase,
     enabled: esAdmin,
+    staleTime: 1000 * 60 * 15, // 15 minutos de caché
   });
+
   const { data: rutasData = [] } = useQuery({
     queryKey: ["rutas"],
     queryFn: obtenerRutasFirebase,
     enabled: esAdmin,
+    staleTime: 1000 * 60 * 30, // 30 minutos de caché
   });
 
   const choferesDisponibles = useMemo(() => [...choferesData], [choferesData]);
@@ -243,6 +248,7 @@ export default function MapaRutero({
     setSelectedClienteIds(todos);
     localStorage.setItem("rutasmart_clientes", JSON.stringify(todos));
   };
+
   const deseleccionarTodos = () => {
     setCentroMapa(null);
     setSelectedClienteIds([]);
@@ -331,9 +337,11 @@ export default function MapaRutero({
         (c) => selectedClienteIds.includes(c.id) && Array.isArray(c.posicion),
       )
     : viajeActivoChofer?.clientes || [];
+
   const lineaCarreteraADibujar = esAdmin
     ? rutaCarretera
     : viajeActivoChofer?.ruta_carretera || null;
+
   const posicionesLíneaRecta = esAdmin
     ? rutaOptima
       ? [
@@ -347,6 +355,7 @@ export default function MapaRutero({
           ...viajeActivoChofer.clientes.map((c: any) => c.posicion),
         ]
       : [];
+
   const markerPositions = clientesADibujar.map(
     (c) => c.posicion as [number, number],
   );
