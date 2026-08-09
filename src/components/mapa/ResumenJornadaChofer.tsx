@@ -1,9 +1,10 @@
-import { CheckCircle2, MessageCircle } from "lucide-react";
+import { CheckCircle2, MessageCircle, ArrowRight } from "lucide-react";
 
 export default function ResumenJornadaChofer({
   viajeActivoChofer,
   resumenViaje,
   nombreChofer,
+  onVerProximaRuta,
 }: any) {
   const nombreLimpio = nombreChofer
     ? nombreChofer.split(" (")[0]
@@ -92,7 +93,6 @@ export default function ResumenJornadaChofer({
         </div>
 
         <div className="bg-slate-50 rounded-lg p-4 text-sm text-left border border-slate-200 shadow-inner mb-5">
-          {/* 🚀 AQUI AGREGAMOS LA HORA DE INICIO AL TICKET */}
           <div className="grid grid-cols-2 gap-2 mb-3 pb-3 border-b border-slate-200/80">
             <div>
               <span className="font-bold block text-[10px] text-slate-400 uppercase">
@@ -111,7 +111,6 @@ export default function ResumenJornadaChofer({
               </span>
             </div>
           </div>
-
           <div>
             <span className="font-bold block text-[10px] text-slate-400 uppercase">
               Motivo de cierre
@@ -122,13 +121,23 @@ export default function ResumenJornadaChofer({
           </div>
         </div>
 
-        <button
-          onClick={compartirPorWhatsApp}
-          className="w-full bg-[#25D366] hover:bg-[#1ebd5a] text-white font-bold py-3 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <MessageCircle size={20} />
-          Compartir por WhatsApp
-        </button>
+        {/* 🚀 BOTONES DE ACCIÓN */}
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={compartirPorWhatsApp}
+            className="w-full bg-[#25D366] hover:bg-[#1ebd5a] text-white font-bold py-3 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <MessageCircle size={20} />
+            Compartir por WhatsApp
+          </button>
+
+          <button
+            onClick={onVerProximaRuta}
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+          >
+            Ver próxima ruta asignada <ArrowRight size={18} />
+          </button>
+        </div>
       </div>
     </div>
   );

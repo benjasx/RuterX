@@ -8,6 +8,8 @@ import {
   doc,
   updateDoc,
   getDoc,
+  orderBy,
+  limit,
 } from "firebase/firestore";
 import { db } from "./config";
 
@@ -52,47 +54,32 @@ export const asignarViajeFirebase = async (datosViaje: {
   }
 };
 
+// (Asegúrate de importar orderBy y limit si no los tenías)
 export const obtenerViajeActivoChofer = async (
-  email: string,
-  fechaHoy: string,
+  choferEmail: string,
+  hoyStr: string,
 ) => {
   try {
     const q = query(
       collection(db, "viajes_activos"),
-      where("chofer_email", "==", email),
+      // 👇 AQUI ESTA LA CORRECCIÓN: usamos chofer_email y fecha_salida
+      where("chofer_email", "==", choferEmail),
+      where("fecha_salida", ">=", hoyStr),
+      orderBy("fecha_salida", "asc"),
+      limit(1),
     );
 
     const querySnapshot = await getDocs(q);
-    let viajePendiente = null;
-    let viajeFinalizado = null;
 
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      if (data.fecha_salida === fechaHoy) {
-        // Re-convertimos la carretera
-        const carreteraConvertida = data.ruta_carretera
-          ? data.ruta_carretera.map(
-              (pt: any) => [pt.lat, pt.lng] as [number, number],
-            )
-          : null;
+    if (querySnapshot.empty) {
+      return null;
+    }
 
-        const viajeActual = {
-          id: doc.id,
-          ...data,
-          ruta_carretera: carreteraConvertida,
-        };
-
-        // Guardamos si es pendiente o finalizado
-        if (data.estado === "pendiente") viajePendiente = viajeActual;
-        if (data.estado === "finalizado") viajeFinalizado = viajeActual;
-      }
-    });
-
-    // Damos prioridad al pendiente, si no hay pendiente, mandamos el finalizado para mostrar el resumen
-    return viajePendiente || viajeFinalizado || null;
+    const docViaje = querySnapshot.docs[0];
+    return { id: docViaje.id, ...docViaje.data() };
   } catch (error) {
     console.error("Error al obtener el viaje del chofer:", error);
-    return null;
+    throw error;
   }
 };
 
