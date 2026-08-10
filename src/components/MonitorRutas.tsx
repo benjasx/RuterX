@@ -1,27 +1,31 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Truck, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import {
+  Loader2,
+  Truck,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Timer,
+} from "lucide-react";
 import { obtenerViajesDelDia } from "../firebase/viajesService";
-import { obtenerChoferesFirebase } from "../firebase/choferesService"; // 🚀 Importamos el servicio de choferes
+import { obtenerChoferesFirebase } from "../firebase/choferesService";
 
 export default function MonitorRutas() {
   const hoyStr = new Date().toLocaleDateString("sv-SE");
 
-  // 🚀 Consultamos los viajes del día
   const { data: viajesDelDia = [], isLoading: cargandoViajes } = useQuery({
     queryKey: ["viajesDelDia", hoyStr],
     queryFn: () => obtenerViajesDelDia(hoyStr),
     refetchInterval: 10000,
   });
 
-  // 🚀 Consultamos la lista completa de choferes para obtener sus nombres reales
   const { data: choferesData = [] } = useQuery({
     queryKey: ["choferes"],
     queryFn: obtenerChoferesFirebase,
     staleTime: 1000 * 60 * 10,
   });
 
-  // Mapa rápido para buscar el nombre del chofer por su correo
   const nombreChoferMap = useMemo(() => {
     const map = new Map();
     choferesData.forEach((c: any) => {
@@ -31,7 +35,31 @@ export default function MonitorRutas() {
     return map;
   }, [choferesData]);
 
-  // Calculamos el porcentaje de avance y obtenemos el nombre real de cada chofer
+  // Función para calcular las horas transcurridas entre la hora de inicio y fin
+  const calcularTiempoTotal = (inicio: string, fin: string) => {
+    if (!inicio || !fin) return null;
+    try {
+      const [h1, m1, s1] = inicio.split(":").map(Number);
+      const [h2, m2, s2] = fin.split(":").map(Number);
+
+      const segundosInicio = h1 * 3600 + m1 * 60 + (s1 || 0);
+      const segundosFin = h2 * 3600 + m2 * 60 + (s2 || 0);
+
+      let diferenciaSegundos = segundosFin - segundosInicio;
+      if (diferenciaSegundos < 0) diferenciaSegundos += 86400; // Por si cruza la medianoche
+
+      const horas = Math.floor(diferenciaSegundos / 3600);
+      const minutos = Math.floor((diferenciaSegundos % 3600) / 60);
+
+      if (horas === 0) {
+        return `${minutos} min`;
+      }
+      return `${horas} h ${minutos} min`;
+    } catch (e) {
+      return null;
+    }
+  };
+
   const viajesConProgreso = useMemo(() => {
     return viajesDelDia
       .map((viaje: any) => {
@@ -49,12 +77,16 @@ export default function MonitorRutas() {
         const porcentaje =
           total === 0 ? 0 : Math.round((procesados / total) * 100);
 
-        // Buscamos el nombre real cruzando el correo, si no existe mostramos el correo limpio
         const emailChofer = (viaje.chofer_email || "").toLowerCase().trim();
         const nombreRealChofer =
           nombreChoferMap.get(emailChofer) ||
           viaje.chofer_email?.split("@")[0] ||
           "Chofer Desconocido";
+
+        const tiempoTotal =
+          viaje.hora_inicio && viaje.hora_finalizacion
+            ? calcularTiempoTotal(viaje.hora_inicio, viaje.hora_finalizacion)
+            : null;
 
         return {
           ...viaje,
@@ -63,6 +95,7 @@ export default function MonitorRutas() {
           entregados,
           porcentaje,
           nombreRealChofer,
+          tiempoTotal,
         };
       })
       .sort((a, b) => b.porcentaje - a.porcentaje);
@@ -70,7 +103,7 @@ export default function MonitorRutas() {
 
   if (cargandoViajes) {
     return (
-      <div className="flex w-full min-h-[500px] items-center justify-center bg-white rounded-xl shadow-sm border border-slate-100">
+      <div className="flex w-full min-h-125 items-center justify-center bg-white rounded-xl shadow-sm border border-slate-100">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="animate-spin text-blue-600" size={40} />
           <p className="text-slate-500 font-bold animate-pulse">
@@ -109,12 +142,11 @@ export default function MonitorRutas() {
             key={viaje.id}
             className="bg-slate-50 p-5 rounded-2xl border border-slate-200 flex flex-col relative overflow-hidden transition-all hover:shadow-md hover:border-blue-200"
           >
-            <div className="flex justify-between items-start mb-4">
+            <div className="flex justify-between items-start mb-3">
               <div>
                 <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">
                   {viaje.ruta_nombre}
                 </h3>
-                {/* 🚀 AQUÍ SE MUESTRA EL NOMBRE REAL Y COMPLETO */}
                 <p className="text-sm font-bold text-blue-600 mt-0.5">
                   {viaje.nombreRealChofer}
                 </p>
@@ -124,24 +156,51 @@ export default function MonitorRutas() {
               </div>
             </div>
 
-            <div className="mb-5 flex flex-col gap-2 items-start">
+            {/* ESTADOS Y TIEMPOS */}
+            <div className="mb-4 flex flex-col gap-2 items-start">
               {viaje.estado === "finalizado" ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-green-100 text-green-800 uppercase tracking-wide">
-                  <CheckCircle2 size={14} /> Jornada Finalizada
-                </span>
+                <div className="flex flex-col gap-1 w-full">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-green-100 text-green-800 uppercase tracking-wide self-start">
+                    <CheckCircle2 size={14} /> Jornada Finalizada
+                  </span>
+
+                  {/* 🚀 MUESTRA HORA INICIO, HORA FIN Y TOTAL */}
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-xs text-slate-600 flex justify-between items-center mt-1 shadow-xs">
+                    <div>
+                      <p>
+                        <b>Inicio:</b> {viaje.hora_inicio || "N/D"}
+                      </p>
+                      <p>
+                        <b>Fin:</b> {viaje.hora_finalizacion || "N/D"}
+                      </p>
+                    </div>
+                    {viaje.tiempoTotal && (
+                      <div className="text-right bg-blue-50 text-blue-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 border border-blue-100">
+                        <Timer size={14} /> {viaje.tiempoTotal}
+                      </div>
+                    )}
+                  </div>
+                </div>
               ) : !viaje.hora_inicio ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wide">
                   <Clock size={14} /> Esperando en Bodega
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 uppercase tracking-wide">
-                  <Truck size={14} /> En Ruta (Inició: {viaje.hora_inicio})
-                </span>
+                <div className="flex flex-col gap-1 w-full">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 uppercase tracking-wide self-start">
+                    <Truck size={14} /> En Ruta
+                  </span>
+                  <div className="bg-white p-2 rounded-lg border border-slate-200 text-xs text-slate-600">
+                    <span>
+                      <b>Inició a las:</b> {viaje.hora_inicio}
+                    </span>
+                  </div>
+                </div>
               )}
 
               {viaje.motivo_finalizacion &&
                 viaje.motivo_finalizacion !== "Término de recorrido" && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200 shadow-sm">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200 shadow-sm mt-1">
                     <AlertCircle size={14} /> {viaje.motivo_finalizacion}
                   </span>
                 )}
@@ -175,7 +234,7 @@ export default function MonitorRutas() {
 
         {viajesConProgreso.length === 0 && (
           <div className="col-span-full bg-slate-50 p-10 rounded-2xl border-2 border-dashed border-slate-200 text-center flex flex-col items-center">
-            <Truck className="text-slate-300 mb-4" size={56} />
+            <Truck className="text-slate-300 mb-4" size={48} />
             <h3 className="text-xl font-black text-slate-700 mb-1">
               No hay unidades operando
             </h3>

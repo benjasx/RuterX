@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   UserCheck,
   Truck,
+  CalendarCheck, // 🚀 Icono para Control de Asistencia
 } from "lucide-react";
 
 export type SubVistaAdmin =
@@ -18,6 +19,7 @@ export type SubVistaAdmin =
   | "clientes"
   | "distribucion"
   | "rutas"
+  | "asistencias"
   | "vendedores"
   | "tablamontos"
   | "historial"
@@ -41,19 +43,20 @@ export default function SidebarAdmin({
   const esJefeReparto = usuarioEmail === "jefedereparto@ruterx.com";
   const esAdmin = !esJefeReparto;
 
-  // 🚀 PERMISOS RESTRINGIDOS: Solo "monitorRutas" y "distribucion" en true para el Jefe
+  // 🚀 PERMISOS RESTRINGIDOS: Puedes habilitar asistencias para ambos o solo admin cambiando a `true` o `esAdmin`
   const permisos = {
-    dashboard: esAdmin, // Solo Admin
-    monitorRutas: true, // Ambos lo ven
-    distribucion: true, // Ambos lo ven
-    clientes: esAdmin, // Solo Admin
-    rutas: esAdmin, // Solo Admin
-    vendedores: esAdmin, // Solo Admin
-    tablamontos: esAdmin, // Solo Admin
-    historial: esAdmin, // Solo Admin
-    historialCompleto: esAdmin, // Solo Admin
-    ajustesNomina: esAdmin, // Solo Admin
-    choferes: esAdmin, // Solo Admin
+    dashboard: esAdmin,
+    monitorRutas: true,
+    distribucion: true,
+    asistencias: true, // 🚀 Activado para que el Jefe de Reparto y el Admin puedan llevar el control
+    clientes: esAdmin,
+    rutas: esAdmin,
+    vendedores: esAdmin,
+    tablamontos: esAdmin,
+    historial: esAdmin,
+    historialCompleto: esAdmin,
+    ajustesNomina: esAdmin,
+    choferes: esAdmin,
   };
 
   return (
@@ -104,6 +107,22 @@ export default function SidebarAdmin({
                 }`}
               >
                 <ClipboardList size={20} /> Distribución Diaria
+              </button>
+            </li>
+          )}
+
+          {/* 🚀 NUEVO BOTÓN: CONTROL DE ASISTENCIA */}
+          {permisos.asistencias && (
+            <li>
+              <button
+                onClick={() => setMenuActivo("asistencias")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  menuActivo === "asistencias"
+                    ? "bg-blue-50 text-blue-700 font-semibold"
+                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                }`}
+              >
+                <CalendarCheck size={20} /> Asistencia/reparto
               </button>
             </li>
           )}

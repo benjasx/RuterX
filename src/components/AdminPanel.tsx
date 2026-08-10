@@ -11,16 +11,16 @@ import PanelHistorialCompleto from "./PanelHistorialCompleto";
 import PanelAjustesNomina from "./PanelAjustesNomina";
 import Dashboard from "./Dashboard";
 import AdminChoferes from "./AdminChoferes";
-
-// 🚀 Importamos el nuevo componente
 import MonitorRutas from "./MonitorRutas";
+import PanelDistribucion from "./PanelDistribucion";
+
+// 🚀 Importamos el nuevo componente de Control de Asistencia
+import PanelAsistencia from "./PanelAsistencia";
 
 import { obtenerVendedoresFirebase } from "../firebase/vendedoresService";
 import { obtenerClientesFirebase } from "../firebase/clientesService";
 import { obtenerRutasFirebase } from "../firebase/rutasService";
-import PanelDistribucion from "./PanelDistribucion";
 
-// 🚀 Recibimos el usuarioEmail desde App.tsx para pasarlo al Sidebar
 interface AdminPanelProps {
   onLogout: () => void;
   usuarioEmail: string | null;
@@ -30,7 +30,6 @@ export default function AdminPanel({
   onLogout,
   usuarioEmail,
 }: AdminPanelProps) {
-  // Si el que entra es el jefe, lo mandamos directo al monitor por defecto
   const esJefeReparto = usuarioEmail === "jefedereparto@ruterx.com";
   const [menuActivo, setMenuActivo] = useState<SubVistaAdmin>(
     esJefeReparto ? "monitorRutas" : "dashboard",
@@ -63,14 +62,18 @@ export default function AdminPanel({
         menuActivo={menuActivo}
         setMenuActivo={setMenuActivo}
         onLogout={onLogout}
-        usuarioEmail={usuarioEmail} // 🚀 Le pasamos el correo al menú
+        usuarioEmail={usuarioEmail}
       />
 
       <div className="flex-1 w-full min-w-0">
         {menuActivo === "dashboard" && <Dashboard />}
 
-        {/* 🚀 Renderizamos el Monitor de Rutas */}
         {menuActivo === "monitorRutas" && <MonitorRutas />}
+
+        {menuActivo === "distribucion" && <PanelDistribucion />}
+
+        {/* 🚀 Renderizamos el Control de Asistencia */}
+        {menuActivo === "asistencias" && <PanelAsistencia />}
 
         {menuActivo === "clientes" && (
           <PanelClientes
@@ -105,8 +108,6 @@ export default function AdminPanel({
         {menuActivo === "ajustesNomina" && <PanelAjustesNomina />}
 
         {menuActivo === "choferes" && <AdminChoferes />}
-
-        {menuActivo === "distribucion" && <PanelDistribucion />}
       </div>
     </div>
   );

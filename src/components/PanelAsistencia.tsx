@@ -1,0 +1,346 @@
+import { useState, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Calendar,
+  Save,
+  Loader2,
+  UserCheck,
+  Download,
+  FileText,
+  Search,
+  Filter,
+} from "lucide-react";
+import { obtenerChoferesFirebase } from "../firebase/choferesService";
+import {
+  obtenerAsistenciaPorFecha,
+  guardarAsistenciaFecha,
+} from "../firebase/asistenciaService";
+import { exportarAsistenciaPDF } from "../utils/reportesAsistenciaUtils";
+
+export default function PanelAsistencia() {
+  const hoyStr = new Date().toLocaleDateString("sv-SE");
+  const [fechaSeleccionada, setFechaSeleccionada] = useState(hoyStr);
+  const [registros, setRegistros] = useState<any[]>([]);
+  const [guardando, setGuardando] = useState(false);
+
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroPuesto, setFiltroPuesto] = useState("TODOS");
+
+  const queryClient = useQueryClient();
+
+  const { data: personalData = [], isLoading: cargandoPersonal } = useQuery({
+    queryKey: ["choferes"],
+    queryFn: obtenerChoferesFirebase,
+  });
+
+  const { data: asistenciaGuardada = [], isLoading: cargandoAsistencia } =
+    useQuery({
+      queryKey: ["asistencia", fechaSeleccionada],
+      queryFn: () => obtenerAsistenciaPorFecha(fechaSeleccionada),
+    });
+
+  useEffect(() => {
+    if (personalData.length > 0) {
+      if (asistenciaGuardada.length > 0) {
+        const mapaGuardado = new Map(
+          asistenciaGuardada.map((r: any) => [r.id || r.nombre, r]),
+        );
+        const listaCompleta = personalData.map((p: any) => {
+          const guardado: any = mapaGuardado.get(p.id || p.nombre);
+          const rol = (p.rol || p.puesto || p.tipo || "CHOFER").toUpperCase();
+          return {
+            id: p.id || p.nombre,
+            nombre: (p.nombre || "").toUpperCase(),
+            puesto:
+              rol.includes("AYUDANTE") || rol.includes("AUXILIAR")
+                ? "AUXILIAR"
+                : "CHOFER",
+            estado: guardado ? guardado.estado : "A",
+            observaciones: guardado ? guardado.observaciones : "",
+          };
+        });
+        setRegistros(listaCompleta);
+      } else {
+        const listaInicial = personalData.map((p: any) => {
+          const rol = (p.rol || p.puesto || p.tipo || "CHOFER").toUpperCase();
+          return {
+            id: p.id || p.nombre,
+            nombre: (p.nombre || "").toUpperCase(),
+            puesto:
+              rol.includes("AYUDANTE") || rol.includes("AUXILIAR")
+                ? "AUXILIAR"
+                : "CHOFER",
+            estado: "A",
+            observaciones: "",
+          };
+        });
+        setRegistros(listaInicial);
+      }
+    }
+  }, [personalData, asistenciaGuardada]);
+
+  const registrosFiltrados = useMemo(() => {
+    return registros.filter((reg) => {
+      const coincideNombre = reg.nombre.includes(busqueda.toUpperCase().trim());
+      const coincidePuesto =
+        filtroPuesto === "TODOS" || reg.puesto === filtroPuesto;
+      return coincideNombre && coincidePuesto;
+    });
+  }, [registros, busqueda, filtroPuesto]);
+
+  const actualizarRegistro = (id: string, campo: string, valor: string) => {
+    setRegistros((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, [campo]: valor.toUpperCase() } : item,
+      ),
+    );
+  };
+
+  const handleGuardar = async () => {
+    setGuardando(true);
+    try {
+      await guardarAsistenciaFecha(fechaSeleccionada, registros);
+      queryClient.invalidateQueries({
+        queryKey: ["asistencia", fechaSeleccionada],
+      });
+      alert("¡ASISTENCIA GUARDADA CORRECTAMENTE!");
+    } catch (error) {
+      alert("Error al guardar la asistencia.");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const exportarExcel = () => {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "PERSONAL,PUESTO,ESTADO,OBSERVACIONES\r\n";
+
+    registrosFiltrados.forEach((r) => {
+      const filaArr = [
+        `"${(r.nombre || "").toUpperCase()}"`,
+        `"${(r.puesto || "").toUpperCase()}"`,
+        `"${(r.estado || "").toUpperCase()}"`,
+        `"${(r.observaciones || "").toUpperCase()}"`,
+      ];
+      csvContent += filaArr.join(",") + "\r\n";
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `CONTROL_ASISTENCIA_${fechaSeleccionada}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  if (cargandoPersonal || cargandoAsistencia) {
+    return (
+      <div className="flex w-full min-h-screen items-center justify-center">
+        <Loader2 className="animate-spin text-blue-600" size={40} />
+      </div>
+    );
+  }
+
+  // Función para obtener estilos dinámicos de colores según el estado seleccionado
+  const obtenerEstiloEstado = (estado: string) => {
+    switch (estado) {
+      case "A":
+        return "bg-green-100 text-green-800 border-green-300";
+      case "RET":
+        return "bg-amber-100 text-amber-900 border-amber-300";
+      case "V":
+        return "bg-emerald-100 text-emerald-800 border-emerald-300";
+      case "I":
+        return "bg-yellow-100 text-yellow-800 border-yellow-300";
+      case "PCG":
+        return "bg-orange-100 text-orange-900 border-orange-300";
+      case "CAP":
+        return "bg-blue-100 text-blue-900 border-blue-300";
+      case "PSG":
+        return "bg-slate-800 text-white border-slate-900";
+      case "DF":
+        return "bg-purple-100 text-purple-900 border-purple-300";
+      case "DS":
+        return "bg-cyan-100 text-cyan-900 border-cyan-300";
+      case "F":
+        return "bg-red-100 text-red-800 border-red-300";
+      case "S":
+        return "bg-red-600 text-white border-red-700";
+      default:
+        return "bg-slate-50 text-slate-800 border-slate-200";
+    }
+  };
+
+  return (
+    <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 min-h-screen uppercase">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
+        <div>
+          <h1 className="text-2xl font-black text-slate-800 flex items-center gap-3">
+            <UserCheck className="text-blue-600" size={28} />
+            Control de Asistencia
+          </h1>
+          <p className="text-slate-500 font-medium mt-1 normal-case">
+            Registro diario de asistencia, retardos y permisos para choferes y
+            auxiliares
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+          <Calendar size={20} className="text-slate-500" />
+          <span className="text-xs font-bold text-slate-600 uppercase">
+            Fecha de Registro:
+          </span>
+          <input
+            type="date"
+            value={fechaSeleccionada}
+            onChange={(e) => setFechaSeleccionada(e.target.value)}
+            className="border border-slate-300 rounded-lg px-3 py-1.5 bg-white font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+        <div className="relative w-full sm:w-80">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            size={18}
+          />
+          <input
+            type="text"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre..."
+            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs font-semibold uppercase"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Filter size={18} className="text-slate-500" />
+          <span className="text-xs font-bold text-slate-600 uppercase">
+            Filtrar por:
+          </span>
+          <select
+            value={filtroPuesto}
+            onChange={(e) => setFiltroPuesto(e.target.value)}
+            className="bg-white border border-slate-300 rounded-lg px-3 py-2 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
+          >
+            <option value="TODOS">TODOS</option>
+            <option value="CHOFER">SOLO CHOFERES</option>
+            <option value="AUXILIAR">SOLO AUXILIARES</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-sm mb-6">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-800 text-white text-xs uppercase tracking-wider">
+              <th className="p-3 border-r border-slate-700">Personal</th>
+              <th className="p-3 border-r border-slate-700 w-44 text-center">
+                Puesto
+              </th>
+              <th className="p-3 border-r border-slate-700 w-56 text-center">
+                Estado
+              </th>
+              <th className="p-3">Observaciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 text-sm">
+            {registrosFiltrados.map((reg) => (
+              <tr key={reg.id} className="hover:bg-slate-50 transition-colors">
+                <td className="p-3 border-r border-slate-200 font-bold text-slate-800 text-xs">
+                  {reg.nombre}
+                </td>
+                <td className="p-3 border-r border-slate-200 text-center text-xs font-semibold text-slate-600">
+                  {reg.puesto}
+                </td>
+                <td className="p-3 border-r border-slate-200 text-center">
+                  <select
+                    value={reg.estado}
+                    onChange={(e) =>
+                      actualizarRegistro(reg.id, "estado", e.target.value)
+                    }
+                    className={`w-full p-2 border rounded-lg font-bold text-xs uppercase cursor-pointer outline-none focus:ring-2 focus:ring-blue-500 ${obtenerEstiloEstado(reg.estado)}`}
+                  >
+                    <option value="A">A - ASISTENCIA</option>
+                    <option value="RET">RET - RETARDO</option>
+                    <option value="V">V - VACACIONES</option>
+                    <option value="I">I - INCAPACIDAD</option>
+                    <option value="PCG">PCG - PERMISO CON GOCE</option>
+                    <option value="CAP">CAP - CAPACITACIÓN</option>
+                    <option value="PSG">PSG - PERMISO SIN GOCE</option>
+                    <option value="DF">DF - DÍA FESTIVO</option>
+                    <option value="DS">DS - DESCANSO OBLIGATORIO</option>
+                    <option value="F">F - FALTA INJUSTIFICADA</option>
+                    <option value="S">S - SUSPENSIÓN</option>
+                  </select>
+                </td>
+                <td className="p-3">
+                  <input
+                    type="text"
+                    value={reg.observaciones}
+                    onChange={(e) =>
+                      actualizarRegistro(
+                        reg.id,
+                        "observaciones",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="MOTIVO O COMENTARIO..."
+                    className="w-full p-2 bg-transparent border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 uppercase text-xs"
+                  />
+                </td>
+              </tr>
+            ))}
+
+            {registrosFiltrados.length === 0 && (
+              <tr>
+                <td
+                  colSpan={4}
+                  className="p-8 text-center text-slate-400 font-semibold text-xs"
+                >
+                  NO SE ENCONTRARON REGISTROS QUE COINCIDAN CON LA BÚSQUEDA.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex justify-end items-center gap-3">
+        <button
+          onClick={exportarExcel}
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-3 rounded-xl transition-colors shadow-lg shadow-emerald-600/20 cursor-pointer text-xs"
+        >
+          <Download size={18} /> EXCEL
+        </button>
+
+        <button
+          onClick={() =>
+            exportarAsistenciaPDF(registrosFiltrados, fechaSeleccionada)
+          }
+          className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold px-5 py-3 rounded-xl transition-colors shadow-lg shadow-rose-600/20 cursor-pointer text-xs"
+        >
+          <FileText size={18} /> PDF
+        </button>
+
+        <button
+          onClick={handleGuardar}
+          disabled={guardando}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold px-6 py-3 rounded-xl transition-colors shadow-lg shadow-blue-600/30 cursor-pointer text-xs"
+        >
+          {guardando ? (
+            <Loader2 size={20} className="animate-spin" />
+          ) : (
+            <Save size={20} />
+          )}
+          {guardando ? "GUARDANDO..." : "GUARDAR ASISTENCIA DEL DÍA"}
+        </button>
+      </div>
+    </div>
+  );
+}
