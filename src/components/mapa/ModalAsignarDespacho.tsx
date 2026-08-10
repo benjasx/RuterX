@@ -14,7 +14,7 @@ interface Props {
   setUnidad: (val: string) => void;
   onConfirm: () => void;
   isPending: boolean;
-  isEditing?: boolean; // 🚀 NUEVO: Saber si estamos editando
+  isEditing?: boolean;
 }
 
 export default function ModalAsignarDespacho({
@@ -32,6 +32,17 @@ export default function ModalAsignarDespacho({
   isPending,
   isEditing = false,
 }: Props) {
+  // 🚀 FILTRAR EXCLUSIVAMENTE CHOFERES (Descartando auxiliares o ayudantes)
+  const soloChoferes = choferesDisponibles.filter((c: any) => {
+    const rol = (c.rol || c.puesto || c.tipo || "").toLowerCase();
+    // Si contiene ayudante o auxiliar, lo excluimos de la lista de choferes responsables
+    return !rol.includes("ayudante") && !rol.includes("auxiliar");
+  });
+
+  // Respaldo de seguridad por si ningún personal tiene rol definido
+  const listaFinalChoferes =
+    soloChoferes.length > 0 ? soloChoferes : choferesDisponibles;
+
   return (
     <div className="fixed inset-0 z-4000 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-700/20">
@@ -60,14 +71,14 @@ export default function ModalAsignarDespacho({
             <select
               value={nombreRuta}
               onChange={(e) => setNombreRuta(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer font-semibold text-slate-800"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer font-semibold text-slate-800 uppercase text-xs"
             >
               <option value="" disabled>
                 Selecciona una ruta...
               </option>
               {LISTA_RUTAS.map((ruta, i) => (
-                <option key={i} value={ruta}>
-                  {ruta}
+                <option key={i} value={ruta.toUpperCase()}>
+                  {ruta.toUpperCase()}
                 </option>
               ))}
             </select>
@@ -81,13 +92,18 @@ export default function ModalAsignarDespacho({
               <select
                 value={choferSeleccionado}
                 onChange={(e) => setChoferSeleccionado(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer text-xs"
               >
-                {choferesDisponibles.map((c, i) => (
-                  <option key={i} value={c.email || c.correo}>
-                    {c.nombre} ({c.email || c.correo})
-                  </option>
-                ))}
+                {listaFinalChoferes.map((c: any, i: number) => {
+                  const email = c.email || c.correo || "";
+                  const identifier = email ? ` (${email})` : "";
+                  return (
+                    <option key={i} value={email || c.nombre}>
+                      {c.nombre}
+                      {identifier}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -98,7 +114,7 @@ export default function ModalAsignarDespacho({
               <select
                 value={unidad}
                 onChange={(e) => setUnidad(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer font-semibold"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer font-semibold text-xs"
               >
                 {LISTA_UNIDADES.map((u, i) => (
                   <option key={i} value={u}>
@@ -116,7 +132,7 @@ export default function ModalAsignarDespacho({
                 type="date"
                 value={fechaViaje}
                 onChange={(e) => setFechaViaje(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white text-xs"
               />
             </div>
           </div>
@@ -125,7 +141,7 @@ export default function ModalAsignarDespacho({
           <button
             onClick={onConfirm}
             disabled={isPending}
-            className={`w-full text-white font-bold py-3 rounded-xl transition-colors mt-4 flex items-center justify-center gap-2 shadow-sm ${
+            className={`w-full text-white font-bold py-3 rounded-xl transition-colors mt-4 flex items-center justify-center gap-2 shadow-sm text-xs ${
               isPending
                 ? "bg-slate-400 cursor-not-allowed"
                 : isEditing
