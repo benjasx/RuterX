@@ -8,32 +8,54 @@ import {
   ClipboardList,
   Settings,
   LayoutDashboard,
-  UserCheck, // 🚀 1. Importamos el icono para los choferes
+  UserCheck,
+  Truck,
 } from "lucide-react";
 
-// 2. Agregamos "choferes" a los tipos permitidos
 export type SubVistaAdmin =
   | "dashboard"
+  | "monitorRutas"
   | "clientes"
+  | "distribucion"
   | "rutas"
   | "vendedores"
   | "tablamontos"
   | "historial"
   | "historialCompleto"
   | "ajustesNomina"
-  | "choferes"; // 🚀 Nuevo
+  | "choferes";
 
 interface SidebarAdminProps {
   menuActivo: SubVistaAdmin;
   setMenuActivo: (vista: SubVistaAdmin) => void;
   onLogout: () => void;
+  usuarioEmail: string | null;
 }
 
 export default function SidebarAdmin({
   menuActivo,
   setMenuActivo,
   onLogout,
+  usuarioEmail,
 }: SidebarAdminProps) {
+  const esJefeReparto = usuarioEmail === "jefedereparto@ruterx.com";
+  const esAdmin = !esJefeReparto;
+
+  // 🚀 PERMISOS RESTRINGIDOS: Solo "monitorRutas" y "distribucion" en true para el Jefe
+  const permisos = {
+    dashboard: esAdmin, // Solo Admin
+    monitorRutas: true, // Ambos lo ven
+    distribucion: true, // Ambos lo ven
+    clientes: esAdmin, // Solo Admin
+    rutas: esAdmin, // Solo Admin
+    vendedores: esAdmin, // Solo Admin
+    tablamontos: esAdmin, // Solo Admin
+    historial: esAdmin, // Solo Admin
+    historialCompleto: esAdmin, // Solo Admin
+    ajustesNomina: esAdmin, // Solo Admin
+    choferes: esAdmin, // Solo Admin
+  };
+
   return (
     <aside className="w-full xl:w-62.5 shrink-0 bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between p-4">
       <div>
@@ -41,128 +63,173 @@ export default function SidebarAdmin({
           Opciones
         </h3>
         <ul className="space-y-2 mb-2">
-          <li>
-            <button
-              onClick={() => setMenuActivo("dashboard")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                menuActivo === "dashboard"
-                  ? "bg-blue-50 text-blue-700 font-semibold"
-                  : "text-slate-600 hover:bg-slate-50 font-medium"
-              }`}
-            >
-              <LayoutDashboard size={20} /> Dashboard
-            </button>
-          </li>
+          {permisos.dashboard && (
+            <li>
+              <button
+                onClick={() => setMenuActivo("dashboard")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  menuActivo === "dashboard"
+                    ? "bg-blue-50 text-blue-700 font-semibold"
+                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                }`}
+              >
+                <LayoutDashboard size={20} /> Dashboard
+              </button>
+            </li>
+          )}
 
-          <li>
-            <button
-              onClick={() => setMenuActivo("clientes")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                menuActivo === "clientes"
-                  ? "bg-blue-50 text-blue-700 font-semibold"
-                  : "text-slate-600 hover:bg-slate-50 font-medium"
-              }`}
-            >
-              <Users size={20} /> Añadir Clientes
-            </button>
-          </li>
-          <li>
-            <button
-              onClick={() => setMenuActivo("rutas")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                menuActivo === "rutas"
-                  ? "bg-blue-50 text-blue-700 font-semibold"
-                  : "text-slate-600 hover:bg-slate-50 font-medium"
-              }`}
-            >
-              <Map size={20} /> Añadir Rutas
-            </button>
-          </li>
-          <li>
-            <button
-              onClick={() => setMenuActivo("vendedores")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                menuActivo === "vendedores"
-                  ? "bg-blue-50 text-blue-700 font-semibold"
-                  : "text-slate-600 hover:bg-slate-50 font-medium"
-              }`}
-            >
-              <Briefcase size={20} /> Añadir Vendedores
-            </button>
-          </li>
+          {permisos.monitorRutas && (
+            <li>
+              <button
+                onClick={() => setMenuActivo("monitorRutas")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  menuActivo === "monitorRutas"
+                    ? "bg-blue-50 text-blue-700 font-semibold"
+                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                }`}
+              >
+                <Truck size={20} /> Monitor de Rutas
+              </button>
+            </li>
+          )}
 
-          <li>
-            <button
-              onClick={() => setMenuActivo("tablamontos")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                menuActivo === "tablamontos"
-                  ? "bg-blue-50 text-blue-700 font-semibold"
-                  : "text-slate-600 hover:bg-slate-50 font-medium"
-              }`}
-            >
-              <Calculator size={20} /> Tabla de Montos
-            </button>
-          </li>
+          {permisos.distribucion && (
+            <li>
+              <button
+                onClick={() => setMenuActivo("distribucion")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  menuActivo === "distribucion"
+                    ? "bg-blue-50 text-blue-700 font-semibold"
+                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                }`}
+              >
+                <ClipboardList size={20} /> Distribución Diaria
+              </button>
+            </li>
+          )}
+
+          {permisos.clientes && (
+            <li>
+              <button
+                onClick={() => setMenuActivo("clientes")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  menuActivo === "clientes"
+                    ? "bg-blue-50 text-blue-700 font-semibold"
+                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                }`}
+              >
+                <Users size={20} /> Añadir Clientes
+              </button>
+            </li>
+          )}
+
+          {permisos.rutas && (
+            <li>
+              <button
+                onClick={() => setMenuActivo("rutas")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  menuActivo === "rutas"
+                    ? "bg-blue-50 text-blue-700 font-semibold"
+                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                }`}
+              >
+                <Map size={20} /> Añadir Rutas
+              </button>
+            </li>
+          )}
+
+          {permisos.vendedores && (
+            <li>
+              <button
+                onClick={() => setMenuActivo("vendedores")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  menuActivo === "vendedores"
+                    ? "bg-blue-50 text-blue-700 font-semibold"
+                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                }`}
+              >
+                <Briefcase size={20} /> Añadir Vendedores
+              </button>
+            </li>
+          )}
+
+          {permisos.tablamontos && (
+            <li>
+              <button
+                onClick={() => setMenuActivo("tablamontos")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  menuActivo === "tablamontos"
+                    ? "bg-blue-50 text-blue-700 font-semibold"
+                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                }`}
+              >
+                <Calculator size={20} /> Tabla de Montos
+              </button>
+            </li>
+          )}
         </ul>
 
-        {/* BOTÓN PARA EL HISTORIAL (Equidad Choferes) */}
-        <button
-          onClick={() => setMenuActivo("historial")}
-          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mb-1 mt-4 ${
-            menuActivo === "historial"
-              ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
-              : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
-          }`}
-        >
-          <History size={20} />
-          <span>Equidad Choferes</span>
-        </button>
+        {permisos.historial && (
+          <button
+            onClick={() => setMenuActivo("historial")}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mb-1 mt-4 ${
+              menuActivo === "historial"
+                ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
+                : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+            }`}
+          >
+            <History size={20} />
+            <span>Equidad Choferes</span>
+          </button>
+        )}
 
-        {/* BOTÓN: HISTORIAL COMPLETO DE RUTAS */}
-        <button
-          onClick={() => setMenuActivo("historialCompleto")}
-          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mb-1 ${
-            menuActivo === "historialCompleto"
-              ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
-              : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
-          }`}
-        >
-          <ClipboardList size={20} />
-          <span>Historial Rutas</span>
-        </button>
+        {permisos.historialCompleto && (
+          <button
+            onClick={() => setMenuActivo("historialCompleto")}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mb-1 ${
+              menuActivo === "historialCompleto"
+                ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
+                : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+            }`}
+          >
+            <ClipboardList size={20} />
+            <span>Historial Rutas</span>
+          </button>
+        )}
 
-        {/* BOTÓN: AJUSTES DE NÓMINA Y VIÁTICOS */}
-        <button
-          onClick={() => setMenuActivo("ajustesNomina")}
-          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mb-1 ${
-            menuActivo === "ajustesNomina"
-              ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
-              : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
-          }`}
-        >
-          <Settings size={20} />
-          <span>Reglas de viaticos</span>
-        </button>
+        {permisos.ajustesNomina && (
+          <button
+            onClick={() => setMenuActivo("ajustesNomina")}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mb-1 ${
+              menuActivo === "ajustesNomina"
+                ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
+                : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+            }`}
+          >
+            <Settings size={20} />
+            <span>Reglas de viaticos</span>
+          </button>
+        )}
 
-        {/* 🚀 NUEVO BOTÓN: AÑADIR CHOFERES (En el espacio que indicaste) */}
-        <button
-          onClick={() => setMenuActivo("choferes")}
-          className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mt-2 ${
-            menuActivo === "choferes"
-              ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
-              : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
-          }`}
-        >
-          <UserCheck size={20} />
-          <span>Añadir Choferes</span>
-        </button>
+        {permisos.choferes && (
+          <button
+            onClick={() => setMenuActivo("choferes")}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mt-2 ${
+              menuActivo === "choferes"
+                ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
+                : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+            }`}
+          >
+            <UserCheck size={20} />
+            <span>Añadir Choferes</span>
+          </button>
+        )}
       </div>
 
       <div>
         <div className="h-px bg-slate-100 w-full mb-4 mt-6"></div>
         <button
           onClick={() => {
-            alert("Cerrando sesión de administrador...");
             onLogout();
           }}
           className="flex items-center w-full gap-3 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors mt-auto cursor-pointer"

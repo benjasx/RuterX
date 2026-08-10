@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MapContainer,
   TileLayer,
@@ -10,7 +10,6 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
-// UTILIDADES
 import {
   BASE_XALISCO,
   LISTA_RUTAS,
@@ -24,23 +23,21 @@ import {
   generarPDFFinalChofer,
 } from "../utils/reportesUtils";
 import { calcularRutaOptimaYCarretera } from "../utils/rutasUtils";
-
-// COMPONENTES UI
 import PanelLateralMapaAdmin from "./mapa/PanelLateralMapaAdmin";
 import ModalAsignarDespacho from "./mapa/ModalAsignarDespacho";
 import ModalFinalizarViaje from "./mapa/ModalFinalizarViaje";
 import ResumenJornadaChofer from "./mapa/ResumenJornadaChofer";
-
-// SERVICIOS FIREBASE
 import { obtenerChoferesFirebase } from "../firebase/choferesService";
 import { obtenerClientesFirebase } from "../firebase/clientesService";
 import { obtenerRutasFirebase } from "../firebase/rutasService";
 import {
   asignarViajeFirebase,
+  actualizarViajeFirebase,
   obtenerViajeActivoChofer,
   actualizarEstadoEntregaFirebase,
   finalizarViajeFirebase,
   iniciarViajeFirebase,
+  obtenerViajesDelDia,
 } from "../firebase/viajesService";
 import {
   Loader2,
@@ -81,6 +78,7 @@ export default function MapaRutero({
   usuarioEmail,
 }: MapaRuteroProps) {
   const hoyStr = new Date().toLocaleDateString("sv-SE");
+  const queryClient = useQueryClient();
 
   // ESTADOS ADMIN
   const [rutaSeleccionada, setRutaSeleccionada] = useState<string>("");
@@ -95,6 +93,12 @@ export default function MapaRutero({
   const [fechaViaje, setFechaViaje] = useState(hoyStr);
   const [enviandoViaje, setEnviandoViaje] = useState(false);
 
+  const [nombreRutaPersonalizado, setNombreRutaPersonalizado] = useState("");
+  const [unidadSeleccionadaAdmin, setUnidadSeleccionadaAdmin] = useState(
+    LISTA_UNIDADES[0],
+  );
+  const [viajeEditandoId, setViajeEditandoId] = useState<string | null>(null);
+
   // ESTADOS CHOFER
   const [viajeActivoChofer, setViajeActivoChofer] = useState<any>(null);
   const [cargandoViajeChofer, setCargandoViajeChofer] = useState(false);
@@ -108,11 +112,8 @@ export default function MapaRutero({
   const [foliosNoEmbarcados, setFoliosNoEmbarcados] = useState("");
   const [finalizandoViaje, setFinalizandoViaje] = useState(false);
   const [iniciandoViaje, setIniciandoViaje] = useState(false);
-
-  // 🚀 ESTADO PARA CONTROLAR LA BÚSQUEDA DEL CHOFER
   const [fechaConsultaChofer, setFechaConsultaChofer] = useState(hoyStr);
 
-  // 🚀 EVALUAMOS SI LA RUTA ASIGNADA ES DEL FUTURO (Aseguramos que evalúa fecha_salida con guion bajo)
   const esRutaFutura = useMemo(() => {
     if (!viajeActivoChofer || !viajeActivoChofer.fecha_salida) return false;
     return viajeActivoChofer.fecha_salida > hoyStr;
@@ -136,6 +137,12 @@ export default function MapaRutero({
     staleTime: 1000 * 60 * 30,
   });
 
+  const { data: viajesAsignadosHoy = [] } = useQuery({
+    queryKey: ["viajesAsignadosAdmin", hoyStr],
+    queryFn: () => obtenerViajesDelDia(hoyStr),
+    enabled: esAdmin,
+  });
+
   const choferesDisponibles = useMemo(() => [...choferesData], [choferesData]);
   const rutasDisponibles = useMemo(
     () =>
@@ -156,16 +163,65 @@ export default function MapaRutero({
   }, [choferesDisponibles, usuarioEmail]);
 
   useEffect(() => {
-    if (choferesDisponibles.length > 0 && !choferSeleccionado) {
+    if (
+      choferesDisponibles.length > 0 &&
+      !choferSeleccionado &&
+      !viajeEditandoId
+    ) {
       setChoferSeleccionado(
         choferesDisponibles[0].email ||
           choferesDisponibles[0].correo ||
           choferesDisponibles[0].nombre,
       );
     }
-  }, [choferesDisponibles, choferSeleccionado]);
+  }, [choferesDisponibles, choferSeleccionado, viajeEditandoId]);
 
-  // 🚀 CARGAMOS LA RUTA USANDO LA FECHA DE CONSULTA
+  useEffect(() => {
+    if (rutaSeleccionada && !viajeEditandoId) {
+      setNombreRutaPersonalizado(rutaSeleccionada);
+    }
+  }, [rutaSeleccionada, viajeEditandoId]);
+
+  // 🚀 CARGAMOS EL VIAJE PARA EDITARLO (CON MAGIA DE RESCATE)
+  const cargarViajeAsignado = (viaje: any) => {
+    setViajeEditandoId(viaje.id);
+
+    // Si el viaje es viejo y no tiene ruta_base, buscamos al primer cliente para deducir la ruta
+    let rutaOriginal = viaje.ruta_base;
+    if (!rutaOriginal && viaje.clientes?.length > 0) {
+      const clienteMuestra = clientesData.find(
+        (c: any) => c.id === viaje.clientes[0].id,
+      );
+      if (clienteMuestra) rutaOriginal = (clienteMuestra as any).ruta;
+    }
+
+    const rutaFinal = rutaOriginal || viaje.ruta_nombre;
+
+    setRutaSeleccionada(rutaFinal);
+    setNombreRutaPersonalizado(viaje.ruta_nombre);
+    setSelectedClienteIds(viaje.clientes.map((c: any) => c.id));
+    setRutaOptima(viaje.clientes);
+    setChoferSeleccionado(viaje.chofer_email);
+    setUnidadSeleccionadaAdmin(viaje.unidad_utilizada || LISTA_UNIDADES[0]);
+
+    if (viaje.ruta_carretera) {
+      const lineaFormateada = viaje.ruta_carretera.map((coord: any) => [
+        coord.lat,
+        coord.lng,
+      ]);
+      setRutaCarretera(lineaFormateada as [number, number][]);
+    } else {
+      setRutaCarretera(null);
+    }
+    if (viaje.clientes.length > 0 && viaje.clientes[0].posicion) {
+      setCentroMapa(viaje.clientes[0].posicion);
+    }
+  };
+
+  const limpiarEdicion = () => {
+    setViajeEditandoId(null);
+  };
+
   const cargarViajeChofer = async () => {
     if (!esAdmin && usuarioEmail) {
       setCargandoViajeChofer(true);
@@ -183,7 +239,6 @@ export default function MapaRutero({
     cargarViajeChofer();
   }, [esAdmin, usuarioEmail, fechaConsultaChofer]);
 
-  // 🚀 FUNCIÓN PARA AVANZAR LA CONSULTA AL DÍA DE MAÑANA
   const handleVerProximaRuta = () => {
     const manana = new Date();
     manana.setDate(manana.getDate() + 1);
@@ -238,10 +293,12 @@ export default function MapaRutero({
     }
   }, [rutasDisponibles, rutaSeleccionada, esAdmin]);
 
+  // 🚀 FILTRO ROBUSTO PARA EVITAR ESPACIOS VACÍOS
   const clientesDeRuta = useMemo(() => {
     if (!rutaSeleccionada) return [];
+    const busqueda = rutaSeleccionada.trim().toLowerCase();
     return (clientesData as any[]).filter(
-      (c) => c.ruta && c.ruta.toLowerCase() === rutaSeleccionada.toLowerCase(),
+      (c) => c.ruta && c.ruta.trim().toLowerCase() === busqueda,
     );
   }, [rutaSeleccionada, clientesData]);
 
@@ -254,6 +311,8 @@ export default function MapaRutero({
 
   useEffect(() => {
     if (!esAdmin || !rutaSeleccionada || clientesDeRuta.length === 0) return;
+    if (viajeEditandoId) return;
+
     const rutaGuardada = localStorage.getItem("rutasmart_ruta");
     const clientesGuardadosStr = localStorage.getItem("rutasmart_clientes");
     if (rutaSeleccionada === rutaGuardada) {
@@ -266,7 +325,7 @@ export default function MapaRutero({
       setSelectedClienteIds(todos);
       localStorage.setItem("rutasmart_clientes", JSON.stringify(todos));
     }
-  }, [rutaSeleccionada, clientesDeRuta, esAdmin]);
+  }, [rutaSeleccionada, clientesDeRuta, esAdmin, viajeEditandoId]);
 
   const toggleCliente = (id: string) => {
     setCentroMapa(null);
@@ -274,7 +333,8 @@ export default function MapaRutero({
       const nuevoEstado = prev.includes(id)
         ? prev.filter((i) => i !== id)
         : [...prev, id];
-      localStorage.setItem("rutasmart_clientes", JSON.stringify(nuevoEstado));
+      if (!viajeEditandoId)
+        localStorage.setItem("rutasmart_clientes", JSON.stringify(nuevoEstado));
       return nuevoEstado;
     });
   };
@@ -283,12 +343,15 @@ export default function MapaRutero({
     setCentroMapa(null);
     const todos = clientesDeRuta.map((c) => c.id);
     setSelectedClienteIds(todos);
-    localStorage.setItem("rutasmart_clientes", JSON.stringify(todos));
+    if (!viajeEditandoId)
+      localStorage.setItem("rutasmart_clientes", JSON.stringify(todos));
   };
+
   const deseleccionarTodos = () => {
     setCentroMapa(null);
     setSelectedClienteIds([]);
-    localStorage.setItem("rutasmart_clientes", JSON.stringify([]));
+    if (!viajeEditandoId)
+      localStorage.setItem("rutasmart_clientes", JSON.stringify([]));
   };
 
   const trazarRutaOptima = async () => {
@@ -308,20 +371,42 @@ export default function MapaRutero({
   };
 
   const handleAsignarViaje = async () => {
-    if (!rutaOptima) return;
+    if (!rutaOptima) {
+      alert(
+        "⚠️ No puedes asignar el viaje todavía. Primero debes hacer clic en 'Trazar Ruta Óptima'.",
+      );
+      return;
+    }
+    if (!nombreRutaPersonalizado) {
+      alert("⚠️ Por favor selecciona un Nombre de Ruta válido.");
+      return;
+    }
+
     setEnviandoViaje(true);
     try {
-      await asignarViajeFirebase({
+      const datosNuevoViaje = {
         choferEmail: choferSeleccionado,
         fechaSalida: fechaViaje,
-        rutaNombre: rutaSeleccionada,
+        rutaNombre: nombreRutaPersonalizado,
+        rutaBase: rutaSeleccionada,
+        unidad: unidadSeleccionadaAdmin,
         clientes: rutaOptima,
         rutaCarretera: rutaCarretera,
-      });
-      alert(`¡Éxito! Ruta asignada.`);
+      };
+
+      if (viajeEditandoId) {
+        await actualizarViajeFirebase(viajeEditandoId, datosNuevoViaje);
+        alert(`¡Éxito! Ruta actualizada correctamente.`);
+      } else {
+        await asignarViajeFirebase(datosNuevoViaje);
+        alert(`¡Éxito! Ruta asignada correctamente.`);
+      }
+
       setMostrarModalDespacho(false);
+      setViajeEditandoId(null);
+      queryClient.invalidateQueries({ queryKey: ["viajesAsignadosAdmin"] });
     } catch (error) {
-      alert("Error al asignar.");
+      alert("Error al procesar el viaje en la base de datos.");
     } finally {
       setEnviandoViaje(false);
     }
@@ -439,8 +524,13 @@ export default function MapaRutero({
           setChoferSeleccionado={setChoferSeleccionado}
           fechaViaje={fechaViaje}
           setFechaViaje={setFechaViaje}
+          nombreRuta={nombreRutaPersonalizado}
+          setNombreRuta={setNombreRutaPersonalizado}
+          unidad={unidadSeleccionadaAdmin}
+          setUnidad={setUnidadSeleccionadaAdmin}
           onConfirm={handleAsignarViaje}
           isPending={enviandoViaje}
+          isEditing={!!viajeEditandoId}
         />
       )}
 
@@ -465,17 +555,19 @@ export default function MapaRutero({
             exportarPDFAdmin(rutaOptima || [], rutaSeleccionada)
           }
           setCentroMapa={setCentroMapa}
+          viajesAsignadosHoy={viajesAsignadosHoy}
+          cargarViajeAsignado={cargarViajeAsignado}
+          limpiarEdicion={limpiarEdicion}
         />
       )}
 
       <div className="flex-1 rounded-xl overflow-hidden shadow-sm border border-slate-200 relative">
-        {/* BOTÓN GIGANTE DE INICIAR RUTA (SOLO SI NO ES RUTA FUTURA) */}
         {!esAdmin &&
           viajeActivoChofer &&
           viajeActivoChofer.estado !== "finalizado" &&
           !viajeActivoChofer.hora_inicio &&
           !esRutaFutura && (
-            <div className="absolute inset-0 z-[3000] bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+            <div className="absolute inset-0 z-3000 bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
               <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full border border-slate-100">
                 <h2 className="text-2xl font-black text-slate-800 mb-2">
                   ¡Ruta Asignada!
@@ -505,7 +597,6 @@ export default function MapaRutero({
             </div>
           )}
 
-        {/* BOTON FINALIZAR SOLO SI YA INICIÓ (Y NO ES FUTURA) */}
         {!esAdmin &&
           viajeActivoChofer &&
           viajeActivoChofer.estado !== "finalizado" &&
@@ -513,7 +604,7 @@ export default function MapaRutero({
           !esRutaFutura && (
             <button
               onClick={() => setMostrarModalFinalizar(true)}
-              className="absolute bottom-6 right-6 z-[1000] bg-blue-600 hover:bg-blue-700 text-white px-5 py-3.5 rounded-2xl shadow-xl shadow-blue-600/20 font-bold flex items-center gap-2 transition-transform hover:scale-105 cursor-pointer border border-blue-500"
+              className="absolute bottom-6 right-6 z-1000 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3.5 rounded-2xl shadow-xl shadow-blue-600/20 font-bold flex items-center gap-2 transition-transform hover:scale-105 cursor-pointer border border-blue-500"
             >
               <Flag size={20} /> Finalizar Viaje
             </button>
@@ -522,7 +613,6 @@ export default function MapaRutero({
         {!esAdmin &&
           (viajeActivoChofer ? (
             viajeActivoChofer.estado === "finalizado" ? (
-              // 🚀 AHORA LE PASAMOS LA FUNCIÓN AL TICKET DE RESUMEN
               <ResumenJornadaChofer
                 viajeActivoChofer={viajeActivoChofer}
                 resumenViaje={resumenViaje}
@@ -531,9 +621,8 @@ export default function MapaRutero({
               />
             ) : (
               <>
-                {/* CÁPSULA DE REPARTO ACTIVO (HOY) */}
                 {!esRutaFutura && (
-                  <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900/95 text-white px-4 py-2 rounded-full shadow-lg border border-slate-700/60 backdrop-blur-md flex items-center gap-3">
+                  <div className="absolute top-3 left-1/2 -translate-x-1/2 z-1000 bg-slate-900/95 text-white px-4 py-2 rounded-full shadow-lg border border-slate-700/60 backdrop-blur-md flex items-center gap-3">
                     <div className="flex items-center">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-2"></span>
                       <span className="text-[10px] sm:text-xs font-black tracking-wider uppercase text-slate-200">
@@ -553,10 +642,8 @@ export default function MapaRutero({
                     </div>
                   </div>
                 )}
-
-                {/* CÁPSULA DE VISTA PREVIA (FUTURO) */}
                 {esRutaFutura && (
-                  <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] bg-indigo-600/95 text-white px-5 py-2.5 rounded-full shadow-lg border border-indigo-400/50 backdrop-blur-md flex items-center gap-3">
+                  <div className="absolute top-3 left-1/2 -translate-x-1/2 z-1000 bg-indigo-600/95 text-white px-5 py-2.5 rounded-full shadow-lg border border-indigo-400/50 backdrop-blur-md flex items-center gap-3">
                     <Calendar size={18} className="text-indigo-200" />
                     <span className="text-xs sm:text-sm font-bold tracking-wide uppercase">
                       VISTA PREVIA: {viajeActivoChofer.fecha_salida}
@@ -566,7 +653,7 @@ export default function MapaRutero({
               </>
             )
           ) : (
-            <div className="absolute inset-0 z-[3000] bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+            <div className="absolute inset-0 z-3000 bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
               <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full border border-slate-100">
                 <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-4">
                   <AlertCircle size={32} />
@@ -575,7 +662,6 @@ export default function MapaRutero({
                   Sin ruta asignada
                 </h2>
                 <p className="text-slate-500 font-medium text-lg">
-                  {/* 🚀 TEXTO DINÁMICO SI YA REVISÓ LA DE HOY */}
                   {fechaConsultaChofer === hoyStr
                     ? "Por favor repórtate en bodega."
                     : "No tienes más rutas programadas en los próximos días."}
@@ -599,7 +685,6 @@ export default function MapaRutero({
               <div className="text-sm font-bold text-center">⭐ BODEGA</div>
             </Popup>
           </Marker>
-
           {lineaCarreteraADibujar ? (
             <Polyline
               positions={lineaCarreteraADibujar}
@@ -613,7 +698,6 @@ export default function MapaRutero({
               weight={5}
             />
           ) : null}
-
           {clientesADibujar.map((cliente) => (
             <Marker
               key={cliente.id}
@@ -653,7 +737,6 @@ export default function MapaRutero({
                             Registrado: <b>{cliente.hora_entrega}</b>
                           </p>
                         )}
-
                         {!esAdmin &&
                           viajeActivoChofer?.estado !== "finalizado" &&
                           viajeActivoChofer?.hora_inicio &&

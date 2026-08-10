@@ -16,6 +16,9 @@ interface PanelLateralProps {
   exportarExcel: () => void;
   exportarPDF: () => void;
   setCentroMapa: (val: null) => void;
+  viajesAsignadosHoy?: any[];
+  cargarViajeAsignado?: (viaje: any) => void;
+  limpiarEdicion?: () => void; // 🚀 NUEVO
 }
 
 export default function PanelLateralMapaAdmin({
@@ -34,17 +37,46 @@ export default function PanelLateralMapaAdmin({
   exportarExcel,
   exportarPDF,
   setCentroMapa,
+  viajesAsignadosHoy,
+  cargarViajeAsignado,
+  limpiarEdicion,
 }: PanelLateralProps) {
   return (
     <aside className="w-80 bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex flex-col shrink-0">
-      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 px-2">
+      {viajesAsignadosHoy && viajesAsignadosHoy.length > 0 && (
+        <select
+          onChange={(e) => {
+            if (!cargarViajeAsignado || !limpiarEdicion) return;
+            if (e.target.value === "") {
+              limpiarEdicion(); // Si selecciona la opcion vacía, salimos del modo edición
+              return;
+            }
+            const viaje = viajesAsignadosHoy.find(
+              (v: any) => v.id === e.target.value,
+            );
+            if (viaje) cargarViajeAsignado(viaje);
+          }}
+          className="w-full p-2 mb-4 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-700 font-bold text-xs focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none shadow-sm"
+        >
+          <option value="">👁️ Ver ruta despachada de hoy...</option>
+          {viajesAsignadosHoy.map((v: any) => (
+            <option key={v.id} value={v.id}>
+              {v.ruta_nombre} (U-{v.unidad_utilizada || "?"})
+            </option>
+          ))}
+        </select>
+      )}
+
+      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">
         Seleccionar Ruta
       </h3>
+
       <select
         value={rutaSeleccionada}
         onChange={(e) => {
           setCentroMapa(null);
           setRutaSeleccionada(e.target.value);
+          if (limpiarEdicion) limpiarEdicion(); // 🚀 Cancelamos el modo edición al elegir una ruta nueva
         }}
         className="w-full p-3 mb-4 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium focus:ring-2 focus:ring-blue-500 cursor-pointer outline-none"
       >

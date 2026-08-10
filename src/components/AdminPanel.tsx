@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query"; // 🚀 IMPORTAMOS TANSTACK QUERY
+import { useQuery } from "@tanstack/react-query";
 import GestionRutas from "./GestionRutas";
 import PanelClientes from "./PanelClientes";
 import PanelVendedores from "./PanelVendedores";
@@ -10,21 +10,32 @@ import PanelHistorial from "./PanelHistorial";
 import PanelHistorialCompleto from "./PanelHistorialCompleto";
 import PanelAjustesNomina from "./PanelAjustesNomina";
 import Dashboard from "./Dashboard";
+import AdminChoferes from "./AdminChoferes";
+
+// 🚀 Importamos el nuevo componente
+import MonitorRutas from "./MonitorRutas";
 
 import { obtenerVendedoresFirebase } from "../firebase/vendedoresService";
 import { obtenerClientesFirebase } from "../firebase/clientesService";
 import { obtenerRutasFirebase } from "../firebase/rutasService";
-import AdminChoferes from "./AdminChoferes";
+import PanelDistribucion from "./PanelDistribucion";
 
+// 🚀 Recibimos el usuarioEmail desde App.tsx para pasarlo al Sidebar
 interface AdminPanelProps {
   onLogout: () => void;
+  usuarioEmail: string | null;
 }
 
-export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [menuActivo, setMenuActivo] = useState<SubVistaAdmin>("dashboard");
+export default function AdminPanel({
+  onLogout,
+  usuarioEmail,
+}: AdminPanelProps) {
+  // Si el que entra es el jefe, lo mandamos directo al monitor por defecto
+  const esJefeReparto = usuarioEmail === "jefedereparto@ruterx.com";
+  const [menuActivo, setMenuActivo] = useState<SubVistaAdmin>(
+    esJefeReparto ? "monitorRutas" : "dashboard",
+  );
 
-  // 🚀 CARGAMOS LOS CATÁLOGOS CON CACHÉ GLOBAL DE TANSTACK QUERY
-  // Estos se descargan 1 sola vez y se comparten con toda la app instantáneamente
   const { data: listaVendedores = [] } = useQuery({
     queryKey: ["vendedores"],
     queryFn: obtenerVendedoresFirebase,
@@ -40,18 +51,11 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
     queryFn: obtenerRutasFirebase,
   });
 
-  // Mantenemos esta función auxiliar por compatibilidad con los estados locales de los paneles
   const setListaClientesDummy = () => {
     refetchClientes();
   };
-
-  const setListaVendedoresDummy = () => {
-    // Se actualiza automáticamente vía caché invalidateQueries
-  };
-
-  const setListaRutasDummy = () => {
-    // Se actualiza automáticamente vía caché invalidateQueries
-  };
+  const setListaVendedoresDummy = () => {};
+  const setListaRutasDummy = () => {};
 
   return (
     <div className="flex flex-col xl:flex-row items-start gap-5 w-full mt-10">
@@ -59,10 +63,14 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         menuActivo={menuActivo}
         setMenuActivo={setMenuActivo}
         onLogout={onLogout}
+        usuarioEmail={usuarioEmail} // 🚀 Le pasamos el correo al menú
       />
 
       <div className="flex-1 w-full min-w-0">
         {menuActivo === "dashboard" && <Dashboard />}
+
+        {/* 🚀 Renderizamos el Monitor de Rutas */}
+        {menuActivo === "monitorRutas" && <MonitorRutas />}
 
         {menuActivo === "clientes" && (
           <PanelClientes
@@ -97,6 +105,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         {menuActivo === "ajustesNomina" && <PanelAjustesNomina />}
 
         {menuActivo === "choferes" && <AdminChoferes />}
+
+        {menuActivo === "distribucion" && <PanelDistribucion />}
       </div>
     </div>
   );

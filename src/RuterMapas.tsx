@@ -8,9 +8,9 @@ import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { auth } from "./firebase/config";
 import { Loader2 } from "lucide-react";
 
-// 🚀 AQUÍ DEFINES TU CORREO DE ADMINISTRADOR
-// (Solo este correo tendrá acceso a los botones de edición)
+// 🚀 CORREOS AUTORIZADOS PARA EL PANEL DE ADMINISTRACIÓN / OPERACIÓN
 const CORREO_ADMIN = "admin@ruterx.com";
+const CORREO_JEFE_REPARTO = "jefedereparto@ruterx.com";
 
 export default function RuterMapas() {
   const [vistaActual, setVistaActual] = useState<Vista>(() => {
@@ -28,9 +28,20 @@ export default function RuterMapas() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUsuarioActual(user);
 
-      // Si entra un chofer, lo forzamos siempre a la vista de rutero (mapa)
-      if (user && user.email !== CORREO_ADMIN) {
+      // Si entra un chofer normal (que no es admin ni jefe), lo forzamos siempre al mapa
+      if (
+        user &&
+        user.email !== CORREO_ADMIN &&
+        user.email !== CORREO_JEFE_REPARTO
+      ) {
         setVistaActual("rutero");
+      } else if (
+        user &&
+        user.email === CORREO_JEFE_REPARTO &&
+        vistaActual === "rutero"
+      ) {
+        // Opcional: si entra el jefe de reparto, podemos mandarlo directo a "admin" si está en rutero
+        setVistaActual("admin");
       }
 
       setCargandoSesion(false);
@@ -65,8 +76,11 @@ export default function RuterMapas() {
     return <Login />;
   }
 
-  // 🚀 Comprobamos si el usuario actual es el administrador
-  const esAdmin = usuarioActual.email === CORREO_ADMIN;
+  // 🚀 Verificamos roles
+  const esAdminPrincipal = usuarioActual.email === CORREO_ADMIN;
+  const esPersonalAutorizado =
+    usuarioActual.email === CORREO_ADMIN ||
+    usuarioActual.email === CORREO_JEFE_REPARTO;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
@@ -75,15 +89,21 @@ export default function RuterMapas() {
         setVistaActual={setVistaActual}
         usuarioEmail={usuarioActual.email}
         onLogout={handleLogout}
-        esAdmin={esAdmin} // 🚀 Le pasamos este "poder" al Navbar
+        esAdmin={esAdminPrincipal}
       />
 
       <main className="w-full flex-1 overflow-hidden flex">
-        {/* Si intentan ir a admin pero no son admin, los bloqueamos y forzamos el mapa */}
-        {vistaActual === "admin" && esAdmin ? (
-          <AdminPanel onLogout={handleLogout} />
+        {/* Si intentan ir a admin y son admin o jefe de reparto, les abrimos el AdminPanel */}
+        {vistaActual === "admin" && esPersonalAutorizado ? (
+          <AdminPanel
+            onLogout={handleLogout}
+            usuarioEmail={usuarioActual.email}
+          />
         ) : (
-          <MapaRutero esAdmin={esAdmin} usuarioEmail={usuarioActual.email} />
+          <MapaRutero
+            esAdmin={esPersonalAutorizado}
+            usuarioEmail={usuarioActual.email}
+          />
         )}
       </main>
     </div>
