@@ -182,7 +182,7 @@ export default function PanelDistribucion() {
     }
   };
 
-  // 🚀 EXPORTAR A EXCEL (CSV)
+  // EXPORTAR A EXCEL (CSV)
   const exportarExcel = () => {
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent +=
@@ -213,76 +213,9 @@ export default function PanelDistribucion() {
     document.body.removeChild(link);
   };
 
-  // 🚀 EXPORTAR A PDF (VENTANA DE IMPRESIÓN FORMATEADA)
-  const exportarPDF = () => {
-    const ventanaImpresion = window.open("", "_blank");
-    if (!ventanaImpresion) return;
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>DISTRIBUCIÓN DIARIA DE RUTAS - ${fechaSeleccionada}</title>
-          <style>
-            body { font-family: Arial, sans-serif; color: #1e293b; padding: 20px; text-transform: uppercase; }
-            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
-            .logo-title { font-size: 20px; font-weight: 900; color: #0f172a; }
-            .fecha { font-size: 14px; font-weight: bold; background: #f1f5f9; padding: 8px 12px; border-radius: 6px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
-            th { background-color: #0f172a; color: white; }
-            tr:nth-child(even) { background-color: #f8fafc; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="logo-title">RuterX - Tabla de Distribución Diaria</div>
-            <div class="fecha">FECHA DE SALIDA: ${fechaSeleccionada}</div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Ruta</th>
-                <th>Unidad</th>
-                <th>Chofer</th>
-                <th>Auxiliar 1</th>
-                <th>Auxiliar 2</th>
-                <th>Emb. Crédito</th>
-                <th>Emb. Contado</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filas
-                .map(
-                  (f) => `
-                <tr>
-                  <td>${f.ruta || "-"}</td>
-                  <td>${f.unidad || "-"}</td>
-                  <td>${f.chofer || "-"}</td>
-                  <td>${f.auxiliar1 || "-"}</td>
-                  <td>${f.auxiliar2 || "-"}</td>
-                  <td>${f.embarqueCredito || "-"}</td>
-                  <td>${f.embarqueContado || "-"}</td>
-                </tr>
-              `,
-                )
-                .join("")}
-            </tbody>
-          </table>
-          <script>
-            window.onload = function() { window.print(); window.close(); }
-          </script>
-        </body>
-      </html>
-    `;
-
-    ventanaImpresion.document.write(htmlContent);
-    ventanaImpresion.document.close();
-  };
-
   if (cargandoChoferes || cargandoDistribucion) {
     return (
-      <div className="flex w-full h-[500px] items-center justify-center">
+      <div className="flex w-full h-125 items-center justify-center">
         <Loader2 className="animate-spin text-blue-600" size={40} />
       </div>
     );
@@ -513,11 +446,11 @@ export default function PanelDistribucion() {
           onClick={agregarFila}
           className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer border border-blue-200 shadow-sm text-xs"
         >
-          <Plus size={18} /> Añadir Ruta
+          <Plus size={18} /> Añadir Ruta [+]
         </button>
 
         <div className="flex items-center gap-3">
-          {/* 🚀 BOTÓN EXCEL */}
+          {/* BOTÓN EXCEL */}
           <button
             onClick={exportarExcel}
             className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-3 rounded-xl transition-colors shadow-lg shadow-emerald-600/20 cursor-pointer text-xs"
@@ -525,7 +458,7 @@ export default function PanelDistribucion() {
             <Download size={18} /> EXCEL
           </button>
 
-          {/* 🚀 BOTÓN PDF */}
+          {/* BOTÓN PDF */}
           <button
             onClick={() => exportarDistribucionPDF(filas, fechaSeleccionada)}
             className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold px-5 py-3 rounded-xl transition-colors shadow-lg shadow-rose-600/20 cursor-pointer text-xs"
