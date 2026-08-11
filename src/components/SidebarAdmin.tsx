@@ -3,14 +3,13 @@ import {
   Map,
   Briefcase,
   LogOut,
-  Calculator,
   History,
   ClipboardList,
   Settings,
   LayoutDashboard,
   UserCheck,
   Truck,
-  CalendarCheck, // 🚀 Icono para Control de Asistencia
+  CalendarCheck,
 } from "lucide-react";
 
 export type SubVistaAdmin =
@@ -21,7 +20,6 @@ export type SubVistaAdmin =
   | "rutas"
   | "asistencias"
   | "vendedores"
-  | "tablamontos"
   | "historial"
   | "historialCompleto"
   | "ajustesNomina"
@@ -43,16 +41,15 @@ export default function SidebarAdmin({
   const esJefeReparto = usuarioEmail === "jefedereparto@ruterx.com";
   const esAdmin = !esJefeReparto;
 
-  // 🚀 PERMISOS RESTRINGIDOS: Puedes habilitar asistencias para ambos o solo admin cambiando a `true` o `esAdmin`
+  // 🚀 PERMISOS RESTRINGIDOS:
   const permisos = {
     dashboard: esAdmin,
     monitorRutas: true,
     distribucion: true,
-    asistencias: true, // 🚀 Activado para que el Jefe de Reparto y el Admin puedan llevar el control
+    asistencias: true,
     clientes: esAdmin,
     rutas: esAdmin,
     vendedores: esAdmin,
-    tablamontos: esAdmin,
     historial: esAdmin,
     historialCompleto: esAdmin,
     ajustesNomina: esAdmin,
@@ -111,7 +108,6 @@ export default function SidebarAdmin({
             </li>
           )}
 
-          {/* 🚀 NUEVO BOTÓN: CONTROL DE ASISTENCIA */}
           {permisos.asistencias && (
             <li>
               <button
