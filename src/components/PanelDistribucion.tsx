@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   Calendar,
   Save,
@@ -14,7 +14,7 @@ import {
   Table,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { getAuth } from "firebase/auth"; // 🚀 IMPORTAMOS LA AUTENTICACIÓN
+import { getAuth } from "firebase/auth";
 import {
   guardarDistribucionFecha,
   suscribirDistribucionFecha,
@@ -116,7 +116,6 @@ const esFolioReal = (val: string) => {
 export default function PanelDistribucion() {
   const hoyStr = new Date().toLocaleDateString("sv-SE");
 
-  // 🚀 OBTENEMOS AL USUARIO ACTUAL Y VERIFICAMOS SI ES ADMIN
   const auth = getAuth();
   const esAdmin = auth.currentUser?.email === "admin@ruterx.com";
 
@@ -131,8 +130,6 @@ export default function PanelDistribucion() {
   const [filas, setFilas] = useState<any[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [mostrarResumen, setMostrarResumen] = useState(false);
-
-  const queryClient = useQueryClient();
 
   const { data: choferesData = [], isLoading: cargandoChoferes } = useQuery({
     queryKey: ["choferes"],
@@ -784,7 +781,8 @@ export default function PanelDistribucion() {
                   </select>
                 </td>
 
-                <td className="p-2 border-r border-slate-200 relative">
+                {/* 🚀 CELDA EMBARQUE CRÉDITO CON ETIQUETAS KG Y DINERO */}
+                <td className="p-2 border-r border-slate-200 relative pb-4">
                   <input
                     type="text"
                     value={fila.embarqueCredito}
@@ -794,16 +792,27 @@ export default function PanelDistribucion() {
                     placeholder="FOLIO"
                     className="w-full p-2 bg-transparent border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center uppercase text-xs"
                   />
-                  {fila.totalMontoCredito > 0 && (
+                  {(fila.totalMontoCredito > 0 || fila.totalkgCredito > 0) && (
                     <div
-                      className="absolute -bottom-2 right-2 text-[10px] font-bold text-emerald-600 bg-emerald-100 px-1.5 rounded"
-                      title={`Kilos: ${fila.totalkgCredito} | Cajas: ${fila.cajasCredito}`}
+                      className="absolute -bottom-2 right-1 flex items-center gap-1"
+                      title={`Cajas: ${fila.cajasCredito}`}
                     >
-                      {formatoMoneda(fila.totalMontoCredito)}
+                      <span className="text-[9px] font-bold text-blue-700 bg-blue-100 px-1 rounded shadow-sm border border-blue-200">
+                        {new Intl.NumberFormat("es-MX", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }).format(fila.totalkgCredito)}{" "}
+                        KG
+                      </span>
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1 rounded shadow-sm border border-emerald-200">
+                        {formatoMoneda(fila.totalMontoCredito)}
+                      </span>
                     </div>
                   )}
                 </td>
-                <td className="p-2 border-r border-slate-200 relative">
+
+                {/* 🚀 CELDA EMBARQUE CONTADO CON ETIQUETAS KG Y DINERO */}
+                <td className="p-2 border-r border-slate-200 relative pb-4">
                   <input
                     type="text"
                     value={fila.embarqueContado}
@@ -813,12 +822,21 @@ export default function PanelDistribucion() {
                     placeholder="FOLIO"
                     className="w-full p-2 bg-transparent border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center uppercase text-xs"
                   />
-                  {fila.totalMontoContado > 0 && (
+                  {(fila.totalMontoContado > 0 || fila.totalkgContado > 0) && (
                     <div
-                      className="absolute -bottom-2 right-2 text-[10px] font-bold text-emerald-600 bg-emerald-100 px-1.5 rounded"
-                      title={`Kilos: ${fila.totalkgContado} | Cajas: ${fila.cajasContado}`}
+                      className="absolute -bottom-2 right-1 flex items-center gap-1"
+                      title={`Cajas: ${fila.cajasContado}`}
                     >
-                      {formatoMoneda(fila.totalMontoContado)}
+                      <span className="text-[9px] font-bold text-blue-700 bg-blue-100 px-1 rounded shadow-sm border border-blue-200">
+                        {new Intl.NumberFormat("es-MX", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }).format(fila.totalkgContado)}{" "}
+                        KG
+                      </span>
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1 rounded shadow-sm border border-emerald-200">
+                        {formatoMoneda(fila.totalMontoContado)}
+                      </span>
                     </div>
                   )}
                 </td>
@@ -829,7 +847,6 @@ export default function PanelDistribucion() {
                       <CheckCircle2 size={16} className="text-emerald-500" />
                     </span>
                   )}
-                  {/* 🚀 BOTÓN ELIMINAR PROTEGIDO PARA ADMIN */}
                   {esAdmin && (
                     <button
                       onClick={() => eliminarFila(index)}
@@ -856,7 +873,6 @@ export default function PanelDistribucion() {
             <Plus size={16} /> Añadir Ruta
           </button>
 
-          {/* 🚀 BOTÓN VINCULAR XLSX PROTEGIDO PARA ADMIN */}
           {esAdmin && (
             <label className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer text-xs shadow-md shadow-indigo-600/20">
               <Link2 size={16} /> Vincular XLSX (BMS)
@@ -869,7 +885,6 @@ export default function PanelDistribucion() {
             </label>
           )}
 
-          {/* 🚀 BOTÓN GENERAR RESUMEN PROTEGIDO PARA ADMIN */}
           {esAdmin && (
             <button
               onClick={() => setMostrarResumen(!mostrarResumen)}
@@ -911,7 +926,7 @@ export default function PanelDistribucion() {
         </div>
       </div>
 
-      {/* 🚀 SECCIÓN DE RESUMEN EJECUTIVO CORPORATIVO (SOLO ADMIN) */}
+      {/* SECCIÓN DE RESUMEN EJECUTIVO CORPORATIVO (SOLO ADMIN) */}
       {esAdmin && mostrarResumen && (
         <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-xl bg-white animate-in fade-in slide-in-from-top-4 mt-2">
           <div className="bg-slate-900 text-white font-bold p-4 text-sm flex justify-between items-center px-6">
