@@ -11,7 +11,7 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { obtenerHistorialPorRangoFirebase } from "../firebase/historialService";
+import { obtenerDistribucionPorRango } from "../firebase/distribucionService"; // 🚀 NUEVO IMPORT
 
 import {
   generarPDFNominaChoferes,
@@ -38,13 +38,14 @@ export default function PanelHistorial() {
   const [mostrarViaticos, setMostrarViaticos] = useState(true);
   const [mostrarComisiones, setMostrarComisiones] = useState(true);
 
+  // 🚀 AHORA LEEMOS DE LA NUEVA FUENTE DE LA VERDAD
   const {
     data: datosCrudos = [],
     isLoading: cargando,
     isError,
   } = useQuery({
-    queryKey: ["historial_salidas", "nomina", fechaInicio, fechaFin],
-    queryFn: () => obtenerHistorialPorRangoFirebase(fechaInicio, fechaFin),
+    queryKey: ["distribucion_rango", fechaInicio, fechaFin],
+    queryFn: () => obtenerDistribucionPorRango(fechaInicio, fechaFin),
   });
 
   const {
@@ -61,9 +62,9 @@ export default function PanelHistorial() {
     const listaViajesFiltrados: any[] = [];
 
     datosCrudos.forEach((registro) => {
-      (registro.viajes || []).forEach((viaje: any) => {
-        if (viaje.chofer && viaje.chofer !== "-") {
-          setChoferesHistoricos.add(viaje.chofer.toUpperCase().trim());
+      (registro.filas || []).forEach((fila: any) => {
+        if (fila.chofer && fila.chofer !== "-") {
+          setChoferesHistoricos.add(fila.chofer.toUpperCase().trim());
         }
       });
     });
@@ -75,22 +76,27 @@ export default function PanelHistorial() {
     datosOrdenados.forEach((registro) => {
       const fecha = registro.fecha;
 
-      (registro.viajes || []).forEach((viaje: any) => {
+      (registro.filas || []).forEach((fila: any) => {
         let agregadoAFiltrados = false;
 
-        const c = viaje.chofer ? viaje.chofer.toUpperCase().trim() : "";
+        const c = fila.chofer ? fila.chofer.toUpperCase().trim() : "";
         if (c && c !== "-") {
           if (!statsCMap[c]) statsCMap[c] = { total: 0, ultimaFecha: "" };
           statsCMap[c].total += 1;
           statsCMap[c].ultimaFecha = fecha;
 
-          listaViajesFiltrados.push({ fecha, ...viaje });
+          listaViajesFiltrados.push({ fecha, ...fila });
           agregadoAFiltrados = true;
         }
 
         const procesarAyudante = (ayRaw: string) => {
           const ay = ayRaw ? ayRaw.toUpperCase().trim() : "";
-          if (ay && ay !== "-" && ay !== "SIN AYUDANTE" && ay !== "UNDEFINED") {
+          if (
+            ay &&
+            ay !== "-" &&
+            ay !== "-- SIN AUXILIAR --" &&
+            ay !== "UNDEFINED"
+          ) {
             if (setChoferesHistoricos.has(ay)) {
               if (!statsCMap[ay]) statsCMap[ay] = { total: 0, ultimaFecha: "" };
               statsCMap[ay].total += 1;
@@ -102,14 +108,14 @@ export default function PanelHistorial() {
             }
 
             if (!agregadoAFiltrados) {
-              listaViajesFiltrados.push({ fecha, ...viaje });
+              listaViajesFiltrados.push({ fecha, ...fila });
               agregadoAFiltrados = true;
             }
           }
         };
 
-        procesarAyudante(viaje.ayudante1);
-        procesarAyudante(viaje.ayudante2);
+        procesarAyudante(fila.auxiliar1);
+        procesarAyudante(fila.auxiliar2);
       });
     });
 
@@ -166,7 +172,6 @@ export default function PanelHistorial() {
     setIsGenerandoPDF(false);
   };
 
-  // 🚀 AHORA EL REPORTE MAESTRO SÍ RECIBE LOS CHECKBOXES
   const handleDescargarResumenGeneral = async () => {
     setIsGenerandoPDF(true);
     await generarPDFResumenGeneral(
@@ -200,7 +205,6 @@ export default function PanelHistorial() {
   const colorHoverFila = isChofer
     ? "hover:bg-purple-50"
     : "hover:bg-emerald-50";
-
   const colorCheckbox = isChofer ? "accent-purple-600" : "accent-emerald-600";
 
   if (isError) {
@@ -273,27 +277,18 @@ export default function PanelHistorial() {
             <button
               onClick={handleDescargarPDF}
               disabled={isGenerandoPDF || cargando}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm w-full sm:w-auto ${
-                isGenerandoPDF || cargando
-                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                  : `${colorBtnPDF} text-white`
-              }`}
+              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm w-full sm:w-auto ${isGenerandoPDF || cargando ? "bg-slate-100 text-slate-400 cursor-not-allowed" : `${colorBtnPDF} text-white`}`}
             >
-              <FileDown size={18} />
-              Reporte {isChofer ? "Choferes" : "Auxiliares"}
+              <FileDown size={18} /> Reporte{" "}
+              {isChofer ? "Choferes" : "Auxiliares"}
             </button>
 
             <button
               onClick={handleDescargarResumenGeneral}
               disabled={isGenerandoPDF || cargando}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm w-full sm:w-auto ${
-                isGenerandoPDF || cargando
-                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                  : "bg-slate-800 hover:bg-slate-900 text-white"
-              }`}
+              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm w-full sm:w-auto ${isGenerandoPDF || cargando ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-slate-800 hover:bg-slate-900 text-white"}`}
             >
-              <FileText size={18} />
-              Resumen Maestro
+              <FileText size={18} /> Resumen Maestro
             </button>
           </div>
 
@@ -336,21 +331,13 @@ export default function PanelHistorial() {
       <div className="flex gap-2 mb-4 border-b border-slate-200">
         <button
           onClick={() => setVistaActiva("choferes")}
-          className={`flex items-center gap-2 px-4 py-2.5 font-semibold text-sm transition-colors border-b-2 ${
-            isChofer
-              ? colorTabActivo
-              : "border-transparent text-slate-500 hover:text-purple-600"
-          }`}
+          className={`flex items-center gap-2 px-4 py-2.5 font-semibold text-sm transition-colors border-b-2 ${isChofer ? colorTabActivo : "border-transparent text-slate-500 hover:text-purple-600"}`}
         >
           <User size={16} /> Choferes
         </button>
         <button
           onClick={() => setVistaActiva("ayudantes")}
-          className={`flex items-center gap-2 px-4 py-2.5 font-semibold text-sm transition-colors border-b-2 ${
-            !isChofer
-              ? colorTabActivo
-              : "border-transparent text-slate-500 hover:text-emerald-600"
-          }`}
+          className={`flex items-center gap-2 px-4 py-2.5 font-semibold text-sm transition-colors border-b-2 ${!isChofer ? colorTabActivo : "border-transparent text-slate-500 hover:text-emerald-600"}`}
         >
           <Users size={16} /> Auxiliares
         </button>
@@ -358,8 +345,7 @@ export default function PanelHistorial() {
 
       {cargando ? (
         <div className="flex flex-col h-full items-center justify-center p-12 text-slate-500 font-bold animate-pulse gap-2">
-          <History size={24} />
-          Consultando registros...
+          <History size={24} /> Consultando registros...
         </div>
       ) : datosMostrar.length === 0 ? (
         <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 flex flex-col items-center text-center mt-4">
@@ -400,13 +386,7 @@ export default function PanelHistorial() {
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                        personal.totalViajes === 0
-                          ? "bg-red-100 text-red-700"
-                          : index < 5
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-slate-100 text-slate-700"
-                      }`}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${personal.totalViajes === 0 ? "bg-red-100 text-red-700" : index < 5 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-700"}`}
                     >
                       <Truck size={14} /> {personal.totalViajes} viajes
                     </span>

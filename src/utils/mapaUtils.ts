@@ -57,6 +57,7 @@ export const LISTA_RUTAS = [
   "Bahia de Banderas 2",
   "Escuinapa",
   "Mazatlan - Mayoristas",
+  "Recoge en Bodega",
 ].sort();
 
 export const LISTA_UNIDADES = [

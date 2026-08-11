@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query"; // 🚀 IMPORTAMOS TANSTACK
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ClipboardList,
   Calendar,
@@ -24,10 +24,12 @@ import {
   ChevronRight,
 } from "lucide-react";
 import * as XLSX from "xlsx";
+
+// 🚀 IMPORTAMOS DESDE EL NUEVO SERVICIO DE DISTRIBUCIÓN ÚNICO
 import {
-  obtenerHistorialPorRangoFirebase, // 🚀 USAMOS LA NUEVA FUNCIÓN
-  guardarHistorialFirebase,
-} from "../firebase/historialService";
+  obtenerDistribucionPorRango,
+  guardarDistribucionFecha,
+} from "../firebase/distribucionService";
 import { generarPDFAuditoria } from "../utils/pdfAuditoriaService";
 import {
   obtenerAjustesNomina,
@@ -54,7 +56,7 @@ interface ViajeDetalle {
 const ITEMS_POR_PAGINA = 20;
 
 export default function PanelHistorialCompleto() {
-  const queryClient = useQueryClient(); // 🚀 HERRAMIENTA PARA ACTUALIZAR LA CACHÉ AL EDITAR
+  const queryClient = useQueryClient();
 
   const hoy = new Date();
   const hace7Dias = new Date();
@@ -122,39 +124,39 @@ export default function PanelHistorialCompleto() {
     return () => document.removeEventListener("mousedown", handleClickFuera);
   }, []);
 
-  // 🚀 AQUÍ ESTÁ LA MAGIA: REEMPLAZAMOS EL useEffect Y EL ESTADO MANUAL POR useQuery
+  // 🚀 AHORA LEEMOS DE DISTRIBUCION_DIARIA EN LUGAR DEL HISTORIAL VIEJO
   const {
     data: datosCrudos = [],
     isLoading: cargando,
     isError,
   } = useQuery({
-    queryKey: ["historial_salidas", "auditoria", fechaInicio, fechaFin],
-    queryFn: () => obtenerHistorialPorRangoFirebase(fechaInicio, fechaFin),
+    queryKey: ["distribucion_rango", "auditoria", fechaInicio, fechaFin],
+    queryFn: () => obtenerDistribucionPorRango(fechaInicio, fechaFin),
   });
 
-  // 🚀 EXTRAEMOS LISTAS PARA LOS SELECTS DEL MODAL (Depende de datosCrudos en caché)
   const listasPersonal = useMemo(() => {
     const choferes = new Set<string>();
     const ayudantes = new Set<string>();
     const rutas = new Set<string>();
 
     datosCrudos.forEach((registro) => {
-      (registro.viajes || []).forEach((v: any) => {
+      // 🚀 AHORA ITERAMOS SOBRE 'filas' en lugar de 'viajes'
+      (registro.filas || []).forEach((v: any) => {
         if (v.chofer && v.chofer !== "-" && v.chofer.trim() !== "")
           choferes.add(v.chofer.toUpperCase().trim());
-        if (v.ayudante1 && v.ayudante1 !== "-" && v.ayudante1.trim() !== "")
-          ayudantes.add(v.ayudante1.toUpperCase().trim());
-        if (v.ayudante2 && v.ayudante2 !== "-" && v.ayudante2.trim() !== "")
-          ayudantes.add(v.ayudante2.toUpperCase().trim());
+        if (v.auxiliar1 && v.auxiliar1 !== "-" && v.auxiliar1.trim() !== "")
+          ayudantes.add(v.auxiliar1.toUpperCase().trim());
+        if (v.auxiliar2 && v.auxiliar2 !== "-" && v.auxiliar2.trim() !== "")
+          ayudantes.add(v.auxiliar2.toUpperCase().trim());
         if (v.ruta && v.ruta !== "SIN RUTA" && v.ruta.trim() !== "")
           rutas.add(v.ruta.toUpperCase().trim());
       });
     });
 
     if (reglasNomina && reglasNomina.viaticosRutas) {
-      Object.keys(reglasNomina.viaticosRutas).forEach((rutaCat) => {
-        rutas.add(rutaCat.toUpperCase().trim());
-      });
+      Object.keys(reglasNomina.viaticosRutas).forEach((rutaCat) =>
+        rutas.add(rutaCat.toUpperCase().trim()),
+      );
     }
 
     return {
@@ -195,7 +197,6 @@ export default function PanelHistorialCompleto() {
     };
   };
 
-  // 🚀 PROCESAMOS LA TABLA Y EL BUSCADOR CON useMemo
   const viajesMostrados = useMemo(() => {
     let historialAplanado: ViajeDetalle[] = [];
     const textoBusqueda = busqueda
@@ -205,30 +206,26 @@ export default function PanelHistorialCompleto() {
 
     datosCrudos.forEach((registro) => {
       const fecha = registro.fecha;
-      // Ya no validamos fechas aquí porque Firebase ya nos mandó solo las correctas
-      const viajesDelDia = registro.viajes || [];
+      const viajesDelDia = registro.filas || []; // 🚀 CAMBIO A 'filas'
 
-      viajesDelDia.forEach((viaje: any, idx: number) => {
-        if (
-          viaje.chofer &&
-          viaje.chofer.trim() !== "" &&
-          viaje.chofer !== "-"
-        ) {
+      viajesDelDia.forEach((fila: any, idx: number) => {
+        if (fila.chofer && fila.chofer.trim() !== "" && fila.chofer !== "-") {
+          // 🚀 TRADUCCIÓN MÁGICA: Mapeamos el nuevo formato al formato que ya conoce tu sistema
           const objViaje: ViajeDetalle = {
             originalIndex: idx,
             fecha: fecha,
-            unidad: viaje.unidad || "-",
-            ruta: viaje.ruta || "SIN RUTA",
-            chofer: viaje.chofer,
-            ayudante1: viaje.ayudante1 || "-",
-            ayudante2: viaje.ayudante2 || "-",
-            embCred: viaje.embCred || "-",
-            embCtdo: viaje.embCtdo || "-",
-            kgTotal: Number(viaje.kgTotal) || 0,
-            totalMonto: Number(viaje.totalMonto) || 0,
-            viaticoRuta: Number(viaje.viaticoRuta) || 0,
-            comisionChofer: Number(viaje.comisionChofer) || 0,
-            comisionAyudante: Number(viaje.comisionAyudante) || 0,
+            unidad: fila.unidad || "-",
+            ruta: fila.ruta || "SIN RUTA",
+            chofer: fila.chofer,
+            ayudante1: fila.auxiliar1 || "-",
+            ayudante2: fila.auxiliar2 || "-",
+            embCred: fila.embarqueCredito || "-",
+            embCtdo: fila.embarqueContado || "-",
+            kgTotal: Number(fila.totalSumaKilos) || 0,
+            totalMonto: Number(fila.totalSumaDinero) || 0,
+            viaticoRuta: Number(fila.viaticoRuta) || 0,
+            comisionChofer: Number(fila.comisionChofer) || 0,
+            comisionAyudante: Number(fila.comisionAyudante) || 0,
           };
 
           if (textoBusqueda) {
@@ -245,7 +242,6 @@ export default function PanelHistorialCompleto() {
               .toUpperCase()
               .normalize("NFD")
               .replace(/[\u0300-\u036f]/g, "");
-
             if (!valoresTexto.includes(textoBusqueda)) return;
           }
           historialAplanado.push(objViaje);
@@ -262,7 +258,6 @@ export default function PanelHistorialCompleto() {
     return historialAplanado;
   }, [datosCrudos, busqueda]);
 
-  // 🚀 REGRESAMOS A LA PÁGINA 1 SI CAMBIAN LOS FILTROS
   useEffect(() => {
     setPaginaActual(1);
   }, [viajesMostrados.length]);
@@ -320,7 +315,6 @@ export default function PanelHistorialCompleto() {
     const columnasActivas = Object.keys(columnasPDF).filter(
       (key) => columnasPDF[key],
     );
-
     const datosFiltrados = viajesMostrados.map((v) => {
       const filaObj: Record<string, any> = {};
       columnasActivas.forEach((key) => {
@@ -355,15 +349,15 @@ export default function PanelHistorialCompleto() {
     XLSX.writeFile(workbook, `Auditoria_Salidas_${fechaInicio}.xlsx`);
   };
 
-  const toggleColumna = (clave: string) => {
+  const toggleColumna = (clave: string) =>
     setColumnasPDF((prev) => ({ ...prev, [clave]: !prev[clave] }));
-  };
 
   const abrirEdicion = (viaje: ViajeDetalle) => {
     setViajeEditando({ ...viaje });
     setModalAbierto(true);
   };
 
+  // 🚀 GUARDADO DE EDICIÓN DIRECCIONADO A LA NUEVA TABLA ÚNICA
   const guardarEdicionTripulacion = async () => {
     if (!viajeEditando) return;
     setGuardandoCambios(true);
@@ -372,42 +366,48 @@ export default function PanelHistorialCompleto() {
       viajeEditando.ruta,
       viajeEditando.totalMonto,
     );
-
-    const viajeActualizadoFirebase = {
-      unidad: viajeEditando.unidad,
-      ruta: viajeEditando.ruta.toUpperCase(),
-      chofer: viajeEditando.chofer.toUpperCase(),
-      ayudante1: viajeEditando.ayudante1.toUpperCase() || "-",
-      ayudante2: viajeEditando.ayudante2.toUpperCase() || "-",
-      embCred: viajeEditando.embCred,
-      embCtdo: viajeEditando.embCtdo,
-      kgTotal: Number(viajeEditando.kgTotal),
-      totalMonto: Number(viajeEditando.totalMonto),
-      viaticoRuta: nuevasFinanzas.viaticoRuta,
-      comisionChofer: nuevasFinanzas.comisionChofer,
-      comisionAyudante: nuevasFinanzas.comisionAyudante,
-    };
-
     const registroDia = datosCrudos.find(
       (r) => r.fecha === viajeEditando.fecha,
     );
-    if (registroDia && registroDia.viajes) {
-      registroDia.viajes[viajeEditando.originalIndex!] =
-        viajeActualizadoFirebase;
-      const resultado = await guardarHistorialFirebase(
-        viajeEditando.fecha,
-        registroDia.viajes,
-      );
 
-      if (resultado.success) {
-        alert("¡Registro actualizado y guardado en la nube correctamente!");
+    if (registroDia && registroDia.filas) {
+      // Tomamos la fila original para no borrar datos como "Cajas" o "Volumen" que vienen del BMS
+      const filaOriginal = registroDia.filas[viajeEditando.originalIndex!];
+
+      const viajeActualizadoFirebase = {
+        ...filaOriginal,
+        unidad: viajeEditando.unidad,
+        ruta: viajeEditando.ruta.toUpperCase(),
+        chofer: viajeEditando.chofer.toUpperCase(),
+        auxiliar1:
+          viajeEditando.ayudante1 === "-"
+            ? ""
+            : viajeEditando.ayudante1.toUpperCase(),
+        auxiliar2:
+          viajeEditando.ayudante2 === "-"
+            ? ""
+            : viajeEditando.ayudante2.toUpperCase(),
+        embarqueCredito: viajeEditando.embCred,
+        embarqueContado: viajeEditando.embCtdo,
+        totalSumaKilos: Number(viajeEditando.kgTotal),
+        totalSumaDinero: Number(viajeEditando.totalMonto),
+        viaticoRuta: nuevasFinanzas.viaticoRuta,
+        comisionChofer: nuevasFinanzas.comisionChofer,
+        comisionAyudante: nuevasFinanzas.comisionAyudante,
+      };
+
+      registroDia.filas[viajeEditando.originalIndex!] =
+        viajeActualizadoFirebase;
+
+      try {
+        await guardarDistribucionFecha(viajeEditando.fecha, registroDia.filas);
+        alert("¡Registro actualizado y guardado correctamente!");
         setModalAbierto(false);
-        // 🚀 MAGIA DE TANSTACK: Invalidamos la caché para que se refresque en 2do plano sin recargar todo
         queryClient.invalidateQueries({
-          queryKey: ["historial_salidas", "auditoria"],
+          queryKey: ["distribucion_rango", "auditoria"],
         });
-      } else {
-        alert("Error al guardar los cambios en la nube.");
+      } catch (error) {
+        alert("Error al guardar los cambios en la base de datos.");
       }
     }
     setGuardandoCambios(false);
@@ -480,36 +480,24 @@ export default function PanelHistorialCompleto() {
             <button
               onClick={() => setMostrarMenuColumnas(!mostrarMenuColumnas)}
               className="flex items-center justify-center p-3 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors shadow-sm bg-white"
-              title="Configurar columnas de exportación"
+              title="Configurar columnas"
             >
               <Settings2 size={20} />
             </button>
-
             <button
               onClick={handleDescargarExcelReal}
               disabled={viajesMostrados.length === 0}
-              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-colors shadow-sm flex-1 sm:flex-auto ${
-                viajesMostrados.length === 0
-                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
-              }`}
+              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-colors shadow-sm flex-1 sm:flex-auto ${viajesMostrados.length === 0 ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}
               title="Exportar a Excel"
             >
-              <FileSpreadsheet size={18} />
-              Excel
+              <FileSpreadsheet size={18} /> Excel
             </button>
-
             <button
               onClick={handleDescargarPDF}
               disabled={isGenerandoPDF || viajesMostrados.length === 0}
-              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-colors shadow-sm flex-1 sm:flex-auto ${
-                isGenerandoPDF || viajesMostrados.length === 0
-                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700 text-white"
-              }`}
+              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-colors shadow-sm flex-1 sm:flex-auto ${isGenerandoPDF || viajesMostrados.length === 0 ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
             >
-              <FileDown size={18} />
-              {isGenerandoPDF ? "..." : "PDF"}
+              <FileDown size={18} /> {isGenerandoPDF ? "..." : "PDF"}
             </button>
 
             {mostrarMenuColumnas && (
@@ -563,8 +551,7 @@ export default function PanelHistorialCompleto() {
 
       {cargando ? (
         <div className="flex flex-col h-full items-center justify-center p-12 text-slate-500 font-bold animate-pulse gap-2 flex-1">
-          <ClipboardList size={24} />
-          Cargando auditoría...
+          <ClipboardList size={24} /> Cargando auditoría...
         </div>
       ) : viajesMostrados.length === 0 ? (
         <div className="p-12 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 flex flex-col items-center text-center flex-1">
@@ -689,7 +676,6 @@ export default function PanelHistorialCompleto() {
                 </tr>
               ))}
             </tbody>
-            {/* FOOTER DE TOTALES FIJO ABAJO */}
             <tfoot className="sticky bottom-0 bg-slate-800 text-white shadow-inner">
               <tr>
                 <td
@@ -763,7 +749,7 @@ export default function PanelHistorialCompleto() {
         </div>
       )}
 
-      {/* MODAL FLOTANTE DE EDICIÓN CON SELECTS PARA RUTA Y PERSONAL */}
+      {/* MODAL FLOTANTE DE EDICIÓN */}
       {modalAbierto && viajeEditando && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95">
@@ -992,7 +978,7 @@ export default function PanelHistorialCompleto() {
                 disabled={guardandoCambios}
                 className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm transition-colors shadow-sm disabled:opacity-50"
               >
-                <Save size={18} />
+                <Save size={18} />{" "}
                 {guardandoCambios ? "Guardando..." : "Guardar Cambios"}
               </button>
             </div>

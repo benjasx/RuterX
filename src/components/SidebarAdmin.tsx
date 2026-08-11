@@ -171,21 +171,6 @@ export default function SidebarAdmin({
               </button>
             </li>
           )}
-
-          {permisos.tablamontos && (
-            <li>
-              <button
-                onClick={() => setMenuActivo("tablamontos")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  menuActivo === "tablamontos"
-                    ? "bg-blue-50 text-blue-700 font-semibold"
-                    : "text-slate-600 hover:bg-slate-50 font-medium"
-                }`}
-              >
-                <Calculator size={20} /> Tabla de Montos
-              </button>
-            </li>
-          )}
         </ul>
 
         {permisos.historial && (

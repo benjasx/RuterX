@@ -21,22 +21,36 @@ export const exportarDistribucionPDF = async (filas: any[], fecha: string) => {
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
 
   // CÁLCULO DE RESUMEN OPERATIVO
-  const rutasSet = new Set<string>();
+  let totalRutas = 0; // Se mantiene el contador correcto
   const choferesSet = new Set<string>();
   const auxiliaresSet = new Set<string>();
   const unidadesSet = new Set<string>();
 
   filas.forEach((f) => {
-    if (f.ruta) rutasSet.add(f.ruta.toUpperCase().trim());
-    if (f.chofer) choferesSet.add(f.chofer.toUpperCase().trim());
-    if (f.auxiliar1 && f.auxiliar1 !== "-- SIN AUXILIAR ASIGNADO --")
+    // Sumamos 1 por cada fila que sí tenga una ruta escrita
+    if (f.ruta && f.ruta.trim() !== "") {
+      totalRutas++;
+    }
+
+    // El personal y las unidades
+    if (f.chofer && f.chofer.trim() !== "")
+      choferesSet.add(f.chofer.toUpperCase().trim());
+    if (
+      f.auxiliar1 &&
+      f.auxiliar1 !== "-- SIN AUXILIAR ASIGNADO --" &&
+      f.auxiliar1.trim() !== ""
+    )
       auxiliaresSet.add(f.auxiliar1.toUpperCase().trim());
-    if (f.auxiliar2 && f.auxiliar2 !== "-- SIN AUXILIAR ASIGNADO --")
+    if (
+      f.auxiliar2 &&
+      f.auxiliar2 !== "-- SIN AUXILIAR ASIGNADO --" &&
+      f.auxiliar2.trim() !== ""
+    )
       auxiliaresSet.add(f.auxiliar2.toUpperCase().trim());
-    if (f.unidad) unidadesSet.add(f.unidad.toUpperCase().trim());
+    if (f.unidad && f.unidad.trim() !== "")
+      unidadesSet.add(f.unidad.toUpperCase().trim());
   });
 
-  const totalRutas = rutasSet.size;
   const totalChoferes = choferesSet.size;
   const totalAuxiliares = auxiliaresSet.size;
   const totalUnidadesUsadas = unidadesSet.size;
@@ -55,6 +69,9 @@ export const exportarDistribucionPDF = async (filas: any[], fecha: string) => {
   const tableBody: any[][] = [headerRow];
 
   filas.forEach((f) => {
+    // Evitamos imprimir filas que estén completamente en blanco
+    if (!f.ruta && !f.chofer && !f.unidad) return;
+
     const row: any[] = [
       { text: (f.ruta || "-").toUpperCase(), style: "td" },
       {
@@ -142,13 +159,14 @@ export const exportarDistribucionPDF = async (filas: any[], fecha: string) => {
       margin: [0, 0, 0, 10],
     },
 
-    // 2. SECCIÓN DE RESUMEN EJECUTIVO (TARJETAS)
+    // 2. SECCIÓN DE RESUMEN EJECUTIVO (TARJETAS - De vuelta arriba)
     {
       text: "RESUMEN GENERAL DE LA JORNADA",
       fontSize: 9,
       bold: true,
       color: "#0f172a",
       margin: [0, 0, 0, 5],
+      unbreakable: true,
     },
     {
       table: {
@@ -191,7 +209,8 @@ export const exportarDistribucionPDF = async (filas: any[], fecha: string) => {
           return 5;
         },
       },
-      margin: [0, 0, 0, 12],
+      unbreakable: true,
+      margin: [0, 0, 0, 15],
     },
 
     // 3. TABLA PRINCIPAL DE DISTRIBUCIÓN

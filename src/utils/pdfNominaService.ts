@@ -23,7 +23,7 @@ const fNumero = (c: number) =>
   }).format(c);
 
 // ============================================================================
-// PDF: REPORTE DE CHOFERES (VERTICAL / RETRATO)
+// PDF: REPORTE DE CHOFERES (VERTICAL / RETRATO) - ESTILO CORPORATIVO
 // ============================================================================
 export const generarPDFNominaChoferes = async (
   viajes: any[],
@@ -31,7 +31,7 @@ export const generarPDFNominaChoferes = async (
   fechaFin: string,
   choferElegido: string = "TODOS",
   mostrarViaticos: boolean = true,
-  mostrarComisiones: boolean = true
+  mostrarComisiones: boolean = true,
 ) => {
   const pdfMake = (window as any).pdfMake;
   if (!pdfMake) return alert("Generador PDF cargando...");
@@ -45,11 +45,11 @@ export const generarPDFNominaChoferes = async (
   });
 
   const viajesPorChofer: Record<string, any[]> = {};
-  
+
   viajes.forEach((v) => {
     const c = v.chofer ? v.chofer.toUpperCase().trim() : "";
-    const a1 = v.ayudante1 ? v.ayudante1.toUpperCase().trim() : "";
-    const a2 = v.ayudante2 ? v.ayudante2.toUpperCase().trim() : "";
+    const a1 = v.auxiliar1 ? v.auxiliar1.toUpperCase().trim() : "";
+    const a2 = v.auxiliar2 ? v.auxiliar2.toUpperCase().trim() : "";
 
     const agregarViaje = (nombre: string, rol: string) => {
       if (choferElegido !== "TODOS" && nombre !== choferElegido) return;
@@ -86,17 +86,23 @@ export const generarPDFNominaChoferes = async (
         { text: "KG", style: "th", alignment: "right" },
         { text: "Venta ($)", style: "th", alignment: "right" },
       ];
-      if (mostrarViaticos) headerRow.push({ text: "Viáticos", style: "th", alignment: "right" });
-      if (mostrarComisiones) headerRow.push({ text: "Comisión", style: "th", alignment: "right" });
-      if (mostrarTotalDia) headerRow.push({ text: "Total Día", style: "th", alignment: "right" });
+      if (mostrarViaticos)
+        headerRow.push({ text: "Viáticos", style: "th", alignment: "right" });
+      if (mostrarComisiones)
+        headerRow.push({ text: "Comisión", style: "th", alignment: "right" });
+      if (mostrarTotalDia)
+        headerRow.push({ text: "Total Día", style: "th", alignment: "right" });
 
       const tableBody: any[][] = [headerRow];
 
-      viajesPorChofer[chofer].forEach((v) => {
+      viajesPorChofer[chofer].forEach((v, index) => {
         const rol = v.rolGenerado;
         const nombreRuta = (v.ruta || "").toUpperCase().trim();
-        const monto = Number(v.totalMonto) || 0;
-        
+
+        // 🚀 CORREGIDO: Leemos de totalSumaDinero y totalSumaKilos
+        const monto = Number(v.totalSumaDinero ?? v.totalMonto) || 0;
+        const kg = Number(v.totalSumaKilos ?? v.kgTotal) || 0;
+
         let viatico = 0;
         let comision = 0;
 
@@ -104,16 +110,14 @@ export const generarPDFNominaChoferes = async (
           viatico = Number(v.viaticoRuta) || 0;
           comision = Number(v.comisionChofer) || 0;
           if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") {
-            comision = comision > 0 ? comision : monto * 0.001; 
+            comision = comision > 0 ? comision : monto * 0.001;
           }
         } else {
-          // 🚀 Va de ayudante de APOYO (SÍ COBRA VIÁTICO)
-          viatico = Number(v.viaticoRuta) || 0; 
+          viatico = Number(v.viaticoRuta) || 0;
           comision = Number(v.comisionAyudante) || 0;
           if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") comision = 0;
         }
 
-        const kg = Number(v.kgTotal) || 0;
         const totalDia = viatico + comision;
 
         sumaVenta += monto;
@@ -121,34 +125,84 @@ export const generarPDFNominaChoferes = async (
         sumaComisiones += comision;
         sumaKg += kg;
 
-        // 🚀 Agregamos la leyenda (APOYO) a la ruta
-        const textoRuta = rol === "AYUDANTE" ? `${v.ruta || "-"} (APOYO)` : (v.ruta || "-");
+        const textoRuta =
+          rol === "AYUDANTE" ? `${v.ruta || "-"} (APOYO)` : v.ruta || "-";
+        const esPar = index % 2 === 0;
+        const bgFila = esPar ? "#ffffff" : "#f8fafc";
 
         const row: any[] = [
-          { text: v.fecha, style: "td" },
-          { text: v.unidad || "-", style: "td", alignment: "center" },
-          { text: textoRuta, style: "td" },
-          { text: fNumero(kg), style: "td", alignment: "right" },
-          { text: fMoneda(monto), style: "td", alignment: "right" },
+          { text: v.fecha, style: "td", fillColor: bgFila },
+          { text: v.unidad || "-", style: "tdCenter", fillColor: bgFila },
+          { text: textoRuta, style: "td", fillColor: bgFila },
+          { text: fNumero(kg), style: "tdRight", fillColor: bgFila },
+          {
+            text: fMoneda(monto),
+            style: "tdRight",
+            fillColor: bgFila,
+            color: "#047857",
+          },
         ];
-        if (mostrarViaticos) row.push({ text: fMoneda(viatico), style: "td", alignment: "right", color: "#166534" });
-        if (mostrarComisiones) row.push({ text: fMoneda(comision), style: "td", alignment: "right", color: "#1d4ed8" });
-        if (mostrarTotalDia) row.push({ text: fMoneda(totalDia), style: "tdBold", alignment: "right" });
+        if (mostrarViaticos)
+          row.push({
+            text: fMoneda(viatico),
+            style: "tdRight",
+            fillColor: bgFila,
+            color: "#166534",
+          });
+        if (mostrarComisiones)
+          row.push({
+            text: fMoneda(comision),
+            style: "tdRight",
+            fillColor: bgFila,
+            color: "#1d4ed8",
+          });
+        if (mostrarTotalDia)
+          row.push({
+            text: fMoneda(totalDia),
+            style: "tdBoldRight",
+            fillColor: bgFila,
+          });
 
         tableBody.push(row);
       });
 
       const totalRow: any[] = [
-        { text: `TOTAL SEMANAL (${cantidadRutas} RUTAS)`, colSpan: 3, style: "thTotal", alignment: "right" },
+        {
+          text: `TOTAL SEMANAL (${cantidadRutas} RUTAS)`,
+          colSpan: 3,
+          style: "thTotal",
+          alignment: "left",
+        },
         {},
         {},
-        { text: fNumero(sumaKg), style: "thTotal", alignment: "right" },
-        { text: fMoneda(sumaVenta), style: "thTotal", alignment: "right" },
+        { text: fNumero(sumaKg), style: "thTotalRight", alignment: "right" },
+        {
+          text: fMoneda(sumaVenta),
+          style: "thTotalRight",
+          alignment: "right",
+          color: "#065f46",
+        },
       ];
-      if (mostrarViaticos) totalRow.push({ text: fMoneda(sumaViaticos), style: "thTotal", alignment: "right" });
-      if (mostrarComisiones) totalRow.push({ text: fMoneda(sumaComisiones), style: "thTotal", alignment: "right" });
+      if (mostrarViaticos)
+        totalRow.push({
+          text: fMoneda(sumaViaticos),
+          style: "thTotalRight",
+          alignment: "right",
+          color: "#166534",
+        });
+      if (mostrarComisiones)
+        totalRow.push({
+          text: fMoneda(sumaComisiones),
+          style: "thTotalRight",
+          alignment: "right",
+          color: "#1e40af",
+        });
       if (mostrarTotalDia) {
-        totalRow.push({ text: fMoneda(sumaViaticos + sumaComisiones), style: "thGranTotal", alignment: "right" });
+        totalRow.push({
+          text: fMoneda(sumaViaticos + sumaComisiones),
+          style: "thGranTotal",
+          alignment: "right",
+        });
       }
 
       tableBody.push(totalRow);
@@ -162,20 +216,50 @@ export const generarPDFNominaChoferes = async (
         stack: [
           {
             columns: [
-              logoBase64 ? { image: logoBase64, width: 70 } : { text: "CIR", bold: true },
+              logoBase64
+                ? { image: logoBase64, width: 60 }
+                : { text: "CIR", bold: true },
               {
-                text: `${tituloGlobal}\n(DEL ${fechaInicio} AL ${fechaFin})`,
-                style: "mainTitle",
+                stack: [
+                  {
+                    text: tituloGlobal,
+                    fontSize: 12,
+                    bold: true,
+                    color: "#0f172a",
+                    alignment: "right",
+                  },
+                  {
+                    text: `PERIODO: DEL ${fechaInicio} AL ${fechaFin}`,
+                    fontSize: 8,
+                    bold: true,
+                    color: "#64748b",
+                    alignment: "right",
+                    margin: [0, 2, 0, 0],
+                  },
+                ],
                 alignment: "right",
-                margin: [0, 5, 0, 0],
               },
             ],
             margin: [0, 0, 0, 10],
           },
           {
-            text: `Chofer: ${chofer}`,
-            style: "choferTitle",
-            margin: [0, 0, 0, 4],
+            table: {
+              widths: ["*"],
+              body: [
+                [
+                  {
+                    text: `CHOFER: ${chofer}`,
+                    fontSize: 9,
+                    bold: true,
+                    color: "#0f172a",
+                    margin: [8, 5, 8, 5],
+                    fillColor: "#f1f5f9",
+                  },
+                ],
+              ],
+            },
+            layout: { hLineWidth: () => 0, vLineWidth: () => 0 },
+            margin: [0, 0, 0, 8],
           },
           {
             table: {
@@ -183,7 +267,17 @@ export const generarPDFNominaChoferes = async (
               widths: tableWidths,
               body: tableBody,
             },
-            layout: "lightHorizontalLines",
+            layout: {
+              hLineWidth: (i: number, node: any) =>
+                i === 0 || i === 1 || i === node.table.body.length ? 1 : 0.5,
+              vLineWidth: () => 0,
+              hLineColor: (i: number, node: any) =>
+                i === 0 || i === node.table.body.length ? "#0f172a" : "#e2e8f0",
+              paddingTop: () => 5,
+              paddingBottom: () => 5,
+              paddingLeft: () => 4,
+              paddingRight: () => 4,
+            },
           },
           {
             columns: [
@@ -191,27 +285,65 @@ export const generarPDFNominaChoferes = async (
               {
                 width: 170,
                 stack: [
-                  { canvas: [{ type: "line", x1: 0, y1: 0, x2: 170, y2: 0, lineWidth: 1 }] },
-                  { text: `Firma: ${chofer}`, alignment: "center", margin: [0, 5, 0, 0], fontSize: 9, bold: true },
+                  {
+                    canvas: [
+                      {
+                        type: "line",
+                        x1: 0,
+                        y1: 0,
+                        x2: 170,
+                        y2: 0,
+                        lineWidth: 1,
+                        lineColor: "#94a3b8",
+                      },
+                    ],
+                  },
+                  {
+                    text: `Firma: ${chofer}`,
+                    alignment: "center",
+                    margin: [0, 4, 0, 0],
+                    fontSize: 8,
+                    bold: true,
+                    color: "#334155",
+                  },
                 ],
-                margin: [0, 50, 0, 0],
+                margin: [0, 35, 0, 0],
               },
               { width: "*", text: "" },
               {
                 width: 170,
                 stack: [
-                  { canvas: [{ type: "line", x1: 0, y1: 0, x2: 170, y2: 0, lineWidth: 1 }] },
-                  { text: "Firma: Jefe de Reparto", alignment: "center", margin: [0, 5, 0, 0], fontSize: 9, bold: true },
+                  {
+                    canvas: [
+                      {
+                        type: "line",
+                        x1: 0,
+                        y1: 0,
+                        x2: 170,
+                        y2: 0,
+                        lineWidth: 1,
+                        lineColor: "#94a3b8",
+                      },
+                    ],
+                  },
+                  {
+                    text: "Firma: Jefe de Reparto",
+                    alignment: "center",
+                    margin: [0, 4, 0, 0],
+                    fontSize: 8,
+                    bold: true,
+                    color: "#334155",
+                  },
                 ],
-                margin: [0, 50, 0, 0],
+                margin: [0, 35, 0, 0],
               },
               { width: "*", text: "" },
             ],
             margin: [0, 10, 0, 20],
-          }
+          },
         ],
-        unbreakable: true, 
-        margin: [0, 0, 0, 30],
+        unbreakable: true,
+        margin: [0, 0, 0, 20],
       });
     });
 
@@ -221,32 +353,57 @@ export const generarPDFNominaChoferes = async (
   pdfMake
     .createPdf({
       pageOrientation: "portrait",
-      pageMargins: [30, 30, 30, 30],
+      pageMargins: [25, 25, 25, 25],
       content: contentBlocks,
       styles: {
-        mainTitle: { fontSize: 13, bold: true },
-        choferTitle: {
-          fontSize: 10,
-          bold: true,
-          background: "#f1f5f9",
-          padding: 3,
-        },
         th: {
           bold: true,
           fontSize: 8,
-          fillColor: "#4c1d95",
+          fillColor: "#0f172a",
           color: "white",
-          margin: 3,
+          margin: [2, 2],
         },
-        td: { fontSize: 7, margin: 3 },
-        tdBold: { fontSize: 7, bold: true, margin: 3 },
-        thTotal: { bold: true, fontSize: 8, fillColor: "#e2e8f0", margin: 3 },
+        td: { fontSize: 7.5, color: "#334155", margin: [2, 2] },
+        tdCenter: {
+          fontSize: 7.5,
+          color: "#334155",
+          alignment: "center",
+          margin: [2, 2],
+        },
+        tdRight: {
+          fontSize: 7.5,
+          color: "#334155",
+          alignment: "right",
+          margin: [2, 2],
+        },
+        tdBoldRight: {
+          fontSize: 7.5,
+          bold: true,
+          color: "#0f172a",
+          alignment: "right",
+          margin: [2, 2],
+        },
+        thTotal: {
+          bold: true,
+          fontSize: 8,
+          fillColor: "#f8fafc",
+          color: "#0f172a",
+          margin: [3, 3],
+        },
+        thTotalRight: {
+          bold: true,
+          fontSize: 8,
+          fillColor: "#f8fafc",
+          alignment: "right",
+          margin: [3, 3],
+        },
         thGranTotal: {
           bold: true,
           fontSize: 8,
-          fillColor: "#dcfce3",
-          color: "#166534",
-          margin: 3,
+          fillColor: "#ecfdf5",
+          color: "#047857",
+          alignment: "right",
+          margin: [3, 3],
         },
       },
     })
@@ -254,7 +411,7 @@ export const generarPDFNominaChoferes = async (
 };
 
 // ============================================================================
-// PDF: REPORTE DE AUXILIARES (VERTICAL / RETRATO)
+// PDF: REPORTE DE AUXILIARES (VERTICAL / RETRATO) - ESTILO CORPORATIVO
 // ============================================================================
 export const generarPDFNominaAyudantes = async (
   viajes: any[],
@@ -263,7 +420,7 @@ export const generarPDFNominaAyudantes = async (
   ayudanteElegido: string = "TODOS",
   listaNegraChoferes: Set<string>,
   mostrarViaticos: boolean = true,
-  mostrarComisiones: boolean = true
+  mostrarComisiones: boolean = true,
 ) => {
   const pdfMake = (window as any).pdfMake;
   if (!pdfMake) return alert("Generador PDF cargando...");
@@ -276,9 +433,8 @@ export const generarPDFNominaAyudantes = async (
     const nombre = nombreRaw.toUpperCase().trim();
     if (nombre === "-" || nombre === "SIN AYUDANTE" || nombre === "UNDEFINED")
       return;
-    
+
     if (listaNegraChoferes.has(nombre)) return;
-    
     if (ayudanteElegido !== "TODOS" && nombre !== ayudanteElegido) return;
 
     if (!viajesPorAyudante[nombre]) viajesPorAyudante[nombre] = [];
@@ -286,8 +442,8 @@ export const generarPDFNominaAyudantes = async (
   };
 
   viajes.forEach((v) => {
-    procesarAyudante(v.ayudante1, v);
-    procesarAyudante(v.ayudante2, v);
+    procesarAyudante(v.auxiliar1, v);
+    procesarAyudante(v.auxiliar2, v);
   });
 
   const contentBlocks: any[] = [];
@@ -314,21 +470,27 @@ export const generarPDFNominaAyudantes = async (
         { text: "KG", style: "th", alignment: "right" },
         { text: "Venta ($)", style: "th", alignment: "right" },
       ];
-      if (mostrarViaticos) headerRow.push({ text: "Viáticos", style: "th", alignment: "right" });
-      if (mostrarComisiones) headerRow.push({ text: "Comisión", style: "th", alignment: "right" });
-      if (mostrarTotalDia) headerRow.push({ text: "Total Día", style: "th", alignment: "right" });
+      if (mostrarViaticos)
+        headerRow.push({ text: "Viáticos", style: "th", alignment: "right" });
+      if (mostrarComisiones)
+        headerRow.push({ text: "Comisión", style: "th", alignment: "right" });
+      if (mostrarTotalDia)
+        headerRow.push({ text: "Total Día", style: "th", alignment: "right" });
 
       const tableBody: any[][] = [headerRow];
 
-      viajesPorAyudante[ayudante].forEach((v) => {
+      viajesPorAyudante[ayudante].forEach((v, index) => {
         const nombreRuta = (v.ruta || "").toUpperCase().trim();
-        const monto = Number(v.totalMonto) || 0;
+
+        // 🚀 CORREGIDO: Leemos de totalSumaDinero y totalSumaKilos
+        const monto = Number(v.totalSumaDinero ?? v.totalMonto) || 0;
+        const kg = Number(v.totalSumaKilos ?? v.kgTotal) || 0;
+
         const viatico = Number(v.viaticoRuta) || 0;
         let comision = Number(v.comisionAyudante) || 0;
-        
+
         if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") comision = 0;
 
-        const kg = Number(v.kgTotal) || 0;
         const totalDia = viatico + comision;
 
         sumaVenta += monto;
@@ -336,31 +498,82 @@ export const generarPDFNominaAyudantes = async (
         sumaComisiones += comision;
         sumaKg += kg;
 
+        const esPar = index % 2 === 0;
+        const bgFila = esPar ? "#ffffff" : "#f8fafc";
+
         const row: any[] = [
-          { text: v.fecha, style: "td" },
-          { text: v.unidad || "-", style: "td", alignment: "center" },
-          { text: v.ruta || "-", style: "td" },
-          { text: fNumero(kg), style: "td", alignment: "right" },
-          { text: fMoneda(monto), style: "td", alignment: "right" },
+          { text: v.fecha, style: "td", fillColor: bgFila },
+          { text: v.unidad || "-", style: "tdCenter", fillColor: bgFila },
+          { text: v.ruta || "-", style: "td", fillColor: bgFila },
+          { text: fNumero(kg), style: "tdRight", fillColor: bgFila },
+          {
+            text: fMoneda(monto),
+            style: "tdRight",
+            fillColor: bgFila,
+            color: "#047857",
+          },
         ];
-        if (mostrarViaticos) row.push({ text: fMoneda(viatico), style: "td", alignment: "right", color: "#166534" });
-        if (mostrarComisiones) row.push({ text: fMoneda(comision), style: "td", alignment: "right", color: "#1d4ed8" });
-        if (mostrarTotalDia) row.push({ text: fMoneda(totalDia), style: "tdBold", alignment: "right" });
+        if (mostrarViaticos)
+          row.push({
+            text: fMoneda(viatico),
+            style: "tdRight",
+            fillColor: bgFila,
+            color: "#166534",
+          });
+        if (mostrarComisiones)
+          row.push({
+            text: fMoneda(comision),
+            style: "tdRight",
+            fillColor: bgFila,
+            color: "#1d4ed8",
+          });
+        if (mostrarTotalDia)
+          row.push({
+            text: fMoneda(totalDia),
+            style: "tdBoldRight",
+            fillColor: bgFila,
+          });
 
         tableBody.push(row);
       });
 
       const totalRow: any[] = [
-        { text: `TOTAL SEMANAL (${cantidadRutas} RUTAS)`, colSpan: 3, style: "thTotal", alignment: "right" },
+        {
+          text: `TOTAL SEMANAL (${cantidadRutas} RUTAS)`,
+          colSpan: 3,
+          style: "thTotal",
+          alignment: "left",
+        },
         {},
         {},
-        { text: fNumero(sumaKg), style: "thTotal", alignment: "right" },
-        { text: fMoneda(sumaVenta), style: "thTotal", alignment: "right" },
+        { text: fNumero(sumaKg), style: "thTotalRight", alignment: "right" },
+        {
+          text: fMoneda(sumaVenta),
+          style: "thTotalRight",
+          alignment: "right",
+          color: "#065f46",
+        },
       ];
-      if (mostrarViaticos) totalRow.push({ text: fMoneda(sumaViaticos), style: "thTotal", alignment: "right" });
-      if (mostrarComisiones) totalRow.push({ text: fMoneda(sumaComisiones), style: "thTotal", alignment: "right" });
+      if (mostrarViaticos)
+        totalRow.push({
+          text: fMoneda(sumaViaticos),
+          style: "thTotalRight",
+          alignment: "right",
+          color: "#166534",
+        });
+      if (mostrarComisiones)
+        totalRow.push({
+          text: fMoneda(sumaComisiones),
+          style: "thTotalRight",
+          alignment: "right",
+          color: "#1e40af",
+        });
       if (mostrarTotalDia) {
-        totalRow.push({ text: fMoneda(sumaViaticos + sumaComisiones), style: "thGranTotal", alignment: "right" });
+        totalRow.push({
+          text: fMoneda(sumaViaticos + sumaComisiones),
+          style: "thGranTotal",
+          alignment: "right",
+        });
       }
 
       tableBody.push(totalRow);
@@ -374,20 +587,50 @@ export const generarPDFNominaAyudantes = async (
         stack: [
           {
             columns: [
-              logoBase64 ? { image: logoBase64, width: 70 } : { text: "CIR", bold: true },
+              logoBase64
+                ? { image: logoBase64, width: 60 }
+                : { text: "CIR", bold: true },
               {
-                text: `${tituloGlobal}\n(DEL ${fechaInicio} AL ${fechaFin})`,
-                style: "mainTitle",
+                stack: [
+                  {
+                    text: tituloGlobal,
+                    fontSize: 12,
+                    bold: true,
+                    color: "#0f172a",
+                    alignment: "right",
+                  },
+                  {
+                    text: `PERIODO: DEL ${fechaInicio} AL ${fechaFin}`,
+                    fontSize: 8,
+                    bold: true,
+                    color: "#64748b",
+                    alignment: "right",
+                    margin: [0, 2, 0, 0],
+                  },
+                ],
                 alignment: "right",
-                margin: [0, 5, 0, 0],
               },
             ],
             margin: [0, 0, 0, 10],
           },
           {
-            text: `Auxiliar: ${ayudante}`,
-            style: "choferTitle",
-            margin: [0, 0, 0, 4],
+            table: {
+              widths: ["*"],
+              body: [
+                [
+                  {
+                    text: `AUXILIAR: ${ayudante}`,
+                    fontSize: 9,
+                    bold: true,
+                    color: "#0f172a",
+                    margin: [8, 5, 8, 5],
+                    fillColor: "#f1f5f9",
+                  },
+                ],
+              ],
+            },
+            layout: { hLineWidth: () => 0, vLineWidth: () => 0 },
+            margin: [0, 0, 0, 8],
           },
           {
             table: {
@@ -395,7 +638,17 @@ export const generarPDFNominaAyudantes = async (
               widths: tableWidths,
               body: tableBody,
             },
-            layout: "lightHorizontalLines",
+            layout: {
+              hLineWidth: (i: number, node: any) =>
+                i === 0 || i === 1 || i === node.table.body.length ? 1 : 0.5,
+              vLineWidth: () => 0,
+              hLineColor: (i: number, node: any) =>
+                i === 0 || i === node.table.body.length ? "#0f172a" : "#e2e8f0",
+              paddingTop: () => 5,
+              paddingBottom: () => 5,
+              paddingLeft: () => 4,
+              paddingRight: () => 4,
+            },
           },
           {
             columns: [
@@ -403,27 +656,65 @@ export const generarPDFNominaAyudantes = async (
               {
                 width: 170,
                 stack: [
-                  { canvas: [{ type: "line", x1: 0, y1: 0, x2: 170, y2: 0, lineWidth: 1 }] },
-                  { text: `Firma: ${ayudante}`, alignment: "center", margin: [0, 5, 0, 0], fontSize: 9, bold: true },
+                  {
+                    canvas: [
+                      {
+                        type: "line",
+                        x1: 0,
+                        y1: 0,
+                        x2: 170,
+                        y2: 0,
+                        lineWidth: 1,
+                        lineColor: "#94a3b8",
+                      },
+                    ],
+                  },
+                  {
+                    text: `Firma: ${ayudante}`,
+                    alignment: "center",
+                    margin: [0, 4, 0, 0],
+                    fontSize: 8,
+                    bold: true,
+                    color: "#334155",
+                  },
                 ],
-                margin: [0, 50, 0, 0],
+                margin: [0, 35, 0, 0],
               },
               { width: "*", text: "" },
               {
                 width: 170,
                 stack: [
-                  { canvas: [{ type: "line", x1: 0, y1: 0, x2: 170, y2: 0, lineWidth: 1 }] },
-                  { text: "Firma: Jefe de Reparto", alignment: "center", margin: [0, 5, 0, 0], fontSize: 9, bold: true },
+                  {
+                    canvas: [
+                      {
+                        type: "line",
+                        x1: 0,
+                        y1: 0,
+                        x2: 170,
+                        y2: 0,
+                        lineWidth: 1,
+                        lineColor: "#94a3b8",
+                      },
+                    ],
+                  },
+                  {
+                    text: "Firma: Jefe de Reparto",
+                    alignment: "center",
+                    margin: [0, 4, 0, 0],
+                    fontSize: 8,
+                    bold: true,
+                    color: "#334155",
+                  },
                 ],
-                margin: [0, 50, 0, 0],
+                margin: [0, 35, 0, 0],
               },
               { width: "*", text: "" },
             ],
             margin: [0, 10, 0, 20],
-          }
+          },
         ],
         unbreakable: true,
-        margin: [0, 0, 0, 30],
+        margin: [0, 0, 0, 20],
       });
     });
 
@@ -433,32 +724,57 @@ export const generarPDFNominaAyudantes = async (
   pdfMake
     .createPdf({
       pageOrientation: "portrait",
-      pageMargins: [30, 30, 30, 30],
+      pageMargins: [25, 25, 25, 25],
       content: contentBlocks,
       styles: {
-        mainTitle: { fontSize: 13, bold: true },
-        choferTitle: {
-          fontSize: 10,
-          bold: true,
-          background: "#f1f5f9",
-          padding: 3,
-        },
         th: {
           bold: true,
           fontSize: 8,
-          fillColor: "#065f46",
+          fillColor: "#0f172a",
           color: "white",
-          margin: 3,
+          margin: [2, 2],
         },
-        td: { fontSize: 7, margin: 3 },
-        tdBold: { fontSize: 7, bold: true, margin: 3 },
-        thTotal: { bold: true, fontSize: 8, fillColor: "#e2e8f0", margin: 3 },
+        td: { fontSize: 7.5, color: "#334155", margin: [2, 2] },
+        tdCenter: {
+          fontSize: 7.5,
+          color: "#334155",
+          alignment: "center",
+          margin: [2, 2],
+        },
+        tdRight: {
+          fontSize: 7.5,
+          color: "#334155",
+          alignment: "right",
+          margin: [2, 2],
+        },
+        tdBoldRight: {
+          fontSize: 7.5,
+          bold: true,
+          color: "#0f172a",
+          alignment: "right",
+          margin: [2, 2],
+        },
+        thTotal: {
+          bold: true,
+          fontSize: 8,
+          fillColor: "#f8fafc",
+          color: "#0f172a",
+          margin: [3, 3],
+        },
+        thTotalRight: {
+          bold: true,
+          fontSize: 8,
+          fillColor: "#f8fafc",
+          alignment: "right",
+          margin: [3, 3],
+        },
         thGranTotal: {
           bold: true,
           fontSize: 8,
-          fillColor: "#dcfce3",
-          color: "#166534",
-          margin: 3,
+          fillColor: "#ecfdf5",
+          color: "#047857",
+          alignment: "right",
+          margin: [3, 3],
         },
       },
     })
@@ -466,39 +782,46 @@ export const generarPDFNominaAyudantes = async (
 };
 
 // ============================================================================
-// PDF: RESUMEN GENERAL DE PAGOS (TODOS) 
+// PDF: RESUMEN GENERAL DE PAGOS (TODOS) - ESTILO CORPORATIVO
 // ============================================================================
 export const generarPDFResumenGeneral = async (
   viajes: any[],
   fechaInicio: string,
   fechaFin: string,
-  mostrarViaticos: boolean = true, 
-  mostrarComisiones: boolean = true 
+  mostrarViaticos: boolean = true,
+  mostrarComisiones: boolean = true,
 ) => {
   const pdfMake = (window as any).pdfMake;
   if (!pdfMake) return alert("Generador PDF cargando...");
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
 
-  const totales: Record<string, { rol: string; viaticos: number; comisiones: number }> = {};
+  const totales: Record<
+    string,
+    { rol: string; viaticos: number; comisiones: number }
+  > = {};
   const setChoferes = new Set<string>();
 
   viajes.forEach((v) => {
-    if (v.chofer && v.chofer !== "-") setChoferes.add(v.chofer.toUpperCase().trim());
+    if (v.chofer && v.chofer !== "-")
+      setChoferes.add(v.chofer.toUpperCase().trim());
   });
 
   viajes.forEach((v) => {
     const c = v.chofer ? v.chofer.toUpperCase().trim() : "";
-    const a1 = v.ayudante1 ? v.ayudante1.toUpperCase().trim() : "";
-    const a2 = v.ayudante2 ? v.ayudante2.toUpperCase().trim() : "";
+    const a1 = v.auxiliar1 ? v.auxiliar1.toUpperCase().trim() : "";
+    const a2 = v.auxiliar2 ? v.auxiliar2.toUpperCase().trim() : "";
     const nombreRuta = (v.ruta || "").toUpperCase().trim();
-    const monto = Number(v.totalMonto) || 0;
+
+    // 🚀 CORREGIDO: Leemos de totalSumaDinero y totalSumaKilos
+    const monto = Number(v.totalSumaDinero ?? v.totalMonto) || 0;
 
     if (c && c !== "-") {
-      if (!totales[c]) totales[c] = { rol: "CHOFER", viaticos: 0, comisiones: 0 };
+      if (!totales[c])
+        totales[c] = { rol: "CHOFER", viaticos: 0, comisiones: 0 };
       totales[c].viaticos += Number(v.viaticoRuta) || 0;
       let comision = Number(v.comisionChofer) || 0;
       if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") {
-        comision = comision > 0 ? comision : monto * 0.001; 
+        comision = comision > 0 ? comision : monto * 0.001;
       }
       totales[c].comisiones += comision;
     }
@@ -507,14 +830,16 @@ export const generarPDFResumenGeneral = async (
       if (ay && ay !== "-" && ay !== "SIN AYUDANTE" && ay !== "UNDEFINED") {
         const esChofer = setChoferes.has(ay);
         if (!totales[ay]) {
-          totales[ay] = { rol: esChofer ? "CHOFER" : "AUXILIAR", viaticos: 0, comisiones: 0 };
+          totales[ay] = {
+            rol: esChofer ? "CHOFER" : "AUXILIAR",
+            viaticos: 0,
+            comisiones: 0,
+          };
         }
-        
+
         let comision = Number(v.comisionAyudante) || 0;
         if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") comision = 0;
         totales[ay].comisiones += comision;
-
-        // 🚀 AHORA SÍ: Todos los ayudantes (incluyendo los choferes de apoyo) cobran viático
         totales[ay].viaticos += Number(v.viaticoRuta) || 0;
       }
     };
@@ -527,19 +852,23 @@ export const generarPDFResumenGeneral = async (
     { text: "Personal", style: "th" },
     { text: "Puesto", style: "th", alignment: "center" },
   ];
-  if (mostrarViaticos) headerRow.push({ text: "Viáticos", style: "th", alignment: "right" });
-  if (mostrarComisiones) headerRow.push({ text: "Comisión", style: "th", alignment: "right" });
+  if (mostrarViaticos)
+    headerRow.push({ text: "Viáticos", style: "th", alignment: "right" });
+  if (mostrarComisiones)
+    headerRow.push({ text: "Comisión", style: "th", alignment: "right" });
   headerRow.push({ text: "Total a Pagar", style: "th", alignment: "right" });
 
   const tableBody: any[][] = [headerRow];
 
-  let sumaViaticos = 0, sumaComisiones = 0, sumaTotal = 0;
+  let sumaViaticos = 0,
+    sumaComisiones = 0,
+    sumaTotal = 0;
 
   Object.keys(totales)
     .sort()
-    .forEach((nombre) => {
+    .forEach((nombre, index) => {
       const data = totales[nombre];
-      
+
       const viaticoCobrado = mostrarViaticos ? data.viaticos : 0;
       const comisionCobrada = mostrarComisiones ? data.comisiones : 0;
       const total = viaticoCobrado + comisionCobrada;
@@ -548,13 +877,32 @@ export const generarPDFResumenGeneral = async (
       if (mostrarComisiones) sumaComisiones += data.comisiones;
       sumaTotal += total;
 
+      const esPar = index % 2 === 0;
+      const bgFila = esPar ? "#ffffff" : "#f8fafc";
+
       const row: any[] = [
-        { text: nombre, style: "td", bold: true },
-        { text: data.rol, style: "td", alignment: "center" },
+        { text: nombre, style: "td", bold: true, fillColor: bgFila },
+        { text: data.rol, style: "tdCenter", fillColor: bgFila },
       ];
-      if (mostrarViaticos) row.push({ text: fMoneda(data.viaticos), style: "td", alignment: "right", color: "#166534" });
-      if (mostrarComisiones) row.push({ text: fMoneda(data.comisiones), style: "td", alignment: "right", color: "#1d4ed8" });
-      row.push({ text: fMoneda(total), style: "tdBold", alignment: "right" });
+      if (mostrarViaticos)
+        row.push({
+          text: fMoneda(data.viaticos),
+          style: "tdRight",
+          fillColor: bgFila,
+          color: "#166534",
+        });
+      if (mostrarComisiones)
+        row.push({
+          text: fMoneda(data.comisiones),
+          style: "tdRight",
+          fillColor: bgFila,
+          color: "#1d4ed8",
+        });
+      row.push({
+        text: fMoneda(total),
+        style: "tdBoldRight",
+        fillColor: bgFila,
+      });
 
       tableBody.push(row);
     });
@@ -563,26 +911,58 @@ export const generarPDFResumenGeneral = async (
     { text: "TOTAL GENERAL", colSpan: 2, style: "thTotal", alignment: "right" },
     {},
   ];
-  if (mostrarViaticos) totalRow.push({ text: fMoneda(sumaViaticos), style: "thTotal", alignment: "right" });
-  if (mostrarComisiones) totalRow.push({ text: fMoneda(sumaComisiones), style: "thTotal", alignment: "right" });
-  totalRow.push({ text: fMoneda(sumaTotal), style: "thGranTotal", alignment: "right" });
+  if (mostrarViaticos)
+    totalRow.push({
+      text: fMoneda(sumaViaticos),
+      style: "thTotalRight",
+      alignment: "right",
+      color: "#166534",
+    });
+  if (mostrarComisiones)
+    totalRow.push({
+      text: fMoneda(sumaComisiones),
+      style: "thTotalRight",
+      alignment: "right",
+      color: "#1e40af",
+    });
+  totalRow.push({
+    text: fMoneda(sumaTotal),
+    style: "thGranTotal",
+    alignment: "right",
+  });
 
   tableBody.push(totalRow);
 
   const tableWidths: string[] = ["*", "auto"];
   if (mostrarViaticos) tableWidths.push("auto");
   if (mostrarComisiones) tableWidths.push("auto");
-  tableWidths.push("auto"); 
+  tableWidths.push("auto");
 
   const contentBlocks = [
     {
       columns: [
-        logoBase64 ? { image: logoBase64, width: 70 } : { text: "CIR", bold: true },
+        logoBase64
+          ? { image: logoBase64, width: 60 }
+          : { text: "CIR", bold: true },
         {
-          text: `RESUMEN GENERAL DE NÓMINA\n(DEL ${fechaInicio} AL ${fechaFin})`,
-          style: "mainTitle",
+          stack: [
+            {
+              text: "RESUMEN GENERAL DE NÓMINA",
+              fontSize: 12,
+              bold: true,
+              color: "#0f172a",
+              alignment: "right",
+            },
+            {
+              text: `PERIODO: DEL ${fechaInicio} AL ${fechaFin}`,
+              fontSize: 8,
+              bold: true,
+              color: "#64748b",
+              alignment: "right",
+              margin: [0, 2, 0, 0],
+            },
+          ],
           alignment: "right",
-          margin: [0, 5, 0, 0],
         },
       ],
       margin: [0, 0, 0, 15],
@@ -593,7 +973,17 @@ export const generarPDFResumenGeneral = async (
         widths: tableWidths,
         body: tableBody,
       },
-      layout: "lightHorizontalLines",
+      layout: {
+        hLineWidth: (i: number, node: any) =>
+          i === 0 || i === 1 || i === node.table.body.length ? 1 : 0.5,
+        vLineWidth: () => 0,
+        hLineColor: (i: number, node: any) =>
+          i === 0 || i === node.table.body.length ? "#0f172a" : "#e2e8f0",
+        paddingTop: () => 5,
+        paddingBottom: () => 5,
+        paddingLeft: () => 4,
+        paddingRight: () => 4,
+      },
     },
     {
       columns: [
@@ -601,55 +991,143 @@ export const generarPDFResumenGeneral = async (
         {
           width: 120,
           stack: [
-            { canvas: [{ type: "line", x1: 0, y1: 0, x2: 120, y2: 0, lineWidth: 1 }] },
-            { text: "Recursos Humanos", alignment: "center", margin: [0, 5, 0, 0], fontSize: 8, bold: true },
+            {
+              canvas: [
+                {
+                  type: "line",
+                  x1: 0,
+                  y1: 0,
+                  x2: 120,
+                  y2: 0,
+                  lineWidth: 1,
+                  lineColor: "#94a3b8",
+                },
+              ],
+            },
+            {
+              text: "Recursos Humanos",
+              alignment: "center",
+              margin: [0, 4, 0, 0],
+              fontSize: 8,
+              bold: true,
+              color: "#334155",
+            },
           ],
         },
         { width: "*", text: "" },
         {
           width: 120,
           stack: [
-            { canvas: [{ type: "line", x1: 0, y1: 0, x2: 120, y2: 0, lineWidth: 1 }] },
-            { text: "Jefe de Embarques", alignment: "center", margin: [0, 5, 0, 0], fontSize: 8, bold: true },
+            {
+              canvas: [
+                {
+                  type: "line",
+                  x1: 0,
+                  y1: 0,
+                  x2: 120,
+                  y2: 0,
+                  lineWidth: 1,
+                  lineColor: "#94a3b8",
+                },
+              ],
+            },
+            {
+              text: "Jefe de Embarques",
+              alignment: "center",
+              margin: [0, 4, 0, 0],
+              fontSize: 8,
+              bold: true,
+              color: "#334155",
+            },
           ],
         },
         { width: "*", text: "" },
         {
           width: 120,
           stack: [
-            { canvas: [{ type: "line", x1: 0, y1: 0, x2: 120, y2: 0, lineWidth: 1 }] },
-            { text: "Jefe de Reparto", alignment: "center", margin: [0, 5, 0, 0], fontSize: 8, bold: true },
+            {
+              canvas: [
+                {
+                  type: "line",
+                  x1: 0,
+                  y1: 0,
+                  x2: 120,
+                  y2: 0,
+                  lineWidth: 1,
+                  lineColor: "#94a3b8",
+                },
+              ],
+            },
+            {
+              text: "Jefe de Reparto",
+              alignment: "center",
+              margin: [0, 4, 0, 0],
+              fontSize: 8,
+              bold: true,
+              color: "#334155",
+            },
           ],
         },
         { width: "*", text: "" },
       ],
-      margin: [0, 60, 0, 0],
+      margin: [0, 50, 0, 0],
     },
   ];
 
   pdfMake
     .createPdf({
       pageOrientation: "portrait",
-      pageMargins: [30, 30, 30, 30],
+      pageMargins: [25, 25, 25, 25],
       content: contentBlocks,
       styles: {
-        mainTitle: { fontSize: 13, bold: true },
         th: {
           bold: true,
-          fontSize: 9,
+          fontSize: 8.5,
           fillColor: "#0f172a",
           color: "white",
-          margin: 4,
+          margin: [2, 2],
         },
-        td: { fontSize: 8, margin: 4 },
-        tdBold: { fontSize: 8, bold: true, margin: 4 },
-        thTotal: { bold: true, fontSize: 9, fillColor: "#e2e8f0", margin: 4 },
+        td: { fontSize: 8, color: "#334155", margin: [2, 2] },
+        tdCenter: {
+          fontSize: 8,
+          color: "#334155",
+          alignment: "center",
+          margin: [2, 2],
+        },
+        tdRight: {
+          fontSize: 8,
+          color: "#334155",
+          alignment: "right",
+          margin: [2, 2],
+        },
+        tdBoldRight: {
+          fontSize: 8,
+          bold: true,
+          color: "#0f172a",
+          alignment: "right",
+          margin: [2, 2],
+        },
+        thTotal: {
+          bold: true,
+          fontSize: 8.5,
+          fillColor: "#f8fafc",
+          color: "#0f172a",
+          margin: [4, 4],
+        },
+        thTotalRight: {
+          bold: true,
+          fontSize: 8.5,
+          fillColor: "#f8fafc",
+          alignment: "right",
+          margin: [4, 4],
+        },
         thGranTotal: {
           bold: true,
-          fontSize: 9,
-          fillColor: "#dcfce3",
-          color: "#166534",
-          margin: 4,
+          fontSize: 8.5,
+          fillColor: "#ecfdf5",
+          color: "#047857",
+          alignment: "right",
+          margin: [4, 4],
         },
       },
     })

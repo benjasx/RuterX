@@ -5,7 +5,6 @@ import PanelClientes from "./PanelClientes";
 import PanelVendedores from "./PanelVendedores";
 import SidebarAdmin, { type SubVistaAdmin } from "./SidebarAdmin";
 
-import ReporteEmbarques from "./ReporteEmbarques";
 import PanelHistorial from "./PanelHistorial";
 import PanelHistorialCompleto from "./PanelHistorialCompleto";
 import PanelAjustesNomina from "./PanelAjustesNomina";
@@ -98,8 +97,6 @@ export default function AdminPanel({
             rutas={listaRutas}
           />
         )}
-
-        {menuActivo === "tablamontos" && <ReporteEmbarques />}
 
         {menuActivo === "historial" && <PanelHistorial />}
 

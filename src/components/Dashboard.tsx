@@ -21,7 +21,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { obtenerHistorialPorRangoFirebase } from "../firebase/historialService";
+
+// 🚀 IMPORTAMOS EL NUEVO SERVICIO ÚNICO
+import { obtenerDistribucionPorRango } from "../firebase/distribucionService";
 import { generarPDFGerencial } from "../utils/pdfDashboardService";
 
 // Función para forzar hora local
@@ -42,13 +44,14 @@ export default function Dashboard() {
   const strHoy = obtenerFechaLocalStr(hoy);
   const strHace7Dias = obtenerFechaLocalStr(hace7Dias);
 
+  // 🚀 CONECTAMOS A LA NUEVA TABLA DISTRIBUCION_DIARIA
   const {
     data: datosCrudos = [],
     isLoading: cargando,
     isError,
   } = useQuery({
-    queryKey: ["historial_salidas", "dashboard", strHace7Dias, strHoy],
-    queryFn: () => obtenerHistorialPorRangoFirebase(strHace7Dias, strHoy),
+    queryKey: ["distribucion_rango", "dashboard", strHace7Dias, strHoy],
+    queryFn: () => obtenerDistribucionPorRango(strHace7Dias, strHoy),
   });
 
   const dataProcesada = useMemo(() => {
@@ -75,7 +78,8 @@ export default function Dashboard() {
     }
 
     datosCrudos.forEach((registro) => {
-      (registro.viajes || []).forEach((v: any) => {
+      // 🚀 AHORA ITERAMOS SOBRE 'filas'
+      (registro.filas || []).forEach((v: any) => {
         if (v.chofer && v.chofer !== "-" && v.chofer.trim() !== "") {
           finanzasChoferes[v.chofer.toUpperCase().trim()] = {
             viaticos: 0,
@@ -84,23 +88,35 @@ export default function Dashboard() {
             viajes: 0,
           };
         }
-        if (v.ayudante1 && v.ayudante1 !== "-" && v.ayudante1.trim() !== "")
-          conteoAyudantes[v.ayudante1.toUpperCase().trim()] = 0;
-        if (v.ayudante2 && v.ayudante2 !== "-" && v.ayudante2.trim() !== "")
-          conteoAyudantes[v.ayudante2.toUpperCase().trim()] = 0;
+        // 🚀 AHORA USAMOS 'auxiliar1' y validamos el "-- SIN AUXILIAR --"
+        if (
+          v.auxiliar1 &&
+          v.auxiliar1 !== "-" &&
+          v.auxiliar1 !== "-- SIN AUXILIAR --" &&
+          v.auxiliar1.trim() !== ""
+        )
+          conteoAyudantes[v.auxiliar1.toUpperCase().trim()] = 0;
+        if (
+          v.auxiliar2 &&
+          v.auxiliar2 !== "-" &&
+          v.auxiliar2 !== "-- SIN AUXILIAR --" &&
+          v.auxiliar2.trim() !== ""
+        )
+          conteoAyudantes[v.auxiliar2.toUpperCase().trim()] = 0;
       });
     });
 
     datosCrudos.forEach((registro) => {
       const fecha = registro.fecha;
       if (fecha >= strHace7Dias && fecha <= strHoy) {
-        const viajes = registro.viajes || [];
+        const viajes = registro.filas || [];
 
         viajes.forEach((v: any) => {
           if (v.chofer && v.chofer !== "-") {
             const nombreChofer = v.chofer.toUpperCase().trim();
-            const venta = Number(v.totalMonto) || 0;
-            const peso = Number(v.kgTotal) || 0;
+            // 🚀 TRADUCCIÓN A LOS NUEVOS NOMBRES DE VARIABLES FINANCIERAS
+            const venta = Number(v.totalSumaDinero) || 0;
+            const peso = Number(v.totalSumaKilos) || 0;
             const viatico = Number(v.viaticoRuta) || 0;
             const comision = Number(v.comisionChofer) || 0;
             const costo =
@@ -115,7 +131,7 @@ export default function Dashboard() {
               agrupadoPorDia[fecha] += venta;
 
             choferesMap[nombreChofer] = (choferesMap[nombreChofer] || 0) + peso;
-            
+
             const nombreRuta = v.ruta || "SIN RUTA";
             if (!rutasMap[nombreRuta]) {
               rutasMap[nombreRuta] = { venta: 0, peso: 0 };
@@ -132,10 +148,20 @@ export default function Dashboard() {
             finanzasChoferes[nombreChofer].viajes += 1;
           }
 
-          if (v.ayudante1 && v.ayudante1 !== "-" && v.ayudante1.trim() !== "")
-            conteoAyudantes[v.ayudante1.toUpperCase().trim()] += 1;
-          if (v.ayudante2 && v.ayudante2 !== "-" && v.ayudante2.trim() !== "")
-            conteoAyudantes[v.ayudante2.toUpperCase().trim()] += 1;
+          if (
+            v.auxiliar1 &&
+            v.auxiliar1 !== "-" &&
+            v.auxiliar1 !== "-- SIN AUXILIAR --" &&
+            v.auxiliar1.trim() !== ""
+          )
+            conteoAyudantes[v.auxiliar1.toUpperCase().trim()] += 1;
+          if (
+            v.auxiliar2 &&
+            v.auxiliar2 !== "-" &&
+            v.auxiliar2 !== "-- SIN AUXILIAR --" &&
+            v.auxiliar2.trim() !== ""
+          )
+            conteoAyudantes[v.auxiliar2.toUpperCase().trim()] += 1;
         });
       }
     });
@@ -159,7 +185,11 @@ export default function Dashboard() {
         })),
       todasRutas: Object.entries(rutasMap)
         .sort((a, b) => b[1].venta - a[1].venta)
-        .map(([nombre, datos]) => ({ nombre, venta: datos.venta, peso: datos.peso })),
+        .map(([nombre, datos]) => ({
+          nombre,
+          venta: datos.venta,
+          peso: datos.peso,
+        })),
       todosChoferesPeso: Object.entries(choferesMap)
         .sort((a, b) => b[1] - a[1])
         .map(([nombre, peso]) => ({ nombre, peso })),
@@ -190,7 +220,7 @@ export default function Dashboard() {
   const handleDescargarReporte = async () => {
     setGenerandoPDF(true);
     let graficoBase64 = null;
-    
+
     try {
       const elementoGrafico = document.getElementById("grafico-ventas");
       if (elementoGrafico) {
@@ -319,7 +349,7 @@ export default function Dashboard() {
           <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
             Tendencia de Ventas (7 Días)
           </h3>
-          <div className="w-full flex-1 min-h-100" id="grafico-ventas">
+          <div className="w-full flex-1 min-h-[300px]" id="grafico-ventas">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={dataProcesada.datosGrafico}
@@ -505,35 +535,39 @@ export default function Dashboard() {
 
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm border-t-4 border-t-rose-500">
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-5 flex items-center gap-2">
-            <TrendingDown className="text-rose-500" size={18} /> Top 10 Choferes (Menos Percibido)
+            <TrendingDown className="text-rose-500" size={18} /> Top 10 Choferes
+            (Menos Percibido)
           </h3>
           <div className="space-y-2">
-            {[...dataProcesada.todasFinanzas].reverse().slice(0, 10).map((c, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 shrink-0 rounded-md bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
-                    {idx + 1}
+            {[...dataProcesada.todasFinanzas]
+              .reverse()
+              .slice(0, 10)
+              .map((c, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 shrink-0 rounded-md bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
+                      {idx + 1}
+                    </div>
+                    <p className="font-semibold text-slate-700 text-xs pr-2 leading-tight">
+                      {c.nombre}
+                    </p>
                   </div>
-                  <p className="font-semibold text-slate-700 text-xs pr-2 leading-tight">
-                    {c.nombre}
-                  </p>
+                  <div className="flex flex-col items-end text-xs shrink-0">
+                    <span className="font-black text-rose-700">
+                      {fMoneda(c.total)}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      <span className="font-semibold text-slate-500">
+                        {c.viajes} {c.viajes === 1 ? "viaje" : "viajes"}
+                      </span>{" "}
+                      | V: {fMoneda(c.viaticos)} | C: {fMoneda(c.comisiones)}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-col items-end text-xs shrink-0">
-                  <span className="font-black text-rose-700">
-                    {fMoneda(c.total)}
-                  </span>
-                  <span className="text-[10px] text-slate-400">
-                    <span className="font-semibold text-slate-500">
-                      {c.viajes} {c.viajes === 1 ? "viaje" : "viajes"}
-                    </span>{" "}
-                    | V: {fMoneda(c.viaticos)} | C: {fMoneda(c.comisiones)}
-                  </span>
-                </div>
-              </div>
-            ))}
+              ))}
             {dataProcesada.todasFinanzas.length === 0 && (
               <p className="text-xs text-slate-400">Sin datos registrados.</p>
             )}

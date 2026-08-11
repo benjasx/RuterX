@@ -5,10 +5,11 @@ import {
   getDocs,
   setDoc,
   doc,
+  onSnapshot, // 🚀 Importamos onSnapshot para el tiempo real
 } from "firebase/firestore";
 import { db } from "./config";
 
-// Obtener la distribución guardada para una fecha específica
+// Obtener la distribución guardada para una fecha específica (Lectura única)
 export const obtenerDistribucionPorFecha = async (fecha: string) => {
   try {
     const q = query(
@@ -40,5 +41,45 @@ export const guardarDistribucionFecha = async (fecha: string, filas: any[]) => {
   } catch (error) {
     console.error("Error al guardar la distribución:", error);
     throw error;
+  }
+};
+
+// 🚀 NUEVA FUNCIÓN: El "Túnel en vivo" para la Distribución
+// Esta función escucha los cambios del documento exacto de la fecha seleccionada
+export const suscribirDistribucionFecha = (
+  fecha: string,
+  callback: (datos: any[]) => void,
+) => {
+  const docRef = doc(db, "distribucion_diaria", fecha);
+
+  // onSnapshot no gasta lecturas a lo loco, solo reacciona cuando alguien modifica este documento
+  const unsubscribe = onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      callback(docSnap.data().filas || []);
+    } else {
+      callback([]); // Si no hay ruta asignada aún hoy, regresa un arreglo vacío
+    }
+  });
+
+  // Retornamos esta función para que React pueda "apagar" el túnel si cierras la pantalla
+  return unsubscribe;
+};
+
+// 🚀 NUEVA FUNCIÓN: Obtener distribución por rango de fechas (Para la Nómina)
+export const obtenerDistribucionPorRango = async (
+  fechaInicio: string,
+  fechaFin: string,
+) => {
+  try {
+    const q = query(
+      collection(db, "distribucion_diaria"),
+      where("fecha", ">=", fechaInicio),
+      where("fecha", "<=", fechaFin),
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map((doc) => doc.data());
+  } catch (error) {
+    console.error("Error al obtener el rango de distribución:", error);
+    return [];
   }
 };

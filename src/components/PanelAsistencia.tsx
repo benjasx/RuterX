@@ -41,11 +41,13 @@ export default function PanelAsistencia() {
 
   useEffect(() => {
     if (personalData.length > 0) {
+      let nuevaLista: any[] = [];
+
       if (asistenciaGuardada.length > 0) {
         const mapaGuardado = new Map(
           asistenciaGuardada.map((r: any) => [r.id || r.nombre, r]),
         );
-        const listaCompleta = personalData.map((p: any) => {
+        nuevaLista = personalData.map((p: any) => {
           const guardado: any = mapaGuardado.get(p.id || p.nombre);
           const rol = (p.rol || p.puesto || p.tipo || "CHOFER").toUpperCase();
           return {
@@ -59,9 +61,8 @@ export default function PanelAsistencia() {
             observaciones: guardado ? guardado.observaciones : "",
           };
         });
-        setRegistros(listaCompleta);
       } else {
-        const listaInicial = personalData.map((p: any) => {
+        nuevaLista = personalData.map((p: any) => {
           const rol = (p.rol || p.puesto || p.tipo || "CHOFER").toUpperCase();
           return {
             id: p.id || p.nombre,
@@ -74,8 +75,17 @@ export default function PanelAsistencia() {
             observaciones: "",
           };
         });
-        setRegistros(listaInicial);
       }
+
+      // 🚀 SOLUCIÓN AL BUCLE INFINITO:
+      // Comparamos el estado actual con la nueva lista.
+      // Si son idénticos, "return prev" aborta la actualización y rompe el ciclo infinito.
+      setRegistros((prev) => {
+        if (JSON.stringify(prev) === JSON.stringify(nuevaLista)) {
+          return prev;
+        }
+        return nuevaLista;
+      });
     }
   }, [personalData, asistenciaGuardada]);
 
@@ -145,31 +155,30 @@ export default function PanelAsistencia() {
     );
   }
 
-  // Función para obtener estilos dinámicos de colores según el estado seleccionado
   const obtenerEstiloEstado = (estado: string) => {
     switch (estado) {
       case "A":
-        return "bg-green-100 text-green-800 border-green-300";
+        return "bg-green-100 text-green-800 border-green-300 font-bold";
       case "RET":
-        return "bg-amber-100 text-amber-900 border-amber-300";
+        return "bg-amber-100 text-amber-900 border-amber-300 font-bold";
       case "V":
-        return "bg-emerald-100 text-emerald-800 border-emerald-300";
+        return "bg-teal-100 text-teal-800 border-teal-300 font-bold";
       case "I":
-        return "bg-yellow-100 text-yellow-800 border-yellow-300";
+        return "bg-yellow-100 text-yellow-800 border-yellow-300 font-bold";
       case "PCG":
-        return "bg-orange-100 text-orange-900 border-orange-300";
+        return "bg-red-100 text-red-800 border-red-300 font-bold";
       case "CAP":
-        return "bg-blue-100 text-blue-900 border-blue-300";
+        return "bg-sky-900 text-white border-sky-950 font-bold";
       case "PSG":
-        return "bg-slate-800 text-white border-slate-900";
+        return "bg-slate-900 text-white border-slate-950 font-bold";
       case "DF":
-        return "bg-purple-100 text-purple-900 border-purple-300";
+        return "bg-purple-900 text-white border-purple-950 font-bold";
       case "DS":
-        return "bg-cyan-100 text-cyan-900 border-cyan-300";
+        return "bg-cyan-500 text-white border-cyan-600 font-bold";
       case "F":
-        return "bg-red-100 text-red-800 border-red-300";
+        return "bg-red-600 text-white border-red-700 font-bold";
       case "S":
-        return "bg-red-600 text-white border-red-700";
+        return "bg-red-700 text-white border-red-800 font-bold";
       default:
         return "bg-slate-50 text-slate-800 border-slate-200";
     }
@@ -243,7 +252,7 @@ export default function PanelAsistencia() {
               <th className="p-3 border-r border-slate-700 w-44 text-center">
                 Puesto
               </th>
-              <th className="p-3 border-r border-slate-700 w-56 text-center">
+              <th className="p-3 border-r border-slate-700 w-64 text-center">
                 Estado
               </th>
               <th className="p-3">Observaciones</th>
@@ -264,7 +273,7 @@ export default function PanelAsistencia() {
                     onChange={(e) =>
                       actualizarRegistro(reg.id, "estado", e.target.value)
                     }
-                    className={`w-full p-2 border rounded-lg font-bold text-xs uppercase cursor-pointer outline-none focus:ring-2 focus:ring-blue-500 ${obtenerEstiloEstado(reg.estado)}`}
+                    className={`w-full p-2 border rounded-lg text-xs uppercase cursor-pointer outline-none focus:ring-2 focus:ring-blue-500 ${obtenerEstiloEstado(reg.estado)}`}
                   >
                     <option value="A">A - ASISTENCIA</option>
                     <option value="RET">RET - RETARDO</option>
