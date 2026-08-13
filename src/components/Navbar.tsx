@@ -8,6 +8,8 @@ interface NavbarProps {
   usuarioEmail?: string | null;
   onLogout?: () => void;
   esAdmin?: boolean;
+  esPersonalAutorizado?: boolean;
+  esJefeReparto?: boolean; // 🚀 Recibimos si es el Jefe
 }
 
 export default function Navbar({
@@ -15,14 +17,12 @@ export default function Navbar({
   setVistaActual,
   usuarioEmail,
   onLogout,
-  esAdmin = false,
+  esPersonalAutorizado = false,
+  esJefeReparto = false, // 🚀 Añadido
 }: NavbarProps) {
   return (
-    // 🚀 Ajustamos padding en móviles (px-3 sm:px-6)
     <nav className="bg-slate-900 border-b border-slate-800 px-3 sm:px-6 py-3 sm:py-4 flex justify-between items-center shadow-lg transition-all duration-300">
-      {/* Sección Izquierda: Logo y Título */}
       <div className="flex items-center gap-2 sm:gap-4 group cursor-pointer">
-        {/* En celulares, hacemos el logo un poco más chico */}
         <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-800 rounded-xl flex items-center justify-center overflow-hidden relative shadow-inner transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 shrink-0">
           <img
             src="https://avatars.githubusercontent.com/u/62582879?v=4&size=64"
@@ -40,8 +40,9 @@ export default function Navbar({
       </div>
 
       <div className="flex items-center gap-2 sm:gap-6">
-        {/* BOTONES ADMIN (Se ocultan en celular para que no rompan, asumiendo que el admin usa PC/Tablet) */}
-        {esAdmin && (
+        {/* BOTONES DE VISTA */}
+        {/* 🚀 Ocultamos TODO el bloque si el usuario es el Jefe de Reparto (para que no vea ni el Admin Panel duplicado ni el Rutero) */}
+        {esPersonalAutorizado && !esJefeReparto && (
           <div className="hidden md:flex bg-slate-800/80 p-1.5 rounded-xl shadow-inner relative ring-1 ring-slate-700/50">
             <button
               onClick={() => setVistaActual("admin")}
@@ -73,7 +74,6 @@ export default function Navbar({
         {(usuarioEmail || onLogout) && (
           <div className="flex items-center gap-2 sm:gap-3 sm:pl-4 border-l-0 sm:border-l border-slate-700 max-w-[50vw]">
             {usuarioEmail && (
-              // 🚀 truncate evita que el correo se desborde, pone "..." si es muy largo
               <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-300 bg-slate-800/80 px-2 sm:px-3 py-1.5 rounded-full border border-slate-700 shadow-inner max-w-full">
                 <UserCircle size={16} className="text-blue-400 shrink-0" />
                 <span className="font-medium tracking-wide truncate">

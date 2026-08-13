@@ -29,9 +29,15 @@ export default function AdminPanel({
   onLogout,
   usuarioEmail,
 }: AdminPanelProps) {
+  // 🚀 LÓGICA DE ROLES PARA LA VISTA INICIAL
   const esJefeReparto = usuarioEmail === "jefedereparto@ruterx.com";
+  const esEmbarques =
+    usuarioEmail === "emb01@ruterx.com" || usuarioEmail === "emb02@ruterx.com";
+  const esAdmin = !esJefeReparto && !esEmbarques;
+
+  // Si es Admin, entra al Dashboard. Si es Jefe o Embarques, entra al Monitor de Rutas.
   const [menuActivo, setMenuActivo] = useState<SubVistaAdmin>(
-    esJefeReparto ? "monitorRutas" : "dashboard",
+    esAdmin ? "dashboard" : "monitorRutas",
   );
 
   const { data: listaVendedores = [] } = useQuery({

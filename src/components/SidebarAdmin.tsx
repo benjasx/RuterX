@@ -38,15 +38,22 @@ export default function SidebarAdmin({
   onLogout,
   usuarioEmail,
 }: SidebarAdminProps) {
+  // 🚀 LÓGICA DE ROLES BASADA EN CORREOS
   const esJefeReparto = usuarioEmail === "jefedereparto@ruterx.com";
-  const esAdmin = !esJefeReparto;
 
-  // 🚀 PERMISOS RESTRINGIDOS:
+  // 🚀 AGREGAMOS EL ROL DE EMBARQUES
+  const esEmbarques =
+    usuarioEmail === "emb01@ruterx.com" || usuarioEmail === "emb02@ruterx.com";
+
+  // El Admin es el dueño del sistema, si no es ninguno de los de abajo, asume poder absoluto.
+  const esAdmin = !esJefeReparto && !esEmbarques;
+
+  // 🚀 PERMISOS RESTRINGIDOS SEGÚN ROL:
   const permisos = {
     dashboard: esAdmin,
-    monitorRutas: true,
-    distribucion: true,
-    asistencias: true,
+    monitorRutas: true, // Todos pueden ver el mapa (Admin, Jefe Reparto y Embarques)
+    distribucion: true, // Todos pueden ver la distribución (Admin, Jefe Reparto y Embarques)
+    asistencias: esAdmin || esJefeReparto, // Solo Admin y Jefe de Reparto
     clientes: esAdmin,
     rutas: esAdmin,
     vendedores: esAdmin,
@@ -228,6 +235,11 @@ export default function SidebarAdmin({
 
       <div>
         <div className="h-px bg-slate-100 w-full mb-4 mt-6"></div>
+        <div className="text-center mb-3">
+          <span className="bg-slate-100 text-slate-500 font-mono text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-wider">
+            {usuarioEmail}
+          </span>
+        </div>
         <button
           onClick={() => {
             onLogout();
