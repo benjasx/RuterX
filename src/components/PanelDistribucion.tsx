@@ -307,6 +307,7 @@ export default function PanelDistribucion() {
   };
 
   const handleGuardar = async () => {
+    // 1. Validaciones previas
     for (let i = 0; i < filas.length; i++) {
       const f = filas[i];
       if (f.ruta || f.unidad || f.chofer) {
@@ -319,9 +320,18 @@ export default function PanelDistribucion() {
       }
     }
 
+    // 🚀 LÓGICA DE ORDENAMIENTO POR UNIDAD
+    // Usamos parseInt para que "03" se ordene como 3, "16" como 16, etc.
+    const filasOrdenadas = [...filas].sort((a, b) => {
+      const unidadA = parseInt(a.unidad) || 999; // Si no tiene unidad, lo manda al final
+      const unidadB = parseInt(b.unidad) || 999;
+      return unidadA - unidadB;
+    });
+
     setGuardando(true);
     try {
-      const datosCompletos = filas.map((f) => {
+      const datosCompletos = filasOrdenadas.map((f) => {
+        // Usamos filasOrdenadas
         const sumaMonto =
           (f.totalMontoCredito || 0) + (f.totalMontoContado || 0);
         const calculos = calcularFinanzas(
@@ -343,8 +353,13 @@ export default function PanelDistribucion() {
         };
       });
 
+      // 2. Guardamos los datos ya ordenados
       await guardarDistribucionFecha(fechaSeleccionada, datosCompletos);
-      alert("¡GUARDADO EXITOSO! Operación y Nómina guardadas.");
+
+      // 3. Opcional: También ordenamos la vista actual para que lo veas al instante
+      setFilas(filasOrdenadas);
+
+      alert("¡GUARDADO Y ORDENADO EXITOSAMENTE!");
     } catch (error) {
       alert("ERROR AL GUARDAR. Verifica tu conexión a internet.");
     } finally {
