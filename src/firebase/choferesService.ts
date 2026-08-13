@@ -5,6 +5,7 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "./config";
 
@@ -86,4 +87,9 @@ export const eliminarChoferFirebase = async (id: string) => {
     console.error("Error al eliminar chofer:", error);
     throw error;
   }
+};
+
+export const actualizarChoferFirebase = async (id: string, data: any) => {
+  const docRef = doc(db, "choferes", id);
+  await updateDoc(docRef, data);
 };
