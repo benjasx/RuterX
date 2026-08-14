@@ -12,6 +12,8 @@ import {
   Link2,
   CheckCircle2,
   Table,
+  Camera,
+  X,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { getAuth } from "firebase/auth";
@@ -27,7 +29,6 @@ import {
 import { LISTA_UNIDADES, LISTA_RUTAS } from "../utils/mapaUtils";
 import { exportarDistribucionPDF } from "../utils/reportesDistribucionUtils";
 
-// Función para calcular viáticos y comisiones según las reglas exactas
 const calcularFinanzas = (
   rutaRaw: string,
   montoBase: number,
@@ -116,8 +117,15 @@ const esFolioReal = (val: string) => {
 export default function PanelDistribucion() {
   const hoyStr = new Date().toLocaleDateString("sv-SE");
 
+  // 🚀 LÓGICA DE PERMISOS ACTUALIZADA
   const auth = getAuth();
-  const esAdmin = auth.currentUser?.email === "admin@ruterx.com";
+  const correoActual = auth.currentUser?.email;
+  const esAdmin = correoActual === "admin@ruterx.com";
+  const esEmbarques =
+    correoActual === "emb01@ruterx.com" || correoActual === "emb02@ruterx.com";
+
+  // Agrupamos los permisos para que ambos (Admin y Embarques) puedan ver los botones
+  const tienePermisosEspeciales = esAdmin || esEmbarques;
 
   const [fechaSeleccionada, setFechaSeleccionada] = useState(() => {
     return localStorage.getItem("distribucion_fecha_guardada") || hoyStr;
@@ -130,6 +138,8 @@ export default function PanelDistribucion() {
   const [filas, setFilas] = useState<any[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [mostrarResumen, setMostrarResumen] = useState(false);
+
+  const [mostrarCaptura, setMostrarCaptura] = useState(false);
 
   const { data: choferesData = [], isLoading: cargandoChoferes } = useQuery({
     queryKey: ["choferes"],
@@ -229,7 +239,8 @@ export default function PanelDistribucion() {
   };
 
   const agregarFila = () =>
-    setFilas([...filas, { ...FilaVacia, id: Date.now() }]);
+    setFilas([{ ...FilaVacia, id: Date.now() }, ...filas]);
+
   const eliminarFila = (index: number) => {
     if (filas.length === 1) return alert("Debe quedar al menos una fila.");
     setFilas(filas.filter((_, i) => i !== index));
@@ -307,7 +318,6 @@ export default function PanelDistribucion() {
   };
 
   const handleGuardar = async () => {
-    // 1. Validaciones previas
     for (let i = 0; i < filas.length; i++) {
       const f = filas[i];
       if (f.ruta || f.unidad || f.chofer) {
@@ -320,10 +330,8 @@ export default function PanelDistribucion() {
       }
     }
 
-    // 🚀 LÓGICA DE ORDENAMIENTO POR UNIDAD
-    // Usamos parseInt para que "03" se ordene como 3, "16" como 16, etc.
     const filasOrdenadas = [...filas].sort((a, b) => {
-      const unidadA = parseInt(a.unidad) || 999; // Si no tiene unidad, lo manda al final
+      const unidadA = parseInt(a.unidad) || 999;
       const unidadB = parseInt(b.unidad) || 999;
       return unidadA - unidadB;
     });
@@ -331,7 +339,6 @@ export default function PanelDistribucion() {
     setGuardando(true);
     try {
       const datosCompletos = filasOrdenadas.map((f) => {
-        // Usamos filasOrdenadas
         const sumaMonto =
           (f.totalMontoCredito || 0) + (f.totalMontoContado || 0);
         const calculos = calcularFinanzas(
@@ -353,12 +360,8 @@ export default function PanelDistribucion() {
         };
       });
 
-      // 2. Guardamos los datos ya ordenados
       await guardarDistribucionFecha(fechaSeleccionada, datosCompletos);
-
-      // 3. Opcional: También ordenamos la vista actual para que lo veas al instante
       setFilas(filasOrdenadas);
-
       alert("¡GUARDADO Y ORDENADO EXITOSAMENTE!");
     } catch (error) {
       alert("ERROR AL GUARDAR. Verifica tu conexión a internet.");
@@ -422,200 +425,6 @@ export default function PanelDistribucion() {
     XLSX.writeFile(workbook, `RESUMEN_SALIDAS_${fechaSeleccionada}.xlsx`);
   };
 
-  const exportarResumenPDF = () => {
-    const pdfMake = (window as any).pdfMake;
-    if (!pdfMake) return alert("Generador PDF cargando...");
-
-    const bodyData = filasResumen.map((f, index) => {
-      const tMonto = (f.totalMontoCredito || 0) + (f.totalMontoContado || 0);
-      const tKg = (f.totalkgCredito || 0) + (f.totalkgContado || 0);
-      const esPar = index % 2 === 0;
-
-      return [
-        {
-          text: f.ruta || "-",
-          style: "td",
-          fillColor: esPar ? "#ffffff" : "#f8fafc",
-        },
-        {
-          text: f.unidad || "-",
-          style: "tdCenter",
-          fillColor: esPar ? "#ffffff" : "#f8fafc",
-        },
-        {
-          text: f.chofer || "-",
-          style: "td",
-          fillColor: esPar ? "#ffffff" : "#f8fafc",
-        },
-        {
-          text: f.embarqueCredito || "0",
-          style: "tdCenter",
-          fillColor: esPar ? "#ffffff" : "#f8fafc",
-        },
-        {
-          text: f.embarqueContado || "0",
-          style: "tdCenter",
-          fillColor: esPar ? "#ffffff" : "#f8fafc",
-        },
-        {
-          text: formatoMoneda(tMonto),
-          style: "tdRight",
-          fillColor: esPar ? "#ffffff" : "#f8fafc",
-          color: "#047857",
-        },
-        {
-          text: new Intl.NumberFormat("es-MX", {
-            minimumFractionDigits: 2,
-          }).format(tKg),
-          style: "tdRight",
-          fillColor: esPar ? "#ffffff" : "#f8fafc",
-          color: "#1d4ed8",
-        },
-      ];
-    });
-
-    bodyData.push([
-      {
-        text: "TOTALES",
-        style: "thTotal",
-        colSpan: 3,
-        alignment: "left",
-      } as any,
-      {},
-      {},
-      { text: conteoEmbCred.toString(), style: "thTotal", alignment: "center" },
-      { text: conteoEmbCtdo.toString(), style: "thTotal", alignment: "center" },
-      {
-        text: formatoMoneda(sumaVentaTotal),
-        style: "thTotalRight",
-        color: "#065f46",
-      },
-      {
-        text:
-          new Intl.NumberFormat("es-MX", { minimumFractionDigits: 2 }).format(
-            sumaKgTotal,
-          ) + " KG",
-        style: "thTotalRight",
-        color: "#1e40af",
-      },
-    ]);
-
-    const documentDefinition = {
-      pageOrientation: "portrait",
-      pageMargins: [25, 25, 25, 25],
-      content: [
-        {
-          table: {
-            widths: ["*"],
-            body: [
-              [
-                {
-                  stack: [
-                    {
-                      text: "REPORTE DE SALIDA Y DISTRIBUCIÓN",
-                      fontSize: 9,
-                      bold: true,
-                      color: "#94a3b8",
-                      letterSpacing: 1,
-                    },
-                    {
-                      text: formatearFechaLarga(
-                        fechaSeleccionada,
-                      ).toUpperCase(),
-                      fontSize: 13,
-                      bold: true,
-                      color: "#0f172a",
-                      margin: [0, 2, 0, 0],
-                    },
-                  ],
-                  margin: [10, 8, 10, 8],
-                },
-              ],
-            ],
-          },
-          layout: {
-            fillColor: () => "#f1f5f9",
-            hLineWidth: () => 0,
-            vLineWidth: () => 0,
-            paddingLeft: () => 0,
-            paddingRight: () => 0,
-            paddingTop: () => 0,
-            paddingBottom: () => 0,
-          },
-          margin: [0, 0, 0, 15],
-        },
-        {
-          table: {
-            headerRows: 1,
-            widths: ["*", 35, "*", 45, 45, 65, 55],
-            body: [
-              [
-                { text: "RUTA", style: "th" },
-                { text: "UNIDAD", style: "th", alignment: "center" },
-                { text: "CHOFER", style: "th" },
-                { text: "EMBCRED", style: "th", alignment: "center" },
-                { text: "EMBCTDO", style: "th", alignment: "center" },
-                { text: "TOTAL", style: "th", alignment: "right" },
-                { text: "KG TOTAL", style: "th", alignment: "right" },
-              ],
-              ...bodyData,
-            ],
-          },
-          layout: {
-            hLineWidth: (i: number, node: any) =>
-              i === 0 || i === 1 || i === node.table.body.length ? 1 : 0.5,
-            vLineWidth: () => 0,
-            hLineColor: (i: number, node: any) =>
-              i === 0 || i === node.table.body.length ? "#0f172a" : "#e2e8f0",
-            paddingTop: () => 6,
-            paddingBottom: () => 6,
-            paddingLeft: () => 6,
-            paddingRight: () => 6,
-          },
-        },
-      ],
-      styles: {
-        th: {
-          bold: true,
-          fontSize: 8.5,
-          fillColor: "#0f172a",
-          color: "#ffffff",
-          margin: [2, 2],
-        },
-        td: { fontSize: 8, color: "#334155", margin: [2, 2] },
-        tdCenter: {
-          fontSize: 8,
-          color: "#334155",
-          alignment: "center",
-          margin: [2, 2],
-        },
-        tdRight: {
-          fontSize: 8,
-          bold: true,
-          alignment: "right",
-          margin: [2, 2],
-        },
-        thTotal: {
-          bold: true,
-          fontSize: 9,
-          fillColor: "#f8fafc",
-          color: "#0f172a",
-          margin: [4, 4],
-        },
-        thTotalRight: {
-          bold: true,
-          fontSize: 9,
-          fillColor: "#f8fafc",
-          alignment: "right",
-          margin: [4, 4],
-        },
-      },
-    };
-    pdfMake
-      .createPdf(documentDefinition)
-      .download(`RESUMEN_SALIDAS_${fechaSeleccionada}.pdf`);
-  };
-
   if (cargandoChoferes) {
     return (
       <div className="flex w-full h-125 items-center justify-center">
@@ -631,8 +440,117 @@ export default function PanelDistribucion() {
     }).format(num);
 
   return (
-    <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 min-h-[calc(100vh-120px)] uppercase flex flex-col">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
+    <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 min-h-[calc(100vh-120px)] uppercase flex flex-col relative">
+      {/* MODAL PARA CAPTURA DE WHATSAPP */}
+      {mostrarCaptura && (
+        <div className="fixed inset-0 z-99 bg-slate-900/90 flex items-start justify-center p-4 overflow-y-auto backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-[95vw] xl:max-w-375 w-full flex flex-col relative mb-10 mt-4">
+            <div className="bg-slate-100 p-4 border-b border-slate-300 flex justify-between items-center rounded-t-2xl">
+              <div>
+                <h3 className="font-black text-slate-800 flex items-center gap-2">
+                  <Camera className="text-purple-600" size={20} /> Vista para
+                  WhatsApp
+                </h3>
+                <p className="text-xs text-slate-500 font-medium normal-case mt-1">
+                  Haz una captura de pantalla a la tabla de abajo y compártela.
+                </p>
+              </div>
+              <button
+                onClick={() => setMostrarCaptura(false)}
+                className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
+              >
+                <X size={16} /> Cerrar
+              </button>
+            </div>
+
+            {/* ÁREA LIMPIA PARA TOMAR LA CAPTURA */}
+            <div className="p-8 bg-white overflow-x-auto rounded-b-2xl">
+              <div className="min-w-max w-full">
+                <div className="relative flex items-center justify-center mb-6">
+                  <div className="absolute left-0">
+                    <img
+                      src="/CIRLogo.png"
+                      alt="Logo CIR"
+                      className="h-16 object-contain"
+                    />
+                  </div>
+                  <div className="text-center">
+                    <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">
+                      ASIGNACIÓN DE RUTAS
+                    </h2>
+                    <p className="text-sm font-bold text-slate-500 uppercase mt-1">
+                      FECHA PROGRAMADA DE SALIDA:{" "}
+                      {formatearFechaLarga(fechaSeleccionada)}
+                    </p>
+                  </div>
+                </div>
+
+                <table className="w-full text-left border-collapse border-2 border-slate-800">
+                  <thead>
+                    <tr className="bg-slate-800 text-white text-xs uppercase tracking-wider">
+                      <th className="p-3 border border-slate-700 text-center w-16">
+                        Unid
+                      </th>
+                      <th className="p-3 border border-slate-700">Ruta</th>
+                      <th className="p-3 border border-slate-700">Chofer</th>
+                      <th className="p-3 border border-slate-700">
+                        Auxiliar 1
+                      </th>
+                      <th className="p-3 border border-slate-700">
+                        Auxiliar 2
+                      </th>
+                      <th className="p-3 border border-slate-700 text-center">
+                        Emb. Crédito
+                      </th>
+                      <th className="p-3 border border-slate-700 text-center">
+                        Emb. Contado
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-[12px] font-bold text-slate-700">
+                    {[...filasResumen]
+                      .sort(
+                        (a, b) =>
+                          (parseInt(a.unidad) || 999) -
+                          (parseInt(b.unidad) || 999),
+                      )
+                      .map((f, i) => (
+                        <tr
+                          key={i}
+                          className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}
+                        >
+                          <td className="p-3 border border-slate-300 text-center font-black text-blue-700 text-sm">
+                            {f.unidad || "-"}
+                          </td>
+                          <td className="p-3 border border-slate-300 whitespace-nowrap">
+                            {f.ruta || "-"}
+                          </td>
+                          <td className="p-3 border border-slate-300 uppercase text-slate-800 whitespace-nowrap">
+                            {f.chofer || "-"}
+                          </td>
+                          <td className="p-3 border border-slate-300 uppercase whitespace-nowrap">
+                            {f.auxiliar1 || "-"}
+                          </td>
+                          <td className="p-3 border border-slate-300 uppercase whitespace-nowrap">
+                            {f.auxiliar2 || "-"}
+                          </td>
+                          <td className="p-3 border border-slate-300 text-center font-mono font-bold tracking-wider min-w-30 whitespace-nowrap">
+                            {f.embarqueCredito || "-"}
+                          </td>
+                          <td className="p-3 border border-slate-300 text-center font-mono font-bold tracking-wider min-w-30 whitespace-nowrap">
+                            {f.embarqueContado || "-"}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-4 border-b border-slate-100">
         <div>
           <h1 className="text-2xl font-black text-slate-800 flex items-center gap-3">
             <FileSpreadsheet className="text-blue-600" size={28} />
@@ -654,6 +572,77 @@ export default function PanelDistribucion() {
             onChange={(e) => setFechaSeleccionada(e.target.value)}
             className="border border-slate-300 rounded-lg px-3 py-1.5 bg-white font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
           />
+        </div>
+      </div>
+
+      <div className="flex flex-col xl:flex-row justify-between items-center gap-4 mb-4 bg-slate-50 p-2 rounded-xl border border-slate-100">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={agregarFila}
+            className="flex items-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold px-4 py-2.5 rounded-xl transition-colors text-xs border border-blue-200"
+          >
+            <Plus size={16} /> Añadir Ruta
+          </button>
+
+          {/* 🚀 EL BOTÓN "VINCULAR XLSX" AHORA ES VISIBLE PARA EMBARQUES Y ADMIN */}
+          {tienePermisosEspeciales && (
+            <label className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer text-xs shadow-md shadow-indigo-600/20">
+              <Link2 size={16} /> Vincular XLSX
+              <input
+                type="file"
+                accept=".xlsx"
+                onChange={handleVincularBMS}
+                className="hidden"
+              />
+            </label>
+          )}
+
+          {/* 🚀 EL BOTÓN "GENERAR RESUMEN" AHORA ES VISIBLE PARA EMBARQUES Y ADMIN */}
+          {tienePermisosEspeciales && (
+            <button
+              onClick={() => setMostrarResumen(!mostrarResumen)}
+              className={`flex items-center gap-2 font-bold px-4 py-2.5 rounded-xl transition-colors text-xs shadow-md ${mostrarResumen ? "bg-slate-200 text-slate-700" : "bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20"}`}
+            >
+              <Table size={16} />{" "}
+              {mostrarResumen ? "Ocultar Resumen" : "Generar Resumen"}
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2 w-full xl:w-auto">
+          <button
+            onClick={() => setMostrarCaptura(true)}
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors shadow-md shadow-purple-600/20 text-xs"
+          >
+            <Camera size={16} /> Vista WhatsApp
+          </button>
+
+          <button
+            onClick={exportarExcel}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors shadow-md shadow-emerald-600/20 text-xs"
+          >
+            <Download size={16} /> EXCEL Gral
+          </button>
+
+          <button
+            onClick={() => exportarDistribucionPDF(filas, fechaSeleccionada)}
+            className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors shadow-md shadow-rose-600/20 text-xs"
+          >
+            <FileText size={16} /> PDF Gral
+          </button>
+
+          <button
+            onClick={handleGuardar}
+            disabled={guardando}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-black px-6 py-2.5 rounded-xl transition-colors shadow-md shadow-blue-600/30 text-xs tracking-wider"
+          >
+            {guardando ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Save size={16} />
+            )}
+            {guardando ? "GUARDANDO..." : "GUARDAR TODO"}
+          </button>
         </div>
       </div>
 
@@ -796,7 +785,6 @@ export default function PanelDistribucion() {
                   </select>
                 </td>
 
-                {/* 🚀 CELDA EMBARQUE CRÉDITO CON ETIQUETAS KG Y DINERO */}
                 <td className="p-2 border-r border-slate-200 relative pb-4">
                   <input
                     type="text"
@@ -826,7 +814,6 @@ export default function PanelDistribucion() {
                   )}
                 </td>
 
-                {/* 🚀 CELDA EMBARQUE CONTADO CON ETIQUETAS KG Y DINERO */}
                 <td className="p-2 border-r border-slate-200 relative pb-4">
                   <input
                     type="text"
@@ -862,7 +849,8 @@ export default function PanelDistribucion() {
                       <CheckCircle2 size={16} className="text-emerald-500" />
                     </span>
                   )}
-                  {esAdmin && (
+                  {/* 🚀 EL BOTÓN ELIMINAR AHORA TAMBIÉN ES VISIBLE PARA EMBARQUES */}
+                  {tienePermisosEspeciales && (
                     <button
                       onClick={() => eliminarFila(index)}
                       className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50"
@@ -878,71 +866,8 @@ export default function PanelDistribucion() {
         </table>
       </div>
 
-      {/* CONTROLES PRINCIPALES */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-        <div className="flex gap-2">
-          <button
-            onClick={agregarFila}
-            className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-4 py-2.5 rounded-xl transition-colors text-xs border border-blue-200"
-          >
-            <Plus size={16} /> Añadir Ruta
-          </button>
-
-          {esAdmin && (
-            <label className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer text-xs shadow-md shadow-indigo-600/20">
-              <Link2 size={16} /> Vincular XLSX (BMS)
-              <input
-                type="file"
-                accept=".xlsx"
-                onChange={handleVincularBMS}
-                className="hidden"
-              />
-            </label>
-          )}
-
-          {esAdmin && (
-            <button
-              onClick={() => setMostrarResumen(!mostrarResumen)}
-              className={`flex items-center gap-2 font-bold px-4 py-2.5 rounded-xl transition-colors text-xs shadow-md ${mostrarResumen ? "bg-slate-200 text-slate-700" : "bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20"}`}
-            >
-              <Table size={16} />{" "}
-              {mostrarResumen ? "Ocultar Resumen" : "Generar Resumen"}
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={exportarExcel}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-3 rounded-xl transition-colors shadow-lg shadow-emerald-600/20 text-xs"
-          >
-            <Download size={18} /> EXCEL Gral
-          </button>
-
-          <button
-            onClick={() => exportarDistribucionPDF(filas, fechaSeleccionada)}
-            className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold px-5 py-3 rounded-xl transition-colors shadow-lg shadow-rose-600/20 text-xs"
-          >
-            <FileText size={18} /> PDF Gral
-          </button>
-
-          <button
-            onClick={handleGuardar}
-            disabled={guardando}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold px-6 py-3 rounded-xl transition-colors shadow-lg shadow-blue-600/30 text-xs"
-          >
-            {guardando ? (
-              <Loader2 size={20} className="animate-spin" />
-            ) : (
-              <Save size={20} />
-            )}
-            {guardando ? "GUARDANDO..." : "GUARDAR TODO"}
-          </button>
-        </div>
-      </div>
-
-      {/* SECCIÓN DE RESUMEN EJECUTIVO CORPORATIVO (SOLO ADMIN) */}
-      {esAdmin && mostrarResumen && (
+      {/* 🚀 EL RESUMEN EJECUTIVO AHORA TAMBIÉN ES VISIBLE PARA EMBARQUES */}
+      {tienePermisosEspeciales && mostrarResumen && (
         <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-xl bg-white animate-in fade-in slide-in-from-top-4 mt-2">
           <div className="bg-slate-900 text-white font-bold p-4 text-sm flex justify-between items-center px-6">
             <span className="tracking-wide">
@@ -954,12 +879,6 @@ export default function PanelDistribucion() {
                 className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 border border-slate-700 shadow-sm"
               >
                 <Download size={14} /> XLS
-              </button>
-              <button
-                onClick={exportarResumenPDF}
-                className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 border border-slate-700 shadow-sm"
-              >
-                <FileText size={14} /> PDF
               </button>
             </div>
           </div>

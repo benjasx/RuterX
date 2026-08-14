@@ -104,7 +104,7 @@ export const exportarDistribucionPDF = async (
           body: [
             [
               { text: "Ruta", style: "th" },
-              { text: "Un.", style: "th", alignment: "center" },
+              { text: "Un", style: "th", alignment: "center" },
               { text: "Chofer", style: "th" },
               { text: "Auxiliar 1", style: "th" },
               { text: "Auxiliar 2", style: "th" },
