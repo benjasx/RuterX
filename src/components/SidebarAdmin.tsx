@@ -28,39 +28,39 @@ export type SubVistaAdmin =
 interface SidebarAdminProps {
   menuActivo: SubVistaAdmin;
   setMenuActivo: (vista: SubVistaAdmin) => void;
-  onLogout: () => void;
-  usuarioEmail: string | null;
+  usuarioEmail?: string | null;
+  onLogout?: () => void;
+  esAdmin?: boolean;
+  esPersonalAutorizado?: boolean;
+  esJefeReparto?: boolean;
 }
 
 export default function SidebarAdmin({
   menuActivo,
   setMenuActivo,
-  onLogout,
   usuarioEmail,
+  onLogout,
 }: SidebarAdminProps) {
-  // 🚀 LÓGICA DE ROLES BASADA EN CORREOS
+  // LÓGICA DE ROLES BASADA EN CORREOS
   const esJefeReparto = usuarioEmail === "jefedereparto@ruterx.com";
-
-  // 🚀 AGREGAMOS EL ROL DE EMBARQUES
   const esEmbarques =
     usuarioEmail === "emb01@ruterx.com" || usuarioEmail === "emb02@ruterx.com";
-
-  // El Admin es el dueño del sistema, si no es ninguno de los de abajo, asume poder absoluto.
   const esAdmin = !esJefeReparto && !esEmbarques;
 
   // 🚀 PERMISOS RESTRINGIDOS SEGÚN ROL:
   const permisos = {
     dashboard: esAdmin,
-    monitorRutas: true, // Todos pueden ver el mapa (Admin, Jefe Reparto y Embarques)
-    distribucion: true, // Todos pueden ver la distribución (Admin, Jefe Reparto y Embarques)
-    asistencias: esAdmin || esJefeReparto, // Solo Admin y Jefe de Reparto
+    monitorRutas: true,
+    distribucion: true,
+    asistencias: esAdmin || esJefeReparto,
     clientes: esAdmin,
     rutas: esAdmin,
     vendedores: esAdmin,
     historial: esAdmin,
     historialCompleto: esAdmin,
     ajustesNomina: esAdmin,
-    choferes: esAdmin,
+    // 🚀 AHORA EL JEFE DE REPARTO TAMBIÉN PUEDE VER "AÑADIR CHOFERES"
+    choferes: esAdmin || esJefeReparto,
   };
 
   return (
@@ -242,7 +242,7 @@ export default function SidebarAdmin({
         </div>
         <button
           onClick={() => {
-            onLogout();
+            if (onLogout) onLogout();
           }}
           className="flex items-center w-full gap-3 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors mt-auto cursor-pointer"
         >

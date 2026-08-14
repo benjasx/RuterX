@@ -23,7 +23,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-// 🚀 FUNCIÓN EXTERNA PARA OBTENER EL LOGO EN BASE64
+// FUNCIÓN EXTERNA PARA OBTENER EL LOGO EN BASE64
 const obtenerLogoBase64Local = async (path: string) => {
   try {
     const response = await fetch(path);
@@ -38,7 +38,8 @@ const obtenerLogoBase64Local = async (path: string) => {
   }
 };
 
-const ITEMS_POR_PAGINA = 20;
+// 🚀 CAMBIADO A 10 REGISTROS POR PÁGINA
+const ITEMS_POR_PAGINA = 10;
 
 export default function AdminChoferes() {
   const queryClient = useQueryClient();
@@ -160,7 +161,7 @@ export default function AdminChoferes() {
     XLSX.writeFile(workbook, `Directorio_Personal_${fecha}.xlsx`);
   };
 
-  // 🚀 FUNCIÓN: EXPORTAR A PDF (ACTUALIZADA CON LOGO Y RESUMEN)
+  // FUNCIÓN: EXPORTAR A PDF
   const exportarPDF = async () => {
     const pdfMake = (window as any).pdfMake;
     if (!pdfMake) return alert("Generador PDF cargando...");
@@ -200,7 +201,7 @@ export default function AdminChoferes() {
       pageOrientation: "portrait",
       pageMargins: [30, 30, 30, 30],
       content: [
-        // 🚀 CABECERA CON LOGO Y TÍTULO
+        // CABECERA CON LOGO Y TÍTULO
         {
           columns: [
             logoBase64
@@ -215,7 +216,7 @@ export default function AdminChoferes() {
           ],
           margin: [0, 0, 0, 20],
         },
-        // 🚀 SECCIÓN DE RESUMEN EJECUTIVO (PLANTILLA)
+        // SECCIÓN DE RESUMEN EJECUTIVO
         {
           table: {
             widths: ["*", "*", "*"],
@@ -258,7 +259,7 @@ export default function AdminChoferes() {
           },
           margin: [0, 0, 0, 25],
         },
-        // 🚀 TABLA DE DIRECTORIO GENERAL
+        // TABLA DE DIRECTORIO GENERAL
         {
           table: {
             headerRows: 1,
@@ -512,7 +513,7 @@ export default function AdminChoferes() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-x-auto min-h-[400px]">
+          <div className="flex-1 overflow-x-auto min-h-100">
             {isLoading ? (
               <div className="flex items-center justify-center h-full p-16 text-slate-400 gap-3 font-medium">
                 <Loader2 className="animate-spin" size={24} /> Cargando
