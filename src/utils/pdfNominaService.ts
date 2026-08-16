@@ -938,6 +938,14 @@ export const generarPDFResumenGeneral = async (
   if (mostrarComisiones) tableWidths.push("auto");
   tableWidths.push("auto");
 
+  const conceptos: string[] = [];
+  if (mostrarViaticos) conceptos.push("VIÁTICOS");
+  if (mostrarComisiones) conceptos.push("COMISIONES");
+  const tituloReporte =
+    conceptos.length > 0
+      ? `REPORTE GENERAL DE ${conceptos.join(" Y ")}`
+      : "RESUMEN GENERAL DE NÓMINA";
+
   const contentBlocks = [
     {
       columns: [
@@ -947,7 +955,7 @@ export const generarPDFResumenGeneral = async (
         {
           stack: [
             {
-              text: "RESUMEN GENERAL DE NÓMINA",
+              text: tituloReporte,
               fontSize: 12,
               bold: true,
               color: "#0f172a",

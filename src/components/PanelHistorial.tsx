@@ -5,11 +5,14 @@ import {
   Truck,
   CalendarCheck,
   AlertCircle,
-  Clock,
+  Info,
   FileDown,
   FileText,
   User,
   Users,
+  Star,
+  ListChecks,
+  Gauge,
 } from "lucide-react";
 import { obtenerDistribucionPorRango } from "../firebase/distribucionService"; // 🚀 NUEVO IMPORT
 
@@ -187,6 +190,19 @@ export default function PanelHistorial() {
   const datosMostrar =
     vistaActiva === "choferes" ? estadisticasChoferes : estadisticasAyudantes;
 
+  // 🚀 Resumen visual: se deriva del mismo arreglo ya ordenado (menor a mayor),
+  // no agrega lógica de negocio nueva.
+  const resumen = useMemo(() => {
+    if (datosMostrar.length === 0) return null;
+    const suma = datosMostrar.reduce((acc, p) => acc + p.totalViajes, 0);
+    return {
+      total: datosMostrar.length,
+      promedio: suma / datosMostrar.length,
+      candidato: datosMostrar[0],
+      maxViajes: datosMostrar[datosMostrar.length - 1].totalViajes,
+    };
+  }, [datosMostrar]);
+
   const isChofer = vistaActiva === "choferes";
   const colorBgMenu = isChofer
     ? "bg-purple-50 border-purple-100"
@@ -198,14 +214,18 @@ export default function PanelHistorial() {
   const colorBtnPDF = isChofer
     ? "bg-purple-700 hover:bg-purple-800"
     : "bg-emerald-700 hover:bg-emerald-800";
-  const colorTabActivo = isChofer
-    ? "border-purple-600 text-purple-700"
-    : "border-emerald-600 text-emerald-700";
   const colorTh = isChofer ? "bg-purple-800" : "bg-emerald-800";
   const colorHoverFila = isChofer
     ? "hover:bg-purple-50"
     : "hover:bg-emerald-50";
   const colorCheckbox = isChofer ? "accent-purple-600" : "accent-emerald-600";
+  const colorIconTile = isChofer
+    ? "bg-purple-100 text-purple-600"
+    : "bg-emerald-100 text-emerald-600";
+  const colorBarra = isChofer ? "bg-purple-500" : "bg-emerald-500";
+  const colorFilaLider = isChofer
+    ? "bg-purple-50/60 border-l-4 border-l-purple-500"
+    : "bg-emerald-50/60 border-l-4 border-l-emerald-500";
 
   if (isError) {
     return (
@@ -222,18 +242,89 @@ export default function PanelHistorial() {
   }
 
   return (
-    <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full">
-      <div className="flex items-center gap-2 mb-4">
-        <History
-          className={isChofer ? "text-purple-600" : "text-emerald-600"}
-          size={24}
-        />
-        <h2 className="text-xl font-bold text-slate-800">
+    <div className="w-full bg-slate-50/50 p-6 rounded-xl flex flex-col h-full overflow-y-auto custom-scrollbar">
+      <div className="mb-6">
+        <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+          <History className={isChofer ? "text-purple-600" : "text-emerald-600"} size={28} />
           Control de Equidad y Reportes
         </h2>
+        <p className="text-slate-500 mt-1 font-medium">
+          Distribución de viajes por personal para decidir quién sale en la
+          siguiente ruta.
+        </p>
       </div>
 
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
+      {/* Tabs — segmented control */}
+      <div className="inline-flex gap-1 p-1 mb-6 bg-slate-100 rounded-xl w-full sm:w-auto">
+        <button
+          onClick={() => setVistaActiva("choferes")}
+          className={`flex items-center justify-center gap-2 px-5 py-2 rounded-lg font-bold text-sm transition-colors flex-1 sm:flex-initial ${isChofer ? "bg-white text-purple-700 shadow-sm" : "text-slate-500 hover:text-purple-600"}`}
+        >
+          <User size={16} /> Choferes
+        </button>
+        <button
+          onClick={() => setVistaActiva("ayudantes")}
+          className={`flex items-center justify-center gap-2 px-5 py-2 rounded-lg font-bold text-sm transition-colors flex-1 sm:flex-initial ${!isChofer ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-emerald-600"}`}
+        >
+          <Users size={16} /> Auxiliares
+        </button>
+      </div>
+
+      {/* Resumen del rango */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${colorIconTile}`}>
+            <ListChecks size={24} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-slate-400 uppercase">
+              {isChofer ? "Choferes" : "Auxiliares"} en el rango
+            </p>
+            <p className="text-xl lg:text-2xl font-black text-slate-800 tabular-nums">
+              {resumen?.total ?? 0}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${colorIconTile}`}>
+            <Gauge size={24} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-slate-400 uppercase">
+              Promedio de viajes
+            </p>
+            <p className="text-xl lg:text-2xl font-black text-slate-800 tabular-nums">
+              {resumen ? resumen.promedio.toFixed(1) : "0.0"}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 xl:col-span-2">
+          <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+            <Star size={24} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-slate-400 uppercase">
+              Siguiente en turno (menos viajes)
+            </p>
+            <p
+              className="text-lg lg:text-xl font-black text-slate-800 truncate"
+              title={resumen?.candidato.nombre}
+            >
+              {resumen ? resumen.candidato.nombre : "—"}{" "}
+              {resumen && (
+                <span className="text-sm text-slate-500 font-bold tabular-nums">
+                  ({resumen.candidato.totalViajes} viajes)
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filtros de fecha + acciones de reporte */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm mb-6 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
         <div
           className={`flex flex-col sm:flex-row items-center gap-3 p-2.5 rounded-lg border shadow-sm w-full xl:w-auto transition-colors ${colorBgMenu}`}
         >
@@ -315,10 +406,10 @@ export default function PanelHistorial() {
         </div>
       </div>
 
-      <div className="flex items-start gap-2 mb-6 bg-slate-50 p-3 rounded-lg border border-slate-200">
-        <Clock className="text-slate-500 shrink-0 mt-0.5" size={18} />
-        <p className="text-sm text-slate-600">
-          Esta tabla calcula los viajes basándose{" "}
+      <div className="flex items-start gap-2 mb-4 bg-blue-50 p-3 rounded-lg border border-blue-100">
+        <Info className="text-blue-500 shrink-0 mt-0.5" size={18} />
+        <p className="text-sm text-blue-800">
+          La tabla calcula los viajes basándose{" "}
           <strong>en el rango de fechas seleccionado arriba</strong>. Los
           empleados con{" "}
           <strong>
@@ -328,27 +419,12 @@ export default function PanelHistorial() {
         </p>
       </div>
 
-      <div className="flex gap-2 mb-4 border-b border-slate-200">
-        <button
-          onClick={() => setVistaActiva("choferes")}
-          className={`flex items-center gap-2 px-4 py-2.5 font-semibold text-sm transition-colors border-b-2 ${isChofer ? colorTabActivo : "border-transparent text-slate-500 hover:text-purple-600"}`}
-        >
-          <User size={16} /> Choferes
-        </button>
-        <button
-          onClick={() => setVistaActiva("ayudantes")}
-          className={`flex items-center gap-2 px-4 py-2.5 font-semibold text-sm transition-colors border-b-2 ${!isChofer ? colorTabActivo : "border-transparent text-slate-500 hover:text-emerald-600"}`}
-        >
-          <Users size={16} /> Auxiliares
-        </button>
-      </div>
-
       {cargando ? (
-        <div className="flex flex-col h-full items-center justify-center p-12 text-slate-500 font-bold animate-pulse gap-2">
+        <div className="flex flex-col flex-1 items-center justify-center p-12 text-slate-500 font-bold animate-pulse gap-2 bg-white rounded-2xl border border-slate-100 shadow-sm">
           <History size={24} /> Consultando registros...
         </div>
       ) : datosMostrar.length === 0 ? (
-        <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 flex flex-col items-center text-center mt-4">
+        <div className="p-8 border-2 border-dashed border-slate-200 rounded-2xl bg-white flex flex-col items-center text-center">
           <AlertCircle className="text-slate-400 mb-3" size={40} />
           <h3 className="text-lg font-semibold text-slate-700">
             No hay personal registrado
@@ -358,17 +434,18 @@ export default function PanelHistorial() {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm mt-2">
+        <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-sm">
           <table className="w-full text-left border-collapse text-sm bg-white">
             <thead>
               <tr
                 className={`${colorTh} text-white uppercase tracking-wider text-xs transition-colors`}
               >
+                <th className="px-4 py-4 font-bold text-center w-14">#</th>
                 <th className="px-6 py-4 font-bold">
                   {isChofer ? "Nombre del Chofer" : "Nombre del Auxiliar"}
                 </th>
-                <th className="px-6 py-4 font-bold text-center">
-                  Viajes en el Rango
+                <th className="px-6 py-4 font-bold">
+                  Carga de Viajes en el Rango
                 </th>
                 <th className="px-6 py-4 font-bold text-center">
                   Último Viaje Registrado
@@ -376,32 +453,62 @@ export default function PanelHistorial() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {datosMostrar.map((personal, index) => (
-                <tr
-                  key={index}
-                  className={`${colorHoverFila} transition-colors`}
-                >
-                  <td className="px-6 py-4 font-bold text-slate-700 text-xs">
-                    {personal.nombre}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${personal.totalViajes === 0 ? "bg-red-100 text-red-700" : index < 5 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-700"}`}
-                    >
-                      <Truck size={14} /> {personal.totalViajes} viajes
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center text-slate-600 font-medium text-xs flex justify-center items-center gap-2">
-                    <CalendarCheck
-                      size={14}
-                      className={
-                        isChofer ? "text-purple-400" : "text-emerald-400"
-                      }
-                    />
-                    {personal.ultimoViaje}
-                  </td>
-                </tr>
-              ))}
+              {datosMostrar.map((personal, index) => {
+                const esLider = index === 0;
+                const porcentaje =
+                  (personal.totalViajes / Math.max(resumen?.maxViajes ?? 1, 1)) *
+                  100;
+                return (
+                  <tr
+                    key={index}
+                    className={`transition-colors ${esLider ? colorFilaLider : colorHoverFila}`}
+                  >
+                    <td className="px-4 py-4 text-center">
+                      <span
+                        className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black tabular-nums ${esLider ? "bg-amber-400 text-white" : "bg-slate-100 text-slate-500"}`}
+                      >
+                        {index + 1}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 font-bold text-slate-700 text-xs">
+                      <div className="flex items-center gap-2">
+                        {personal.nombre}
+                        {esLider && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wide">
+                            <Star size={11} /> Siguiente turno
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden min-w-16">
+                          <div
+                            className={`h-full rounded-full ${personal.totalViajes === 0 ? "bg-red-400" : colorBarra}`}
+                            style={{ width: `${Math.max(porcentaje, personal.totalViajes === 0 ? 100 : 4)}%` }}
+                          />
+                        </div>
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold shrink-0 tabular-nums ${personal.totalViajes === 0 ? "bg-red-100 text-red-700" : index < 5 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-700"}`}
+                        >
+                          <Truck size={14} /> {personal.totalViajes} viajes
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center text-slate-600 font-medium text-xs">
+                      <div className="flex justify-center items-center gap-2">
+                        <CalendarCheck
+                          size={14}
+                          className={
+                            isChofer ? "text-purple-400" : "text-emerald-400"
+                          }
+                        />
+                        {personal.ultimoViaje}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

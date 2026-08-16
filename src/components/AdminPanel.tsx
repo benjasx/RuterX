@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import GestionRutas from "./GestionRutas";
 import PanelClientes from "./PanelClientes";
@@ -30,10 +30,16 @@ export default function AdminPanel({
   onLogout,
   usuarioEmail,
 }: AdminPanelProps) {
-  // Si es Admin, entra al Dashboard. Si es Jefe o Embarques, entra al Monitor de Rutas.
-  const [menuActivo, setMenuActivo] = useState<SubVistaAdmin>(
-    esAdmin(usuarioEmail) ? "dashboard" : "monitorRutas",
-  );
+  // Si hay una sub-vista guardada de una sesión previa, se restaura al refrescar.
+  // Si no, entra al Dashboard (Admin) o al Monitor de Rutas (Jefe/Embarques).
+  const [menuActivo, setMenuActivo] = useState<SubVistaAdmin>(() => {
+    const guardado = localStorage.getItem("menuActivoAdmin") as SubVistaAdmin | null;
+    return guardado || (esAdmin(usuarioEmail) ? "dashboard" : "monitorRutas");
+  });
+
+  useEffect(() => {
+    localStorage.setItem("menuActivoAdmin", menuActivo);
+  }, [menuActivo]);
 
   const { data: listaVendedores = [] } = useQuery({
     queryKey: ["vendedores"],
