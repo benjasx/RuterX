@@ -133,7 +133,7 @@ function BadgeVariacion({
 
   if (variacion.tipo === "nuevo") {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full mt-1.5">
+      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-full mt-1.5">
         Nuevo vs. semana anterior
       </span>
     );
@@ -146,7 +146,7 @@ function BadgeVariacion({
   return (
     <span
       className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full mt-1.5 ${
-        esBueno ? "text-emerald-700 bg-emerald-50" : "text-rose-700 bg-rose-50"
+        esBueno ? "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40" : "text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40"
       }`}
     >
       <Icono size={12} />
@@ -442,7 +442,7 @@ export default function Dashboard() {
   if (cargando) {
     return (
       <div className="flex w-full h-full items-center justify-center">
-        <p className="text-slate-500 font-bold animate-pulse flex items-center gap-2">
+        <p className="text-slate-500 dark:text-slate-400 font-bold animate-pulse flex items-center gap-2">
           <Activity size={20} /> Analizando operación de los últimos 7 días...
         </p>
       </div>
@@ -460,14 +460,14 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="w-full bg-slate-50/50 p-6 rounded-xl flex flex-col h-full overflow-y-auto custom-scrollbar">
+    <div className="w-full bg-slate-50/50 dark:bg-slate-900/50 p-6 rounded-xl flex flex-col h-full overflow-y-auto custom-scrollbar">
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-            <TrendingUp className="text-blue-600" size={28} />
+          <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <TrendingUp className="text-blue-600 dark:text-blue-400" size={28} />
             Resumen Operativo
           </h2>
-          <p className="text-slate-500 mt-1 font-medium">
+          <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">
             Rendimiento de los últimos 7 días ({strHace7Dias} al {strHoy})
           </p>
         </div>
@@ -482,16 +482,16 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
             <DollarSign size={24} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-400 uppercase">
+            <p className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase">
               Venta Total
             </p>
             <p
-              className="text-xl lg:text-2xl font-black text-slate-800 truncate"
+              className="text-xl lg:text-2xl font-black text-slate-800 dark:text-slate-100 truncate"
               title={fMoneda(dataProcesada.kpis.ventas)}
             >
               {fMoneda(dataProcesada.kpis.ventas)}
@@ -502,20 +502,20 @@ export default function Dashboard() {
             />
           </div>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
             <Scale size={24} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-400 uppercase">
+            <p className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase">
               Peso Movido
             </p>
             <p
-              className="text-xl lg:text-2xl font-black text-slate-800 truncate"
+              className="text-xl lg:text-2xl font-black text-slate-800 dark:text-slate-100 truncate"
               title={`${fNumero(dataProcesada.kpis.peso)} KG`}
             >
               {fNumero(dataProcesada.kpis.peso)}{" "}
-              <span className="text-sm text-slate-500 font-bold">KG</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400 font-bold">KG</span>
             </p>
             <BadgeVariacion
               actual={dataProcesada.kpis.peso}
@@ -523,20 +523,20 @@ export default function Dashboard() {
             />
           </div>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 shrink-0">
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
             <Truck size={24} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-400 uppercase">
+            <p className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase">
               Viajes Realizados
             </p>
             <p
-              className="text-xl lg:text-2xl font-black text-slate-800 truncate"
+              className="text-xl lg:text-2xl font-black text-slate-800 dark:text-slate-100 truncate"
               title={`${dataProcesada.kpis.viajes} Rutas`}
             >
               {dataProcesada.kpis.viajes}{" "}
-              <span className="text-sm text-slate-500 font-bold">Rutas</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400 font-bold">Rutas</span>
             </p>
             <BadgeVariacion
               actual={dataProcesada.kpis.viajes}
@@ -544,16 +544,16 @@ export default function Dashboard() {
             />
           </div>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
             <Activity size={24} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-400 uppercase">
+            <p className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase">
               Costo Operativo
             </p>
             <p
-              className="text-xl lg:text-2xl font-black text-slate-800 truncate"
+              className="text-xl lg:text-2xl font-black text-slate-800 dark:text-slate-100 truncate"
               title={fMoneda(dataProcesada.kpis.costos)}
             >
               {fMoneda(dataProcesada.kpis.costos)}
@@ -568,8 +568,8 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-        <div className="xl:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
-          <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+        <div className="xl:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6 flex items-center gap-2">
             Tendencia de Ventas (7 Días)
           </h3>
           <div className="w-full flex-1 min-h-75" id="grafico-ventas">
@@ -656,8 +656,8 @@ export default function Dashboard() {
         </div>
 
         <div className="flex flex-col gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex-1">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex-1">
+            <h3 className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
               <Award className="text-amber-500" size={18} /> Top 4 Choferes
               (Peso)
             </h3>
@@ -665,29 +665,29 @@ export default function Dashboard() {
               {dataProcesada.todosChoferesPeso.slice(0, 4).map((c, idx) => (
                 <div key={idx} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 shrink-0 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm">
+                    <div className="w-8 h-8 shrink-0 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500 dark:text-slate-400 text-sm">
                       {idx + 1}
                     </div>
-                    <p className="font-semibold text-slate-700 text-sm pr-2">
+                    <p className="font-semibold text-slate-700 dark:text-slate-200 text-sm pr-2">
                       {c.nombre}
                     </p>
                   </div>
-                  <p className="font-black text-blue-600 text-sm shrink-0">
+                  <p className="font-black text-blue-600 dark:text-blue-400 text-sm shrink-0">
                     {fNumero(c.peso)}{" "}
-                    <span className="text-[10px] text-slate-400 font-bold ml-1">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold ml-1">
                       KG
                     </span>
                   </p>
                 </div>
               ))}
               {dataProcesada.todosChoferesPeso.length === 0 && (
-                <p className="text-xs text-slate-400">Sin datos registrados.</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Sin datos registrados.</p>
               )}
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex-1">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex-1">
+            <h3 className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
               <Map className="text-emerald-500" size={18} /> Top 3 Rutas
               (Ventas)
             </h3>
@@ -695,26 +695,26 @@ export default function Dashboard() {
               {dataProcesada.todasRutas.slice(0, 3).map((r, idx) => (
                 <div key={idx} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 shrink-0 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm">
+                    <div className="w-8 h-8 shrink-0 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500 dark:text-slate-400 text-sm">
                       {idx + 1}
                     </div>
-                    <p className="font-semibold text-slate-700 text-sm pr-2">
+                    <p className="font-semibold text-slate-700 dark:text-slate-200 text-sm pr-2">
                       {r.nombre}
                     </p>
                   </div>
-                  <p className="font-black text-emerald-600 text-sm shrink-0">
+                  <p className="font-black text-emerald-600 dark:text-emerald-400 text-sm shrink-0">
                     {fMoneda(r.venta)}
                   </p>
                 </div>
               ))}
               {dataProcesada.todasRutas.length === 0 && (
-                <p className="text-xs text-slate-400">Sin datos registrados.</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Sin datos registrados.</p>
               )}
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex-1">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex-1">
+            <h3 className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
               <Truck className="text-purple-500" size={18} /> Top 4 Unidades
               (Peso)
             </h3>
@@ -722,23 +722,23 @@ export default function Dashboard() {
               {dataProcesada.todasUnidades.slice(0, 4).map((u, idx) => (
                 <div key={idx} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 shrink-0 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm">
+                    <div className="w-8 h-8 shrink-0 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500 dark:text-slate-400 text-sm">
                       {idx + 1}
                     </div>
-                    <p className="font-semibold text-slate-700 text-sm">
+                    <p className="font-semibold text-slate-700 dark:text-slate-200 text-sm">
                       Unidad {u.nombre}
                     </p>
                   </div>
-                  <p className="font-black text-blue-600 text-sm shrink-0">
+                  <p className="font-black text-blue-600 dark:text-blue-400 text-sm shrink-0">
                     {fNumero(u.peso)}{" "}
-                    <span className="text-[10px] text-slate-400 font-bold ml-1">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold ml-1">
                       KG
                     </span>
                   </p>
                 </div>
               ))}
               {dataProcesada.todasUnidades.length === 0 && (
-                <p className="text-xs text-slate-400">Sin datos registrados.</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Sin datos registrados.</p>
               )}
             </div>
           </div>
@@ -746,8 +746,8 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 shrink-0 mb-6">
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm border-t-4 border-t-emerald-500">
-          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-5 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm border-t-4 border-t-emerald-500">
+          <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
             <TrendingUp className="text-emerald-500" size={18} /> Top 10
             Choferes (Más Percibido)
           </h3>
@@ -758,19 +758,19 @@ export default function Dashboard() {
                 className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 shrink-0 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
+                  <div className="w-6 h-6 shrink-0 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xs">
                     {idx + 1}
                   </div>
-                  <p className="font-semibold text-slate-700 text-xs pr-2 leading-tight">
+                  <p className="font-semibold text-slate-700 dark:text-slate-200 text-xs pr-2 leading-tight">
                     {c.nombre}
                   </p>
                 </div>
                 <div className="flex flex-col items-end text-xs shrink-0">
-                  <span className="font-black text-emerald-700">
+                  <span className="font-black text-emerald-700 dark:text-emerald-300">
                     {fMoneda(c.total)}
                   </span>
-                  <span className="text-[10px] text-slate-400">
-                    <span className="font-semibold text-slate-500">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                    <span className="font-semibold text-slate-500 dark:text-slate-400">
                       {c.viajes} {c.viajes === 1 ? "viaje" : "viajes"}
                     </span>{" "}
                     | V: {fMoneda(c.viaticos)} | C: {fMoneda(c.comisiones)}
@@ -779,13 +779,13 @@ export default function Dashboard() {
               </div>
             ))}
             {dataProcesada.todasFinanzas.length === 0 && (
-              <p className="text-xs text-slate-400">Sin datos registrados.</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">Sin datos registrados.</p>
             )}
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm border-t-4 border-t-rose-500">
-          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-5 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm border-t-4 border-t-rose-500">
+          <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
             <TrendingDown className="text-rose-500" size={18} /> Top 10 Choferes
             (Menos Percibido)
           </h3>
@@ -799,19 +799,19 @@ export default function Dashboard() {
                   className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 shrink-0 rounded-md bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
+                    <div className="w-6 h-6 shrink-0 rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xs">
                       {idx + 1}
                     </div>
-                    <p className="font-semibold text-slate-700 text-xs pr-2 leading-tight">
+                    <p className="font-semibold text-slate-700 dark:text-slate-200 text-xs pr-2 leading-tight">
                       {c.nombre}
                     </p>
                   </div>
                   <div className="flex flex-col items-end text-xs shrink-0">
-                    <span className="font-black text-rose-700">
+                    <span className="font-black text-rose-700 dark:text-rose-300">
                       {fMoneda(c.total)}
                     </span>
-                    <span className="text-[10px] text-slate-400">
-                      <span className="font-semibold text-slate-500">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                      <span className="font-semibold text-slate-500 dark:text-slate-400">
                         {c.viajes} {c.viajes === 1 ? "viaje" : "viajes"}
                       </span>{" "}
                       | V: {fMoneda(c.viaticos)} | C: {fMoneda(c.comisiones)}
@@ -820,18 +820,18 @@ export default function Dashboard() {
                 </div>
               ))}
             {dataProcesada.todasFinanzas.length === 0 && (
-              <p className="text-xs text-slate-400">Sin datos registrados.</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">Sin datos registrados.</p>
             )}
           </div>
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm border-t-4 border-t-teal-500 mb-6">
-        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-2">
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm border-t-4 border-t-teal-500 mb-6">
+        <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-2">
           <Users className="text-teal-500" size={18} /> Percepción Económica de
           Ayudantes
         </h3>
-        <p className="text-[11px] text-slate-400 mb-4">
+        <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-4">
           Solo se atribuye ingreso a ayudantes que también están registrados
           como chofer (misma regla que Nómina).
         </p>
@@ -845,7 +845,7 @@ export default function Dashboard() {
                 <div className="w-6 h-6 shrink-0 rounded-md bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-xs">
                   {idx + 1}
                 </div>
-                <p className="font-semibold text-slate-700 text-xs pr-2 leading-tight">
+                <p className="font-semibold text-slate-700 dark:text-slate-200 text-xs pr-2 leading-tight">
                   {a.nombre}
                 </p>
               </div>
@@ -853,8 +853,8 @@ export default function Dashboard() {
                 <span className="font-black text-teal-700">
                   {fMoneda(a.total)}
                 </span>
-                <span className="text-[10px] text-slate-400">
-                  <span className="font-semibold text-slate-500">
+                <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                  <span className="font-semibold text-slate-500 dark:text-slate-400">
                     {a.viajes} {a.viajes === 1 ? "viaje" : "viajes"}
                   </span>{" "}
                   | V: {fMoneda(a.viaticos)} | C: {fMoneda(a.comisiones)}
@@ -863,7 +863,7 @@ export default function Dashboard() {
             </div>
           ))}
           {dataProcesada.todosAyudantesFinanzas.length === 0 && (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-400 dark:text-slate-500">
               Sin ayudantes con doble rol (también chofer) en este periodo.
             </p>
           )}

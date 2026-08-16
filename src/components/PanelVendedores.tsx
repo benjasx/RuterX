@@ -168,10 +168,10 @@ export default function PanelVendedores({
 
   return (
     <div className="flex flex-col xl:flex-row gap-6 w-full">
-      <div className="w-full xl:w-100 shrink-0 bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
+      <div className="w-full xl:w-100 shrink-0 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col">
         <div className="flex items-center gap-2 mb-6">
-          <Briefcase className="text-blue-600" size={24} />
-          <h2 className="text-xl font-bold text-slate-800">
+          <Briefcase className="text-blue-600 dark:text-blue-400" size={24} />
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
             {vendedorEditando ? "Editar Vendedor" : "Agregar Vendedor"}
           </h2>
         </div>
@@ -181,7 +181,7 @@ export default function PanelVendedores({
           className="space-y-4 flex flex-col flex-1"
         >
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
               Nombre Completo
             </label>
             <input
@@ -189,12 +189,12 @@ export default function PanelVendedores({
               value={nuevoNombreVend}
               onChange={(e) => setNuevoNombreVend(e.target.value)}
               placeholder="Ej. Benjamin R-2"
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
               Correo Electrónico
             </label>
             <input
@@ -202,12 +202,12 @@ export default function PanelVendedores({
               value={nuevoCorreoVend}
               onChange={(e) => setNuevoCorreoVend(e.target.value)}
               placeholder="Ej. correo@empresa.com"
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
               Teléfono
             </label>
             <input
@@ -215,15 +215,15 @@ export default function PanelVendedores({
               value={nuevoTelefonoVend}
               onChange={(e) => setNuevoTelefonoVend(e.target.value)}
               placeholder="Ej. 311-123-4567"
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
               Rutas Asignadas ({rutasSeleccionadasVend.length})
             </label>
-            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-lg">
+            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg">
               {/* CAMBIO AQUÍ: Usamos 'rutasOrdenadas' en lugar de 'rutas' */}
               {rutasOrdenadas.map((ruta) => {
                 const isSelected = rutasSeleccionadasVend.some(
@@ -237,7 +237,7 @@ export default function PanelVendedores({
                     className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all border ${
                       isSelected
                         ? "bg-blue-600 text-white border-blue-700 shadow-sm"
-                        : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
+                        : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
                     }`}
                   >
                     {ruta.nombre}
@@ -267,7 +267,7 @@ export default function PanelVendedores({
                   setVendedorEditando(null);
                   limpiarFormulario();
                 }}
-                className="bg-white hover:bg-slate-50 text-slate-600 border border-slate-300 font-medium py-2.5 px-4 rounded-lg transition-colors text-sm"
+                className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600 font-medium py-2.5 px-4 rounded-lg transition-colors text-sm"
               >
                 Cancelar
               </button>

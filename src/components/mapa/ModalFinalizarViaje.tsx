@@ -16,32 +16,32 @@ export default function ModalFinalizarViaje({
 }: any) {
   return (
     <div className="fixed inset-0 z-9999 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700">
         <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
           <h3 className="font-bold text-lg flex items-center gap-2">
             <Flag size={18} className="text-blue-400" /> Finalizar Recorrido
           </h3>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors"
+            className="text-slate-400 dark:text-slate-500 hover:text-white transition-colors"
           >
             <X size={20} />
           </button>
         </div>
         <div className="p-5 space-y-4">
-          <p className="text-sm text-slate-600 font-medium">
+          <p className="text-sm text-slate-600 dark:text-slate-300 font-medium">
             Confirma los datos finales de la ruta para generar tu reporte de
             cierre.
           </p>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Ruta Realizada
               </label>
               <select
                 value={rutaRealChofer}
                 onChange={(e) => setRutaRealChofer(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 font-medium cursor-pointer text-sm"
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 dark:text-slate-200 font-medium cursor-pointer text-sm"
               >
                 {LISTA_RUTAS.map((r) => (
                   <option key={r} value={r}>
@@ -51,13 +51,13 @@ export default function ModalFinalizarViaje({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Unidad
               </label>
               <select
                 value={unidadChofer}
                 onChange={(e) => setUnidadChofer(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 font-medium cursor-pointer text-sm"
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 dark:text-slate-200 font-medium cursor-pointer text-sm"
               >
                 {LISTA_UNIDADES.map((u) => (
                   <option key={u} value={u}>
@@ -68,13 +68,13 @@ export default function ModalFinalizarViaje({
             </div>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
               Motivo de cierre
             </label>
             <select
               value={motivoFinalizacion}
               onChange={(e) => setMotivoFinalizacion(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 font-medium cursor-pointer text-sm"
+              className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 dark:text-slate-200 font-medium cursor-pointer text-sm"
             >
               <option value="Término de recorrido">
                 Término de recorrido (Ruta completa)
@@ -94,14 +94,14 @@ export default function ModalFinalizarViaje({
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
               Folios no embarcados (Opcional)
             </label>
             <textarea
               value={foliosNoEmbarcados}
               onChange={(e) => setFoliosNoEmbarcados(e.target.value)}
               placeholder="Ej. B1045678, B109556, B987654..."
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 font-medium text-sm resize-none h-16"
+              className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 dark:text-slate-200 font-medium text-sm resize-none h-16"
             />
           </div>
           <button

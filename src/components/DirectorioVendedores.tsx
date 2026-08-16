@@ -67,14 +67,14 @@ export default function DirectorioVendedores({
   );
 
   return (
-    <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full">
+    <div className="w-full bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col h-full">
       {/* CABECERA CON CONTADOR Y BOTONES */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
         <div className="flex items-center gap-3">
-          <Users className="text-blue-600" size={24} />
-          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+          <Users className="text-blue-600 dark:text-blue-400" size={24} />
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3">
             Directorio de Vendedores
-            <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-200">
+            <span className="bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-200 dark:border-blue-800">
               {vendedoresFiltrados.length}
             </span>
           </h2>
@@ -83,7 +83,7 @@ export default function DirectorioVendedores({
         <div className="flex gap-2">
           <button
             onClick={() => generarCSVVendedores(vendedoresFiltrados)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 hover:border-emerald-300 transition-colors text-sm font-semibold"
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:border-emerald-300 transition-colors text-sm font-semibold"
             title="Exportar a Excel/CSV"
           >
             <FileSpreadsheet size={16} />
@@ -93,7 +93,7 @@ export default function DirectorioVendedores({
             onClick={() =>
               generarPDFVendedores(vendedoresFiltrados, filtroRuta)
             }
-            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors text-sm font-semibold"
+            className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 hover:border-red-300 transition-colors text-sm font-semibold"
             title="Generar PDF"
           >
             <FileText size={16} />
@@ -102,28 +102,28 @@ export default function DirectorioVendedores({
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-100 shrink-0">
+      <div className="flex flex-col sm:flex-row gap-4 mb-6 bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-100 dark:border-slate-700 shrink-0">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="text-slate-400" size={18} />
+            <Search className="text-slate-400 dark:text-slate-500" size={18} />
           </div>
           <input
             type="text"
             placeholder="Buscar por nombre..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           />
         </div>
 
         <div className="relative w-full sm:w-64">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Filter className="text-slate-400" size={18} />
+            <Filter className="text-slate-400 dark:text-slate-500" size={18} />
           </div>
           <select
             value={filtroRuta}
             onChange={(e) => setFiltroRuta(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white"
+            className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white dark:bg-slate-800"
           >
             <option value="">Todas las rutas</option>
             {rutasOrdenadas.map((r) => (
@@ -135,22 +135,22 @@ export default function DirectorioVendedores({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto rounded-lg border border-slate-200 shadow-sm">
+      <div className="flex-1 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
         <table className="w-full text-left border-collapse min-w-200">
-          <thead className="bg-slate-50">
-            <tr className="border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <thead className="bg-slate-50 dark:bg-slate-900">
+            <tr className="border-b border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               <th className="px-6 py-3 text-left">Vendedor</th>
               <th className="px-6 py-3 text-left">Contacto</th>
               <th className="px-6 py-3 text-left">Rutas Asignadas</th>
               <th className="px-6 py-3 text-center">Acciones</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-slate-100">
+          <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
             {vendedoresPaginados.length > 0 ? (
               vendedoresPaginados.map((vendedor) => (
                 <tr
                   key={vendedor.id}
-                  className="hover:bg-slate-50 transition-colors"
+                  className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
                 >
                   <td className="py-3 px-4">
                     <p className="font-semibold text-slate-900">
@@ -158,8 +158,8 @@ export default function DirectorioVendedores({
                     </p>
                   </td>
                   <td className="py-3 px-4">
-                    <p className="text-sm text-slate-600">{vendedor.correo}</p>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">{vendedor.correo}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
                       {vendedor.telefono}
                     </p>
                   </td>
@@ -169,13 +169,13 @@ export default function DirectorioVendedores({
                         vendedor.rutas.map((ruta: string) => (
                           <span
                             key={ruta}
-                            className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-100 uppercase"
+                            className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900 uppercase"
                           >
                             {ruta}
                           </span>
                         ))}
                       {(!vendedor.rutas || vendedor.rutas.length === 0) && (
-                        <span className="text-xs text-slate-400 italic">
+                        <span className="text-xs text-slate-400 dark:text-slate-500 italic">
                           Sin rutas asignadas
                         </span>
                       )}
@@ -184,13 +184,13 @@ export default function DirectorioVendedores({
                   <td className="py-3 px-4 text-center">
                     <button
                       onClick={() => onEdit(vendedor)}
-                      className="text-slate-400 hover:text-blue-600 transition-colors p-2 hover:bg-blue-50 rounded-full"
+                      className="text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-full"
                     >
                       <Pencil size={18} />
                     </button>
                     <button
                       onClick={() => onDelete(vendedor.id)}
-                      className="text-slate-400 hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-full"
+                      className="text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors p-2 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-full"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -199,7 +199,7 @@ export default function DirectorioVendedores({
               ))
             ) : (
               <tr>
-                <td colSpan={4} className="text-center py-12 text-slate-500">
+                <td colSpan={4} className="text-center py-12 text-slate-500 dark:text-slate-400">
                   No se encontraron vendedores.
                 </td>
               </tr>
@@ -208,8 +208,8 @@ export default function DirectorioVendedores({
         </table>
       </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 shrink-0">
-        <p className="text-sm text-slate-600">
+      <div className="mt-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-700 pt-4 shrink-0">
+        <p className="text-sm text-slate-600 dark:text-slate-300">
           Mostrando página <span className="font-bold">{paginaActual}</span> de{" "}
           <span className="font-bold">{totalPaginas}</span>
         </p>
@@ -217,7 +217,7 @@ export default function DirectorioVendedores({
           <button
             onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
             disabled={paginaActual === 1}
-            className="p-2 rounded-lg border border-slate-300 disabled:opacity-50 hover:bg-slate-50 transition-colors"
+            className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
           >
             <ChevronLeft size={20} />
           </button>
@@ -226,7 +226,7 @@ export default function DirectorioVendedores({
               setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))
             }
             disabled={paginaActual === totalPaginas}
-            className="p-2 rounded-lg border border-slate-300 disabled:opacity-50 hover:bg-slate-50 transition-colors"
+            className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
           >
             <ChevronRight size={20} />
           </button>

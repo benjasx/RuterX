@@ -10,6 +10,7 @@ import {
   getDoc,
   orderBy,
   limit,
+  onSnapshot,
 } from "firebase/firestore";
 import { db } from "./config";
 
@@ -211,4 +212,24 @@ export const obtenerViajesDelDia = async (fecha: string) => {
     console.error("Error al obtener los viajes del día:", error);
     throw error;
   }
+};
+
+// Túnel en vivo de los viajes del día: reacciona solo cuando algún viaje
+// de "fecha" cambia, sin necesidad de repreguntar por polling.
+export const suscribirViajesDelDia = (
+  fecha: string,
+  callback: (viajes: any[]) => void,
+) => {
+  const q = query(
+    collection(db, "viajes_activos"),
+    where("fecha_salida", "==", fecha),
+  );
+
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    callback(
+      querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+    );
+  });
+
+  return unsubscribe;
 };

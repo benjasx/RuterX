@@ -1,4 +1,13 @@
-import { UserPlus, Map as MapIcon, LogOut, UserCircle } from "lucide-react";
+import { useState } from "react";
+import {
+  UserPlus,
+  Map as MapIcon,
+  LogOut,
+  UserCircle,
+  Sun,
+  Moon,
+} from "lucide-react";
+import { alternarTema, modoOscuroActivo } from "../utils/theme";
 
 export type Vista = "admin" | "rutero";
 
@@ -20,6 +29,8 @@ export default function Navbar({
   esPersonalAutorizado = false,
   esJefeReparto = false, // 🚀 Añadido
 }: NavbarProps) {
+  const [oscuro, setOscuro] = useState(modoOscuroActivo);
+
   return (
     <nav className="bg-slate-900 border-b border-slate-800 px-3 sm:px-6 py-3 sm:py-4 flex justify-between items-center shadow-lg transition-all duration-300">
       <div className="flex items-center gap-2 sm:gap-4 group cursor-pointer">
@@ -69,6 +80,14 @@ export default function Navbar({
             </button>
           </div>
         )}
+
+        <button
+          onClick={() => setOscuro(alternarTema())}
+          title={oscuro ? "Modo claro" : "Modo oscuro"}
+          className="flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 p-2 sm:p-2.5 rounded-lg transition-all duration-200 shrink-0 cursor-pointer"
+        >
+          {oscuro ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
 
         {/* PERFIL Y CERRAR SESIÓN */}
         {(usuarioEmail || onLogout) && (

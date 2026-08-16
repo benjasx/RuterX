@@ -21,6 +21,7 @@ const queryClient = new QueryClient({
       refetchOnMount: false,
       refetchOnReconnect: false,
       staleTime: 1000 * 60 * 60 * 24,
+      gcTime: 1000 * 60 * 60 * 24,
     },
   },
 });
@@ -77,16 +78,16 @@ export default function RuterMapas() {
   return (
     <QueryClientProvider client={queryClient}>
       {cargandoSesion ? (
-        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center">
           <Loader2 size={40} className="animate-spin text-blue-600 mb-4" />
-          <h2 className="text-xl font-bold text-slate-800">
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
             Cargando RuterX...
           </h2>
         </div>
       ) : !usuarioActual ? (
         <Login />
       ) : (
-        <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans flex flex-col">
           <Navbar
             vistaActual={vistaActual}
             setVistaActual={setVistaActual}

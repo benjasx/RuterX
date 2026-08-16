@@ -1,1 +1,21 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Modo oscuro para el mapa Leaflet: invertimos solo las teselas (no los
+   marcadores) y re-coloreamos los popups para que combinen con la app. */
+:root.dark .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}
+:root.dark .leaflet-container {
+  background: #0f172a;
+}
+:root.dark .leaflet-popup-content-wrapper,
+:root.dark .leaflet-popup-tip {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+:root.dark .leaflet-control-zoom a {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #334155 !important;
+}

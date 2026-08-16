@@ -82,8 +82,8 @@ export default function PanelAjustesNomina() {
 
   if (isLoading || !ajustes) {
     return (
-      <div className="flex w-full h-full items-center justify-center bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-        <p className="text-slate-500 font-bold text-lg animate-pulse flex items-center gap-2">
+      <div className="flex w-full h-full items-center justify-center bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
+        <p className="text-slate-500 dark:text-slate-400 font-bold text-lg animate-pulse flex items-center gap-2">
           <Settings size={24} className="animate-spin" />
           Cargando configuración de nómina...
         </p>
@@ -93,9 +93,9 @@ export default function PanelAjustesNomina() {
 
   if (isError) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+      <div className="w-full h-full flex flex-col items-center justify-center bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
         <AlertCircle className="text-rose-500 mb-3" size={40} />
-        <h3 className="text-lg font-semibold text-slate-700">
+        <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200">
           Error al cargar la configuración
         </h3>
       </div>
@@ -103,10 +103,10 @@ export default function PanelAjustesNomina() {
   }
 
   return (
-    <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-full overflow-y-auto custom-scrollbar">
+    <div className="w-full bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 h-full overflow-y-auto custom-scrollbar">
       <div className="flex items-center gap-2 mb-6">
-        <Settings className="text-blue-600" size={24} />
-        <h2 className="text-xl font-bold text-slate-800">
+        <Settings className="text-blue-600 dark:text-blue-400" size={24} />
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
           Reglas de Nómina y Viáticos
         </h2>
       </div>
@@ -114,15 +114,15 @@ export default function PanelAjustesNomina() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* --- PANEL IZQUIERDO: COMISIONES --- */}
         <div className="space-y-6">
-          <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-700 uppercase flex items-center gap-2 mb-4">
-              <Percent size={16} className="text-blue-600" /> Porcentajes de
+          <div className="bg-slate-50 dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase flex items-center gap-2 mb-4">
+              <Percent size={16} className="text-blue-600 dark:text-blue-400" /> Porcentajes de
               Comisión
             </h3>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
                   Comisión para Chofer (Ej. 0.00075)
                 </label>
                 <input
@@ -135,12 +135,12 @@ export default function PanelAjustesNomina() {
                       comisionChofer: Number(e.target.value),
                     })
                   }
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-700 font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-shadow bg-white"
+                  className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-200 font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-shadow bg-white dark:bg-slate-800"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
                   Comisión para Ayudante (Ej. 0.00035)
                 </label>
                 <input
@@ -153,13 +153,13 @@ export default function PanelAjustesNomina() {
                       comisionAyudante: Number(e.target.value),
                     })
                   }
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-700 font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-shadow bg-white"
+                  className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-200 font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-shadow bg-white dark:bg-slate-800"
                 />
               </div>
 
               {/* 🚀 NUEVO BLOQUE: COMISIÓN ESPECIAL TLMK */}
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
                   Comisión Especial TLMK y TLMK 2 (Ej. 0.001)
                 </label>
                 <input
@@ -177,7 +177,7 @@ export default function PanelAjustesNomina() {
                       comisionTLMK: Number(e.target.value),
                     })
                   }
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-slate-700 font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-shadow bg-white"
+                  className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-200 font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-shadow bg-white dark:bg-slate-800"
                 />
               </div>
             </div>
@@ -196,9 +196,9 @@ export default function PanelAjustesNomina() {
         </div>
 
         {/* --- PANEL DERECHO: RUTAS Y VIÁTICOS --- */}
-        <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col h-full min-h-100">
-          <h3 className="text-sm font-bold text-slate-700 uppercase flex items-center gap-2 mb-4">
-            <MapPin size={16} className="text-emerald-600" /> Catálogo de
+        <div className="bg-slate-50 dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col h-full min-h-100">
+          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase flex items-center gap-2 mb-4">
+            <MapPin size={16} className="text-emerald-600 dark:text-emerald-400" /> Catálogo de
             Viáticos por Ruta
           </h3>
 
@@ -208,14 +208,14 @@ export default function PanelAjustesNomina() {
               placeholder="Nombre Ruta (Ej. MAZATLAN)"
               value={nuevaRuta}
               onChange={(e) => setNuevaRuta(e.target.value)}
-              className="flex-1 p-2.5 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+              className="flex-1 p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800"
             />
             <input
               type="number"
               placeholder="$ Monto"
               value={nuevoViatico}
               onChange={(e) => setNuevoViatico(e.target.value)}
-              className="w-28 p-2.5 border border-slate-300 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+              className="w-28 p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800"
             />
             <button
               onClick={handleAgregarRuta}
@@ -226,25 +226,25 @@ export default function PanelAjustesNomina() {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto bg-white border border-slate-200 rounded-lg custom-scrollbar">
+          <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg custom-scrollbar">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-100 sticky top-0 z-10 shadow-sm">
+              <thead className="bg-slate-100 dark:bg-slate-700 sticky top-0 z-10 shadow-sm">
                 <tr>
-                  <th className="p-3 font-bold text-slate-600">Ruta Destino</th>
-                  <th className="p-3 font-bold text-slate-600 text-right">
+                  <th className="p-3 font-bold text-slate-600 dark:text-slate-300">Ruta Destino</th>
+                  <th className="p-3 font-bold text-slate-600 dark:text-slate-300 text-right">
                     Viático ($)
                   </th>
-                  <th className="p-3 text-center font-bold text-slate-600 w-20">
+                  <th className="p-3 text-center font-bold text-slate-600 dark:text-slate-300 w-20">
                     Acción
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {Object.entries(ajustes.viaticosRutas).length === 0 ? (
                   <tr>
                     <td
                       colSpan={3}
-                      className="p-8 text-center text-slate-400 italic"
+                      className="p-8 text-center text-slate-400 dark:text-slate-500 italic"
                     >
                       No hay viáticos registrados por ruta.
                     </td>
@@ -255,16 +255,16 @@ export default function PanelAjustesNomina() {
                     .map(([ruta, monto]) => (
                       <tr
                         key={ruta}
-                        className="hover:bg-slate-50 transition-colors"
+                        className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
                       >
-                        <td className="p-3 font-bold text-slate-700">{ruta}</td>
-                        <td className="p-3 font-black text-emerald-600 text-right">
+                        <td className="p-3 font-bold text-slate-700 dark:text-slate-200">{ruta}</td>
+                        <td className="p-3 font-black text-emerald-600 dark:text-emerald-400 text-right">
                           ${monto}
                         </td>
                         <td className="p-3 text-center">
                           <button
                             onClick={() => handleEliminarRuta(ruta)}
-                            className="text-slate-400 hover:text-rose-600 p-1.5 rounded-md hover:bg-rose-50 transition-colors"
+                            className="text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                             title={`Eliminar ${ruta}`}
                           >
                             <Trash2 size={16} />

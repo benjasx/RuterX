@@ -415,9 +415,9 @@ export default function PanelHistorialCompleto() {
 
   if (isError) {
     return (
-      <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-full flex flex-col items-center justify-center">
+      <div className="w-full bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 h-full flex flex-col items-center justify-center">
         <AlertCircle className="text-rose-500 mb-3" size={40} />
-        <h3 className="text-lg font-semibold text-slate-700">
+        <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200">
           Error al cargar la auditoría
         </h3>
       </div>
@@ -425,51 +425,51 @@ export default function PanelHistorialCompleto() {
   }
 
   return (
-    <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full overflow-hidden">
+    <div className="w-full bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col h-full overflow-hidden">
       <div className="flex items-center gap-2 mb-2 shrink-0">
-        <ClipboardList className="text-blue-600" size={24} />
-        <h2 className="text-xl font-bold text-slate-800">
+        <ClipboardList className="text-blue-600 dark:text-blue-400" size={24} />
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
           Auditoría y Registro de Salidas
         </h2>
       </div>
-      <p className="text-sm text-slate-500 mb-6 shrink-0">
+      <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 shrink-0">
         Consulta el registro detallado, financiero y logístico de la operación.
         Haz clic en el ícono de editar para modificar cualquier dato.
       </p>
 
       {/* BARRA DE CONTROLES */}
-      <div className="flex flex-col xl:flex-row gap-4 mb-6 shrink-0 bg-slate-50 p-4 rounded-xl border border-slate-200">
-        <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm w-full xl:w-auto">
+      <div className="flex flex-col xl:flex-row gap-4 mb-6 shrink-0 bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div className="flex flex-col sm:flex-row items-center gap-3 bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm w-full xl:w-auto">
           <div className="flex items-center gap-2">
-            <Calendar className="text-blue-600" size={18} />
-            <span className="text-sm font-bold text-slate-700">Desde:</span>
+            <Calendar className="text-blue-600 dark:text-blue-400" size={18} />
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Desde:</span>
             <input
               type="date"
               value={fechaInicio}
               onChange={(e) => setFechaInicio(e.target.value)}
-              className="px-2 py-1 rounded-md text-sm border-none shadow-sm text-slate-700 bg-slate-50 w-full sm:w-auto focus:ring-2 outline-none"
+              className="px-2 py-1 rounded-md text-sm border-none shadow-sm text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-900 w-full sm:w-auto focus:ring-2 outline-none"
             />
           </div>
-          <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-slate-200 pt-2 sm:pt-0 sm:pl-3 w-full sm:w-auto">
-            <span className="text-sm font-bold text-slate-700">Hasta:</span>
+          <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-slate-200 dark:border-slate-700 pt-2 sm:pt-0 sm:pl-3 w-full sm:w-auto">
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Hasta:</span>
             <input
               type="date"
               value={fechaFin}
               onChange={(e) => setFechaFin(e.target.value)}
-              className="px-2 py-1 rounded-md text-sm border-none shadow-sm text-slate-700 bg-slate-50 w-full sm:w-auto focus:ring-2 outline-none"
+              className="px-2 py-1 rounded-md text-sm border-none shadow-sm text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-900 w-full sm:w-auto focus:ring-2 outline-none"
             />
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto flex-1">
-          <div className="flex items-center flex-1 bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm relative w-full">
-            <Search className="text-slate-400 ml-2 absolute" size={20} />
+          <div className="flex items-center flex-1 bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm relative w-full">
+            <Search className="text-slate-400 dark:text-slate-500 ml-2 absolute" size={20} />
             <input
               type="text"
               placeholder="Buscar chofer, ruta, unidad..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full pl-10 pr-4 py-1 text-sm text-slate-700 border-none outline-none bg-transparent font-medium"
+              className="w-full pl-10 pr-4 py-1 text-sm text-slate-700 dark:text-slate-200 border-none outline-none bg-transparent font-medium"
             />
           </div>
 
@@ -479,7 +479,7 @@ export default function PanelHistorialCompleto() {
           >
             <button
               onClick={() => setMostrarMenuColumnas(!mostrarMenuColumnas)}
-              className="flex items-center justify-center p-3 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors shadow-sm bg-white"
+              className="flex items-center justify-center p-3 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm bg-white dark:bg-slate-800"
               title="Configurar columnas"
             >
               <Settings2 size={20} />
@@ -487,7 +487,7 @@ export default function PanelHistorialCompleto() {
             <button
               onClick={handleDescargarExcelReal}
               disabled={viajesMostrados.length === 0}
-              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-colors shadow-sm flex-1 sm:flex-auto ${viajesMostrados.length === 0 ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}
+              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-colors shadow-sm flex-1 sm:flex-auto ${viajesMostrados.length === 0 ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}
               title="Exportar a Excel"
             >
               <FileSpreadsheet size={18} /> Excel
@@ -495,14 +495,14 @@ export default function PanelHistorialCompleto() {
             <button
               onClick={handleDescargarPDF}
               disabled={isGenerandoPDF || viajesMostrados.length === 0}
-              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-colors shadow-sm flex-1 sm:flex-auto ${isGenerandoPDF || viajesMostrados.length === 0 ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
+              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-colors shadow-sm flex-1 sm:flex-auto ${isGenerandoPDF || viajesMostrados.length === 0 ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white"}`}
             >
               <FileDown size={18} /> {isGenerandoPDF ? "..." : "PDF"}
             </button>
 
             {mostrarMenuColumnas && (
-              <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-slate-200 shadow-xl rounded-xl p-4 z-50 animate-in fade-in zoom-in-95">
-                <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">
+              <div className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl rounded-xl p-4 z-50 animate-in fade-in zoom-in-95">
+                <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase mb-3">
                   Columnas a Exportar
                 </h4>
                 <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
@@ -524,10 +524,10 @@ export default function PanelHistorialCompleto() {
                     <button
                       key={opcion.id}
                       onClick={() => toggleColumna(opcion.id)}
-                      className="flex items-center gap-2 w-full text-left text-sm text-slate-700 hover:bg-slate-50 p-1.5 rounded-md transition-colors"
+                      className="flex items-center gap-2 w-full text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-900 p-1.5 rounded-md transition-colors"
                     >
                       {columnasPDF[opcion.id] ? (
-                        <CheckSquare size={16} className="text-blue-600" />
+                        <CheckSquare size={16} className="text-blue-600 dark:text-blue-400" />
                       ) : (
                         <Square size={16} className="text-slate-300" />
                       )}
@@ -550,19 +550,19 @@ export default function PanelHistorialCompleto() {
       </div>
 
       {cargando ? (
-        <div className="flex flex-col h-full items-center justify-center p-12 text-slate-500 font-bold animate-pulse gap-2 flex-1">
+        <div className="flex flex-col h-full items-center justify-center p-12 text-slate-500 dark:text-slate-400 font-bold animate-pulse gap-2 flex-1">
           <ClipboardList size={24} /> Cargando auditoría...
         </div>
       ) : viajesMostrados.length === 0 ? (
-        <div className="p-12 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 flex flex-col items-center text-center flex-1">
-          <AlertCircle className="text-slate-400 mb-3" size={40} />
-          <h3 className="text-lg font-semibold text-slate-700">
+        <div className="p-12 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900 flex flex-col items-center text-center flex-1">
+          <AlertCircle className="text-slate-400 dark:text-slate-500 mb-3" size={40} />
+          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200">
             No hay coincidencias
           </h3>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm flex-1 custom-scrollbar flex flex-col">
-          <table className="w-full min-w-[1600px] text-left border-collapse text-sm bg-white">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex-1 custom-scrollbar flex flex-col">
+          <table className="w-full min-w-[1600px] text-left border-collapse text-sm bg-white dark:bg-slate-800">
             <thead className="sticky top-0 z-10 shadow-sm">
               <tr className="bg-slate-800 text-white tracking-wider text-xs uppercase">
                 <th className="px-3 py-3 font-bold text-center w-16 border-r border-slate-700">
@@ -611,63 +611,63 @@ export default function PanelHistorialCompleto() {
             </thead>
             <tbody className="divide-y divide-slate-200">
               {viajesPaginados.map((viaje, index) => (
-                <tr key={index} className="hover:bg-blue-50 transition-colors">
-                  <td className="px-3 py-3 text-center border-r border-slate-100">
+                <tr key={index} className="hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors">
+                  <td className="px-3 py-3 text-center border-r border-slate-100 dark:border-slate-700">
                     <button
                       onClick={() => abrirEdicion(viaje)}
-                      className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg transition-colors shadow-sm inline-flex items-center justify-center"
+                      className="p-1.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white rounded-lg transition-colors shadow-sm inline-flex items-center justify-center"
                       title="Editar registro"
                     >
                       <Edit2 size={15} />
                     </button>
                   </td>
-                  <td className="px-3 py-3 font-semibold text-slate-700 text-xs whitespace-nowrap border-r border-slate-100">
+                  <td className="px-3 py-3 font-semibold text-slate-700 dark:text-slate-200 text-xs whitespace-nowrap border-r border-slate-100 dark:border-slate-700">
                     {viaje.fecha}
                   </td>
-                  <td className="px-3 py-3 text-center border-r border-slate-100">
-                    <span className="inline-flex items-center justify-center bg-slate-200 text-slate-800 font-bold px-2 py-1 rounded-md text-xs">
+                  <td className="px-3 py-3 text-center border-r border-slate-100 dark:border-slate-700">
+                    <span className="inline-flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold px-2 py-1 rounded-md text-xs">
                       {viaje.unidad}
                     </span>
                   </td>
-                  <td className="px-3 py-3 font-bold text-slate-700 text-xs uppercase border-r border-slate-100">
+                  <td className="px-3 py-3 font-bold text-slate-700 dark:text-slate-200 text-xs uppercase border-r border-slate-100 dark:border-slate-700">
                     {viaje.ruta}
                   </td>
-                  <td className="px-3 py-3 font-medium text-slate-500 text-[11px] border-r border-slate-100">
+                  <td className="px-3 py-3 font-medium text-slate-500 dark:text-slate-400 text-[11px] border-r border-slate-100 dark:border-slate-700">
                     {viaje.embCred}
                   </td>
-                  <td className="px-3 py-3 font-medium text-slate-500 text-[11px] border-r border-slate-100">
+                  <td className="px-3 py-3 font-medium text-slate-500 dark:text-slate-400 text-[11px] border-r border-slate-100 dark:border-slate-700">
                     {viaje.embCtdo}
                   </td>
-                  <td className="px-3 py-3 font-bold text-slate-800 text-xs uppercase bg-slate-50 border-r border-slate-100">
+                  <td className="px-3 py-3 font-bold text-slate-800 dark:text-slate-100 text-xs uppercase bg-slate-50 dark:bg-slate-900 border-r border-slate-100 dark:border-slate-700">
                     {viaje.chofer}
                   </td>
-                  <td className="px-3 py-3 text-slate-600 text-[11px] uppercase bg-slate-50 border-r border-slate-100">
+                  <td className="px-3 py-3 text-slate-600 dark:text-slate-300 text-[11px] uppercase bg-slate-50 dark:bg-slate-900 border-r border-slate-100 dark:border-slate-700">
                     {viaje.ayudante1 !== "-" ? (
                       viaje.ayudante1
                     ) : (
                       <span className="text-slate-300 italic">-</span>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-slate-600 text-[11px] uppercase bg-slate-50 border-r border-slate-200">
+                  <td className="px-3 py-3 text-slate-600 dark:text-slate-300 text-[11px] uppercase bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700">
                     {viaje.ayudante2 !== "-" ? (
                       viaje.ayudante2
                     ) : (
                       <span className="text-slate-300 italic">-</span>
                     )}
                   </td>
-                  <td className="px-3 py-3 font-bold text-blue-700 text-xs text-right border-r border-slate-100">
+                  <td className="px-3 py-3 font-bold text-blue-700 dark:text-blue-300 text-xs text-right border-r border-slate-100 dark:border-slate-700">
                     {fNumero(viaje.kgTotal)}
                   </td>
-                  <td className="px-3 py-3 font-bold text-emerald-700 text-xs text-right border-r border-slate-100">
+                  <td className="px-3 py-3 font-bold text-emerald-700 dark:text-emerald-300 text-xs text-right border-r border-slate-100 dark:border-slate-700">
                     {fMoneda(viaje.totalMonto)}
                   </td>
-                  <td className="px-3 py-3 font-bold text-slate-700 text-xs text-right border-r border-slate-100">
+                  <td className="px-3 py-3 font-bold text-slate-700 dark:text-slate-200 text-xs text-right border-r border-slate-100 dark:border-slate-700">
                     {fMoneda(viaje.viaticoRuta)}
                   </td>
-                  <td className="px-3 py-3 font-bold text-emerald-600 text-xs text-right border-r border-slate-100">
+                  <td className="px-3 py-3 font-bold text-emerald-600 dark:text-emerald-400 text-xs text-right border-r border-slate-100 dark:border-slate-700">
                     {fMoneda(viaje.comisionChofer)}
                   </td>
-                  <td className="px-3 py-3 font-bold text-emerald-600 text-xs text-right">
+                  <td className="px-3 py-3 font-bold text-emerald-600 dark:text-emerald-400 text-xs text-right">
                     {fMoneda(
                       (viaje.ayudante1 !== "-" ? viaje.comisionAyudante : 0) +
                         (viaje.ayudante2 !== "-" ? viaje.comisionAyudante : 0),
@@ -707,9 +707,9 @@ export default function PanelHistorialCompleto() {
 
       {/* 🚀 CONTROLES DE PAGINACIÓN */}
       {!cargando && totalPaginas > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200 sm:px-6 rounded-b-xl shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 sm:px-6 rounded-b-xl shrink-0">
           <div className="flex items-center w-full justify-between">
-            <p className="text-sm text-slate-600 hidden sm:block">
+            <p className="text-sm text-slate-600 dark:text-slate-300 hidden sm:block">
               Mostrando del{" "}
               <span className="font-bold">
                 {(paginaActual - 1) * ITEMS_POR_PAGINA + 1}
@@ -728,11 +728,11 @@ export default function PanelHistorialCompleto() {
               <button
                 onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
                 disabled={paginaActual === 1}
-                className="inline-flex items-center px-3 py-2 border border-slate-300 rounded-md text-sm font-medium bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+                className="inline-flex items-center px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md text-sm font-medium bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
               >
                 <ChevronLeft size={16} className="mr-1" /> Anterior
               </button>
-              <span className="text-sm font-medium text-slate-600 px-2">
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-300 px-2">
                 Página {paginaActual} de {totalPaginas}
               </span>
               <button
@@ -740,7 +740,7 @@ export default function PanelHistorialCompleto() {
                   setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))
                 }
                 disabled={paginaActual === totalPaginas}
-                className="inline-flex items-center px-3 py-2 border border-slate-300 rounded-md text-sm font-medium bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+                className="inline-flex items-center px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md text-sm font-medium bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
               >
                 Siguiente <ChevronRight size={16} className="ml-1" />
               </button>
@@ -752,7 +752,7 @@ export default function PanelHistorialCompleto() {
       {/* MODAL FLOTANTE DE EDICIÓN */}
       {modalAbierto && viajeEditando && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-100 dark:border-slate-700 animate-in fade-in zoom-in-95">
             <div className="bg-slate-800 text-white px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Edit2 size={20} className="text-blue-400" />
@@ -763,7 +763,7 @@ export default function PanelHistorialCompleto() {
               </div>
               <button
                 onClick={() => setModalAbierto(false)}
-                className="text-slate-400 hover:text-white transition-colors"
+                className="text-slate-400 dark:text-slate-500 hover:text-white transition-colors"
               >
                 <X size={22} />
               </button>
@@ -771,7 +771,7 @@ export default function PanelHistorialCompleto() {
 
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
                   Ruta Asignada
                 </label>
                 <select
@@ -779,7 +779,7 @@ export default function PanelHistorialCompleto() {
                   onChange={(e) =>
                     setViajeEditando({ ...viajeEditando, ruta: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800"
                 >
                   <option value="">-- SELECCIONAR RUTA --</option>
                   {listasPersonal.rutas.map((r, i) => (
@@ -797,7 +797,7 @@ export default function PanelHistorialCompleto() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
                   Chofer
                 </label>
                 <select
@@ -808,7 +808,7 @@ export default function PanelHistorialCompleto() {
                       chofer: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800"
                 >
                   <option value="">-- SELECCIONAR CHOFER --</option>
                   {listasPersonal.choferes.map((c, i) => (
@@ -826,7 +826,7 @@ export default function PanelHistorialCompleto() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
                   Ayudante 1
                 </label>
                 <select
@@ -841,7 +841,7 @@ export default function PanelHistorialCompleto() {
                       ayudante1: e.target.value || "-",
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800"
                 >
                   <option value="">-- SIN AYUDANTE --</option>
                   {listasPersonal.ayudantes.map((a, i) => (
@@ -861,7 +861,7 @@ export default function PanelHistorialCompleto() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
                   Ayudante 2
                 </label>
                 <select
@@ -876,7 +876,7 @@ export default function PanelHistorialCompleto() {
                       ayudante2: e.target.value || "-",
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800"
                 >
                   <option value="">-- SIN AYUDANTE --</option>
                   {listasPersonal.ayudantes.map((a, i) => (
@@ -896,7 +896,7 @@ export default function PanelHistorialCompleto() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
                   Folio Crédito
                 </label>
                 <input
@@ -908,12 +908,12 @@ export default function PanelHistorialCompleto() {
                       embCred: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
                   Folio Contado
                 </label>
                 <input
@@ -925,12 +925,12 @@ export default function PanelHistorialCompleto() {
                       embCtdo: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
                   Monto Total Venta ($)
                 </label>
                 <input
@@ -943,12 +943,12 @@ export default function PanelHistorialCompleto() {
                       totalMonto: parseFloat(e.target.value) || 0,
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-emerald-700 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold text-emerald-700 dark:text-emerald-300 outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
                   Peso Total (KG)
                 </label>
                 <input
@@ -961,15 +961,15 @@ export default function PanelHistorialCompleto() {
                       kgTotal: parseFloat(e.target.value) || 0,
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-blue-700 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold text-blue-700 dark:text-blue-300 outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
-            <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
+            <div className="bg-slate-50 dark:bg-slate-900 px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-3">
               <button
                 onClick={() => setModalAbierto(false)}
-                className="px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg text-sm hover:bg-slate-100 transition-colors"
+                className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-lg text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
               >
                 Cancelar
               </button>

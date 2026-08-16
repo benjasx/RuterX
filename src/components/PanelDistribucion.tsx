@@ -428,7 +428,7 @@ export default function PanelDistribucion() {
   if (cargandoChoferes) {
     return (
       <div className="flex w-full h-125 items-center justify-center">
-        <Loader2 className="animate-spin text-blue-600" size={40} />
+        <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={40} />
       </div>
     );
   }
@@ -440,31 +440,31 @@ export default function PanelDistribucion() {
     }).format(num);
 
   return (
-    <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 min-h-[calc(100vh-120px)] uppercase flex flex-col relative">
+    <div className="w-full bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 min-h-[calc(100vh-120px)] uppercase flex flex-col relative">
       {/* MODAL PARA CAPTURA DE WHATSAPP */}
       {mostrarCaptura && (
         <div className="fixed inset-0 z-99 bg-slate-900/90 flex items-start justify-center p-4 overflow-y-auto backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-[95vw] xl:max-w-375 w-full flex flex-col relative mb-10 mt-4">
-            <div className="bg-slate-100 p-4 border-b border-slate-300 flex justify-between items-center rounded-t-2xl">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-[95vw] xl:max-w-375 w-full flex flex-col relative mb-10 mt-4">
+            <div className="bg-slate-100 dark:bg-slate-700 p-4 border-b border-slate-300 dark:border-slate-600 flex justify-between items-center rounded-t-2xl">
               <div>
-                <h3 className="font-black text-slate-800 flex items-center gap-2">
-                  <Camera className="text-purple-600" size={20} /> Vista para
+                <h3 className="font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                  <Camera className="text-purple-600 dark:text-purple-400" size={20} /> Vista para
                   WhatsApp
                 </h3>
-                <p className="text-xs text-slate-500 font-medium normal-case mt-1">
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium normal-case mt-1">
                   Haz una captura de pantalla a la tabla de abajo y compártela.
                 </p>
               </div>
               <button
                 onClick={() => setMostrarCaptura(false)}
-                className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
+                className="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
               >
                 <X size={16} /> Cerrar
               </button>
             </div>
 
             {/* ÁREA LIMPIA PARA TOMAR LA CAPTURA */}
-            <div className="p-8 bg-white overflow-x-auto rounded-b-2xl">
+            <div className="p-8 bg-white dark:bg-slate-800 overflow-x-auto rounded-b-2xl">
               <div className="min-w-max w-full">
                 <div className="relative flex items-center justify-center mb-6">
                   <div className="absolute left-0">
@@ -475,10 +475,10 @@ export default function PanelDistribucion() {
                     />
                   </div>
                   <div className="text-center">
-                    <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">
+                    <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
                       ASIGNACIÓN DE RUTAS
                     </h2>
-                    <p className="text-sm font-bold text-slate-500 uppercase mt-1">
+                    <p className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mt-1">
                       FECHA PROGRAMADA DE SALIDA:{" "}
                       {formatearFechaLarga(fechaSeleccionada)}
                     </p>
@@ -507,7 +507,7 @@ export default function PanelDistribucion() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="text-[12px] font-bold text-slate-700">
+                  <tbody className="text-[12px] font-bold text-slate-700 dark:text-slate-200">
                     {[...filasResumen]
                       .sort(
                         (a, b) =>
@@ -517,27 +517,27 @@ export default function PanelDistribucion() {
                       .map((f, i) => (
                         <tr
                           key={i}
-                          className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}
+                          className={i % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-900"}
                         >
-                          <td className="p-3 border border-slate-300 text-center font-black text-blue-700 text-sm">
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center font-black text-blue-700 dark:text-blue-300 text-sm">
                             {f.unidad || "-"}
                           </td>
-                          <td className="p-3 border border-slate-300 whitespace-nowrap">
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 whitespace-nowrap">
                             {f.ruta || "-"}
                           </td>
-                          <td className="p-3 border border-slate-300 uppercase text-slate-800 whitespace-nowrap">
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 uppercase text-slate-800 dark:text-slate-100 whitespace-nowrap">
                             {f.chofer || "-"}
                           </td>
-                          <td className="p-3 border border-slate-300 uppercase whitespace-nowrap">
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 uppercase whitespace-nowrap">
                             {f.auxiliar1 || "-"}
                           </td>
-                          <td className="p-3 border border-slate-300 uppercase whitespace-nowrap">
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 uppercase whitespace-nowrap">
                             {f.auxiliar2 || "-"}
                           </td>
-                          <td className="p-3 border border-slate-300 text-center font-mono font-bold tracking-wider min-w-30 whitespace-nowrap">
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center font-mono font-bold tracking-wider min-w-30 whitespace-nowrap">
                             {f.embarqueCredito || "-"}
                           </td>
-                          <td className="p-3 border border-slate-300 text-center font-mono font-bold tracking-wider min-w-30 whitespace-nowrap">
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center font-mono font-bold tracking-wider min-w-30 whitespace-nowrap">
                             {f.embarqueContado || "-"}
                           </td>
                         </tr>
@@ -550,36 +550,36 @@ export default function PanelDistribucion() {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-4 border-b border-slate-100">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-4 border-b border-slate-100 dark:border-slate-700">
         <div>
-          <h1 className="text-2xl font-black text-slate-800 flex items-center gap-3">
-            <FileSpreadsheet className="text-blue-600" size={28} />
+          <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-3">
+            <FileSpreadsheet className="text-blue-600 dark:text-blue-400" size={28} />
             Tabla de Distribución Diaria
           </h1>
-          <p className="text-slate-500 font-medium mt-1 normal-case">
+          <p className="text-slate-500 dark:text-slate-400 font-medium mt-1 normal-case">
             Llenado manual logístico y extracción financiera automática del BMS.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-          <Calendar size={20} className="text-slate-500" />
-          <span className="text-xs font-bold text-slate-600 uppercase">
+        <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+          <Calendar size={20} className="text-slate-500 dark:text-slate-400" />
+          <span className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase">
             Fecha de Salida:
           </span>
           <input
             type="date"
             value={fechaSeleccionada}
             onChange={(e) => setFechaSeleccionada(e.target.value)}
-            className="border border-slate-300 rounded-lg px-3 py-1.5 bg-white font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            className="border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
           />
         </div>
       </div>
 
-      <div className="flex flex-col xl:flex-row justify-between items-center gap-4 mb-4 bg-slate-50 p-2 rounded-xl border border-slate-100">
+      <div className="flex flex-col xl:flex-row justify-between items-center gap-4 mb-4 bg-slate-50 dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-700">
         <div className="flex flex-wrap gap-2">
           <button
             onClick={agregarFila}
-            className="flex items-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold px-4 py-2.5 rounded-xl transition-colors text-xs border border-blue-200"
+            className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200 text-blue-800 dark:text-blue-300 font-bold px-4 py-2.5 rounded-xl transition-colors text-xs border border-blue-200 dark:border-blue-800"
           >
             <Plus size={16} /> Añadir Ruta
           </button>
@@ -601,7 +601,7 @@ export default function PanelDistribucion() {
           {tienePermisosEspeciales && (
             <button
               onClick={() => setMostrarResumen(!mostrarResumen)}
-              className={`flex items-center gap-2 font-bold px-4 py-2.5 rounded-xl transition-colors text-xs shadow-md ${mostrarResumen ? "bg-slate-200 text-slate-700" : "bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20"}`}
+              className={`flex items-center gap-2 font-bold px-4 py-2.5 rounded-xl transition-colors text-xs shadow-md ${mostrarResumen ? "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200" : "bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20"}`}
             >
               <Table size={16} />{" "}
               {mostrarResumen ? "Ocultar Resumen" : "Generar Resumen"}
@@ -646,7 +646,7 @@ export default function PanelDistribucion() {
         </div>
       </div>
 
-      <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-sm mb-6 pb-4 flex-1">
+      <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm mb-6 pb-4 flex-1">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-800 text-white text-xs uppercase tracking-wider">
@@ -668,15 +668,15 @@ export default function PanelDistribucion() {
             {filas.map((fila, index) => (
               <tr
                 key={fila.id || index}
-                className={`transition-colors ${fila.vinculadoBMS ? "bg-emerald-50/50" : "hover:bg-slate-50"}`}
+                className={`transition-colors ${fila.vinculadoBMS ? "bg-emerald-50/50" : "hover:bg-slate-50 dark:hover:bg-slate-900"}`}
               >
-                <td className="p-2 border-r border-slate-200">
+                <td className="p-2 border-r border-slate-200 dark:border-slate-700">
                   <select
                     value={fila.ruta}
                     onChange={(e) =>
                       actualizarCelda(index, "ruta", e.target.value)
                     }
-                    className="w-full p-2 bg-transparent border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-semibold cursor-pointer uppercase text-xs"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-semibold cursor-pointer uppercase text-xs"
                   >
                     <option value="">-- RUTA --</option>
                     {LISTA_RUTAS.map((rutaNombre, i) => (
@@ -686,13 +686,13 @@ export default function PanelDistribucion() {
                     ))}
                   </select>
                 </td>
-                <td className="p-2 border-r border-slate-200">
+                <td className="p-2 border-r border-slate-200 dark:border-slate-700">
                   <select
                     value={fila.unidad}
                     onChange={(e) =>
                       actualizarCelda(index, "unidad", e.target.value)
                     }
-                    className="w-full p-2 bg-transparent border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-600 cursor-pointer text-xs"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-600 dark:text-blue-400 cursor-pointer text-xs"
                   >
                     <option value="">-- UNID --</option>
                     {LISTA_UNIDADES.map((u) => {
@@ -706,13 +706,13 @@ export default function PanelDistribucion() {
                     })}
                   </select>
                 </td>
-                <td className="p-2 border-r border-slate-200">
+                <td className="p-2 border-r border-slate-200 dark:border-slate-700">
                   <select
                     value={fila.chofer}
                     onChange={(e) =>
                       actualizarCelda(index, "chofer", e.target.value)
                     }
-                    className="w-full p-2 bg-transparent border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs uppercase"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs uppercase"
                   >
                     <option value="">-- CHOFER --</option>
                     {listaChoferes.map((nombreChofer: string, i: number) => {
@@ -732,13 +732,13 @@ export default function PanelDistribucion() {
                     })}
                   </select>
                 </td>
-                <td className="p-2 border-r border-slate-200">
+                <td className="p-2 border-r border-slate-200 dark:border-slate-700">
                   <select
                     value={fila.auxiliar1}
                     onChange={(e) =>
                       actualizarCelda(index, "auxiliar1", e.target.value)
                     }
-                    className="w-full p-2 bg-transparent border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-[11px] uppercase"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-[11px] uppercase"
                   >
                     <option value=""></option>
                     {listaAuxiliares.map((nombreAux: string, i: number) => {
@@ -758,13 +758,13 @@ export default function PanelDistribucion() {
                     })}
                   </select>
                 </td>
-                <td className="p-2 border-r border-slate-200">
+                <td className="p-2 border-r border-slate-200 dark:border-slate-700">
                   <select
                     value={fila.auxiliar2}
                     onChange={(e) =>
                       actualizarCelda(index, "auxiliar2", e.target.value)
                     }
-                    className="w-full p-2 bg-transparent border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-[11px] uppercase"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-[11px] uppercase"
                   >
                     <option value=""></option>
                     {listaAuxiliares.map((nombreAux: string, i: number) => {
@@ -785,7 +785,7 @@ export default function PanelDistribucion() {
                   </select>
                 </td>
 
-                <td className="p-2 border-r border-slate-200 relative pb-4">
+                <td className="p-2 border-r border-slate-200 dark:border-slate-700 relative pb-4">
                   <input
                     type="text"
                     value={fila.embarqueCredito}
@@ -793,28 +793,28 @@ export default function PanelDistribucion() {
                       actualizarCelda(index, "embarqueCredito", e.target.value)
                     }
                     placeholder="FOLIO"
-                    className="w-full p-2 bg-transparent border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center uppercase text-xs"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center uppercase text-xs"
                   />
                   {(fila.totalMontoCredito > 0 || fila.totalkgCredito > 0) && (
                     <div
                       className="absolute -bottom-2 right-1 flex items-center gap-1"
                       title={`Cajas: ${fila.cajasCredito}`}
                     >
-                      <span className="text-[9px] font-bold text-blue-700 bg-blue-100 px-1 rounded shadow-sm border border-blue-200">
+                      <span className="text-[9px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 px-1 rounded shadow-sm border border-blue-200 dark:border-blue-800">
                         {new Intl.NumberFormat("es-MX", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         }).format(fila.totalkgCredito)}{" "}
                         KG
                       </span>
-                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1 rounded shadow-sm border border-emerald-200">
+                      <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 px-1 rounded shadow-sm border border-emerald-200 dark:border-emerald-800">
                         {formatoMoneda(fila.totalMontoCredito)}
                       </span>
                     </div>
                   )}
                 </td>
 
-                <td className="p-2 border-r border-slate-200 relative pb-4">
+                <td className="p-2 border-r border-slate-200 dark:border-slate-700 relative pb-4">
                   <input
                     type="text"
                     value={fila.embarqueContado}
@@ -822,21 +822,21 @@ export default function PanelDistribucion() {
                       actualizarCelda(index, "embarqueContado", e.target.value)
                     }
                     placeholder="FOLIO"
-                    className="w-full p-2 bg-transparent border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center uppercase text-xs"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center uppercase text-xs"
                   />
                   {(fila.totalMontoContado > 0 || fila.totalkgContado > 0) && (
                     <div
                       className="absolute -bottom-2 right-1 flex items-center gap-1"
                       title={`Cajas: ${fila.cajasContado}`}
                     >
-                      <span className="text-[9px] font-bold text-blue-700 bg-blue-100 px-1 rounded shadow-sm border border-blue-200">
+                      <span className="text-[9px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 px-1 rounded shadow-sm border border-blue-200 dark:border-blue-800">
                         {new Intl.NumberFormat("es-MX", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         }).format(fila.totalkgContado)}{" "}
                         KG
                       </span>
-                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1 rounded shadow-sm border border-emerald-200">
+                      <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 px-1 rounded shadow-sm border border-emerald-200 dark:border-emerald-800">
                         {formatoMoneda(fila.totalMontoContado)}
                       </span>
                     </div>
@@ -853,7 +853,7 @@ export default function PanelDistribucion() {
                   {tienePermisosEspeciales && (
                     <button
                       onClick={() => eliminarFila(index)}
-                      className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50"
+                      className="text-red-500 hover:text-red-700 dark:hover:text-red-300 p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/40"
                       title="Eliminar"
                     >
                       <Trash2 size={16} />
@@ -868,7 +868,7 @@ export default function PanelDistribucion() {
 
       {/* 🚀 EL RESUMEN EJECUTIVO AHORA TAMBIÉN ES VISIBLE PARA EMBARQUES */}
       {tienePermisosEspeciales && mostrarResumen && (
-        <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-xl bg-white animate-in fade-in slide-in-from-top-4 mt-2">
+        <div className="border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-xl bg-white dark:bg-slate-800 animate-in fade-in slide-in-from-top-4 mt-2">
           <div className="bg-slate-900 text-white font-bold p-4 text-sm flex justify-between items-center px-6">
             <span className="tracking-wide">
               SALIDA: {formatearFechaLarga(fechaSeleccionada).toUpperCase()}
@@ -885,23 +885,23 @@ export default function PanelDistribucion() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-100 text-slate-700 border-b border-slate-200 font-bold uppercase tracking-wider">
-                  <th className="p-3.5 border-r border-slate-200">Ruta</th>
-                  <th className="p-3.5 border-r border-slate-200">Unidad</th>
-                  <th className="p-3.5 border-r border-slate-200">Chofer</th>
-                  <th className="p-3.5 border-r border-slate-200 text-center">
+                <tr className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700 font-bold uppercase tracking-wider">
+                  <th className="p-3.5 border-r border-slate-200 dark:border-slate-700">Ruta</th>
+                  <th className="p-3.5 border-r border-slate-200 dark:border-slate-700">Unidad</th>
+                  <th className="p-3.5 border-r border-slate-200 dark:border-slate-700">Chofer</th>
+                  <th className="p-3.5 border-r border-slate-200 dark:border-slate-700 text-center">
                     EmbCred
                   </th>
-                  <th className="p-3.5 border-r border-slate-200 text-center">
+                  <th className="p-3.5 border-r border-slate-200 dark:border-slate-700 text-center">
                     EmbCtdo
                   </th>
-                  <th className="p-3.5 border-r border-slate-200 text-right">
+                  <th className="p-3.5 border-r border-slate-200 dark:border-slate-700 text-right">
                     Total
                   </th>
                   <th className="p-3.5 text-right">KG Total</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {filasResumen.map((f, i) => {
                   const tMonto =
                     (f.totalMontoCredito || 0) + (f.totalMontoContado || 0);
@@ -911,25 +911,25 @@ export default function PanelDistribucion() {
                       key={i}
                       className="hover:bg-slate-50/80 transition-colors"
                     >
-                      <td className="p-3 border-r border-slate-100 font-semibold text-slate-800">
+                      <td className="p-3 border-r border-slate-100 dark:border-slate-700 font-semibold text-slate-800 dark:text-slate-100">
                         {f.ruta || "-"}
                       </td>
-                      <td className="p-3 border-r border-slate-100 text-slate-600 font-medium">
+                      <td className="p-3 border-r border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium">
                         {f.unidad || "-"}
                       </td>
-                      <td className="p-3 border-r border-slate-100 text-slate-700 uppercase font-medium">
+                      <td className="p-3 border-r border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-200 uppercase font-medium">
                         {f.chofer || "-"}
                       </td>
-                      <td className="p-3 border-r border-slate-100 text-center text-slate-600 font-mono">
+                      <td className="p-3 border-r border-slate-100 dark:border-slate-700 text-center text-slate-600 dark:text-slate-300 font-mono">
                         {f.embarqueCredito || "0"}
                       </td>
-                      <td className="p-3 border-r border-slate-100 text-center text-slate-600 font-mono">
+                      <td className="p-3 border-r border-slate-100 dark:border-slate-700 text-center text-slate-600 dark:text-slate-300 font-mono">
                         {f.embarqueContado || "0"}
                       </td>
-                      <td className="p-3 border-r border-slate-100 text-right font-bold text-emerald-700">
+                      <td className="p-3 border-r border-slate-100 dark:border-slate-700 text-right font-bold text-emerald-700 dark:text-emerald-300">
                         {formatoMoneda(tMonto)}
                       </td>
-                      <td className="p-3 text-right font-bold text-blue-700">
+                      <td className="p-3 text-right font-bold text-blue-700 dark:text-blue-300">
                         {new Intl.NumberFormat("es-MX", {
                           minimumFractionDigits: 2,
                         }).format(tKg)}

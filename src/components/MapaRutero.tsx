@@ -490,8 +490,8 @@ export default function MapaRutero({
 
   if ((esAdmin && cargandoClientes) || (!esAdmin && cargandoViajeChofer)) {
     return (
-      <div className="flex w-full h-[calc(100vh-80px)] items-center justify-center bg-slate-50">
-        <p className="text-slate-500 font-bold text-lg animate-pulse flex items-center gap-2">
+      <div className="flex w-full h-[calc(100vh-80px)] items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <p className="text-slate-500 dark:text-slate-400 font-bold text-lg animate-pulse flex items-center gap-2">
           <Loader2 className="animate-spin" /> Cargando ruta...
         </p>
       </div>
@@ -499,7 +499,7 @@ export default function MapaRutero({
   }
 
   return (
-    <div className="flex w-full h-[calc(100vh-80px)] p-2 sm:p-5 gap-2 sm:gap-5 bg-slate-50 relative">
+    <div className="flex w-full h-[calc(100vh-80px)] p-2 sm:p-5 gap-2 sm:gap-5 bg-slate-50 dark:bg-slate-950 relative">
       {!esAdmin && mostrarModalFinalizar && (
         <ModalFinalizarViaje
           onClose={() => setMostrarModalFinalizar(false)}
@@ -561,18 +561,18 @@ export default function MapaRutero({
         />
       )}
 
-      <div className="flex-1 rounded-xl overflow-hidden shadow-sm border border-slate-200 relative">
+      <div className="flex-1 rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-700 relative">
         {!esAdmin &&
           viajeActivoChofer &&
           viajeActivoChofer.estado !== "finalizado" &&
           !viajeActivoChofer.hora_inicio &&
           !esRutaFutura && (
             <div className="absolute inset-0 z-3000 bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
-              <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full border border-slate-100">
-                <h2 className="text-2xl font-black text-slate-800 mb-2">
+              <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full border border-slate-100 dark:border-slate-700">
+                <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">
                   ¡Ruta Asignada!
                 </h2>
-                <p className="text-slate-500 mb-8 font-medium">
+                <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium">
                   Estás a punto de iniciar el recorrido:
                   <br />
                   <b className="text-blue-600 text-lg uppercase">
@@ -654,14 +654,14 @@ export default function MapaRutero({
             )
           ) : (
             <div className="absolute inset-0 z-3000 bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
-              <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full border border-slate-100">
-                <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-4">
+              <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full border border-slate-100 dark:border-slate-700">
+                <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-full flex items-center justify-center mb-4">
                   <AlertCircle size={32} />
                 </div>
-                <h2 className="text-2xl font-black text-slate-800 mb-2">
+                <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">
                   Sin ruta asignada
                 </h2>
-                <p className="text-slate-500 font-medium text-lg">
+                <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">
                   {fechaConsultaChofer === hoyStr
                     ? "Por favor repórtate en bodega."
                     : "No tienes más rutas programadas en los próximos días."}
@@ -706,8 +706,10 @@ export default function MapaRutero({
             >
               <Popup>
                 <div className="text-sm min-w-50">
-                  <p className="font-bold text-slate-800">{cliente.nombre}</p>
-                  <p className="text-slate-600 text-xs mb-2">
+                  <p className="font-bold text-slate-800 dark:text-slate-100">
+                    {cliente.nombre}
+                  </p>
+                  <p className="text-slate-600 dark:text-slate-300 text-xs mb-2">
                     {cliente.descripcion}
                   </p>
                   {esAdmin && rutaOptima ? (

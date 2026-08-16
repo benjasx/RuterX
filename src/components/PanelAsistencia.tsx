@@ -150,7 +150,7 @@ export default function PanelAsistencia() {
   if (cargandoPersonal || cargandoAsistencia) {
     return (
       <div className="flex w-full min-h-screen items-center justify-center">
-        <Loader2 className="animate-spin text-blue-600" size={40} />
+        <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={40} />
       </div>
     );
   }
@@ -158,15 +158,15 @@ export default function PanelAsistencia() {
   const obtenerEstiloEstado = (estado: string) => {
     switch (estado) {
       case "A":
-        return "bg-green-100 text-green-800 border-green-300 font-bold";
+        return "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border-green-300 dark:border-green-800 font-bold";
       case "RET":
-        return "bg-amber-100 text-amber-900 border-amber-300 font-bold";
+        return "bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-bold";
       case "V":
-        return "bg-teal-100 text-teal-800 border-teal-300 font-bold";
+        return "bg-teal-100 dark:bg-teal-900/40 text-teal-800 dark:text-teal-300 border-teal-300 dark:border-teal-800 font-bold";
       case "I":
-        return "bg-yellow-100 text-yellow-800 border-yellow-300 font-bold";
+        return "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300 border-yellow-300 dark:border-yellow-800 font-bold";
       case "PCG":
-        return "bg-red-100 text-red-800 border-red-300 font-bold";
+        return "bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 border-red-300 dark:border-red-800 font-bold";
       case "CAP":
         return "bg-sky-900 text-white border-sky-950 font-bold";
       case "PSG":
@@ -180,42 +180,42 @@ export default function PanelAsistencia() {
       case "S":
         return "bg-red-700 text-white border-red-800 font-bold";
       default:
-        return "bg-slate-50 text-slate-800 border-slate-200";
+        return "bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-700";
     }
   };
 
   return (
-    <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-slate-100 min-h-screen uppercase">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
+    <div className="w-full bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 min-h-screen uppercase">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-700">
         <div>
-          <h1 className="text-2xl font-black text-slate-800 flex items-center gap-3">
-            <UserCheck className="text-blue-600" size={28} />
+          <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-3">
+            <UserCheck className="text-blue-600 dark:text-blue-400" size={28} />
             Control de Asistencia
           </h1>
-          <p className="text-slate-500 font-medium mt-1 normal-case">
+          <p className="text-slate-500 dark:text-slate-400 font-medium mt-1 normal-case">
             Registro diario de asistencia, retardos y permisos para choferes y
             auxiliares
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-          <Calendar size={20} className="text-slate-500" />
-          <span className="text-xs font-bold text-slate-600 uppercase">
+        <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+          <Calendar size={20} className="text-slate-500 dark:text-slate-400" />
+          <span className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase">
             Fecha de Registro:
           </span>
           <input
             type="date"
             value={fechaSeleccionada}
             onChange={(e) => setFechaSeleccionada(e.target.value)}
-            className="border border-slate-300 rounded-lg px-3 py-1.5 bg-white font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            className="border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
           />
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
         <div className="relative w-full sm:w-80">
           <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
             size={18}
           />
           <input
@@ -223,19 +223,19 @@ export default function PanelAsistencia() {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre..."
-            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs font-semibold uppercase"
+            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs font-semibold uppercase"
           />
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter size={18} className="text-slate-500" />
-          <span className="text-xs font-bold text-slate-600 uppercase">
+          <Filter size={18} className="text-slate-500 dark:text-slate-400" />
+          <span className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase">
             Filtrar por:
           </span>
           <select
             value={filtroPuesto}
             onChange={(e) => setFiltroPuesto(e.target.value)}
-            className="bg-white border border-slate-300 rounded-lg px-3 py-2 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
+            className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
           >
             <option value="TODOS">TODOS</option>
             <option value="CHOFER">SOLO CHOFERES</option>
@@ -244,7 +244,7 @@ export default function PanelAsistencia() {
         </div>
       </div>
 
-      <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-sm mb-6">
+      <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm mb-6">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-800 text-white text-xs uppercase tracking-wider">
@@ -260,14 +260,14 @@ export default function PanelAsistencia() {
           </thead>
           <tbody className="divide-y divide-slate-200 text-sm">
             {registrosFiltrados.map((reg) => (
-              <tr key={reg.id} className="hover:bg-slate-50 transition-colors">
-                <td className="p-3 border-r border-slate-200 font-bold text-slate-800 text-xs">
+              <tr key={reg.id} className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                <td className="p-3 border-r border-slate-200 dark:border-slate-700 font-bold text-slate-800 dark:text-slate-100 text-xs">
                   {reg.nombre}
                 </td>
-                <td className="p-3 border-r border-slate-200 text-center text-xs font-semibold text-slate-600">
+                <td className="p-3 border-r border-slate-200 dark:border-slate-700 text-center text-xs font-semibold text-slate-600 dark:text-slate-300">
                   {reg.puesto}
                 </td>
-                <td className="p-3 border-r border-slate-200 text-center">
+                <td className="p-3 border-r border-slate-200 dark:border-slate-700 text-center">
                   <select
                     value={reg.estado}
                     onChange={(e) =>
@@ -300,7 +300,7 @@ export default function PanelAsistencia() {
                       )
                     }
                     placeholder="MOTIVO O COMENTARIO..."
-                    className="w-full p-2 bg-transparent border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 uppercase text-xs"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 uppercase text-xs"
                   />
                 </td>
               </tr>
@@ -310,7 +310,7 @@ export default function PanelAsistencia() {
               <tr>
                 <td
                   colSpan={4}
-                  className="p-8 text-center text-slate-400 font-semibold text-xs"
+                  className="p-8 text-center text-slate-400 dark:text-slate-500 font-semibold text-xs"
                 >
                   NO SE ENCONTRARON REGISTROS QUE COINCIDAN CON LA BÚSQUEDA.
                 </td>

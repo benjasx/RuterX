@@ -10,6 +10,7 @@ import {
   UserCheck,
   Truck,
   CalendarCheck,
+  DatabaseBackup,
 } from "lucide-react";
 import { esAdmin, esJefeReparto } from "../utils/roles";
 
@@ -24,7 +25,8 @@ export type SubVistaAdmin =
   | "historial"
   | "historialCompleto"
   | "ajustesNomina"
-  | "choferes";
+  | "choferes"
+  | "respaldo";
 
 interface SidebarAdminProps {
   menuActivo: SubVistaAdmin;
@@ -56,12 +58,13 @@ export default function SidebarAdmin({
     ajustesNomina: esAdmin(usuarioEmail),
     // 🚀 AHORA EL JEFE DE REPARTO TAMBIÉN PUEDE VER "AÑADIR CHOFERES"
     choferes: esAdmin(usuarioEmail) || esJefeReparto(usuarioEmail),
+    respaldo: esAdmin(usuarioEmail),
   };
 
   return (
-    <aside className="w-full xl:w-62.5 shrink-0 bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between p-4">
+    <aside className="w-full xl:w-62.5 shrink-0 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col justify-between p-4">
       <div>
-        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-3">
+        <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4 px-3">
           Opciones
         </h3>
         <ul className="space-y-2 mb-2">
@@ -71,8 +74,8 @@ export default function SidebarAdmin({
                 onClick={() => setMenuActivo("dashboard")}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   menuActivo === "dashboard"
-                    ? "bg-blue-50 text-blue-700 font-semibold"
-                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                    ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 font-medium"
                 }`}
               >
                 <LayoutDashboard size={20} /> Dashboard
@@ -86,8 +89,8 @@ export default function SidebarAdmin({
                 onClick={() => setMenuActivo("monitorRutas")}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   menuActivo === "monitorRutas"
-                    ? "bg-blue-50 text-blue-700 font-semibold"
-                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                    ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 font-medium"
                 }`}
               >
                 <Truck size={20} /> Monitor de Rutas
@@ -101,8 +104,8 @@ export default function SidebarAdmin({
                 onClick={() => setMenuActivo("distribucion")}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   menuActivo === "distribucion"
-                    ? "bg-blue-50 text-blue-700 font-semibold"
-                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                    ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 font-medium"
                 }`}
               >
                 <ClipboardList size={20} /> Distribución Diaria
@@ -116,8 +119,8 @@ export default function SidebarAdmin({
                 onClick={() => setMenuActivo("asistencias")}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   menuActivo === "asistencias"
-                    ? "bg-blue-50 text-blue-700 font-semibold"
-                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                    ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 font-medium"
                 }`}
               >
                 <CalendarCheck size={20} /> Asistencia/reparto
@@ -131,8 +134,8 @@ export default function SidebarAdmin({
                 onClick={() => setMenuActivo("clientes")}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   menuActivo === "clientes"
-                    ? "bg-blue-50 text-blue-700 font-semibold"
-                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                    ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 font-medium"
                 }`}
               >
                 <Users size={20} /> Añadir Clientes
@@ -146,8 +149,8 @@ export default function SidebarAdmin({
                 onClick={() => setMenuActivo("rutas")}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   menuActivo === "rutas"
-                    ? "bg-blue-50 text-blue-700 font-semibold"
-                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                    ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 font-medium"
                 }`}
               >
                 <Map size={20} /> Añadir Rutas
@@ -161,8 +164,8 @@ export default function SidebarAdmin({
                 onClick={() => setMenuActivo("vendedores")}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   menuActivo === "vendedores"
-                    ? "bg-blue-50 text-blue-700 font-semibold"
-                    : "text-slate-600 hover:bg-slate-50 font-medium"
+                    ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 font-medium"
                 }`}
               >
                 <Briefcase size={20} /> Añadir Vendedores
@@ -176,8 +179,8 @@ export default function SidebarAdmin({
             onClick={() => setMenuActivo("historial")}
             className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mb-1 mt-4 ${
               menuActivo === "historial"
-                ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
-                : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+                ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-sm border border-blue-100 dark:border-blue-900"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-blue-600 dark:hover:text-blue-400"
             }`}
           >
             <History size={20} />
@@ -190,8 +193,8 @@ export default function SidebarAdmin({
             onClick={() => setMenuActivo("historialCompleto")}
             className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mb-1 ${
               menuActivo === "historialCompleto"
-                ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
-                : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+                ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-sm border border-blue-100 dark:border-blue-900"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-blue-600 dark:hover:text-blue-400"
             }`}
           >
             <ClipboardList size={20} />
@@ -204,8 +207,8 @@ export default function SidebarAdmin({
             onClick={() => setMenuActivo("ajustesNomina")}
             className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mb-1 ${
               menuActivo === "ajustesNomina"
-                ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
-                : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+                ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-sm border border-blue-100 dark:border-blue-900"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-blue-600 dark:hover:text-blue-400"
             }`}
           >
             <Settings size={20} />
@@ -218,20 +221,34 @@ export default function SidebarAdmin({
             onClick={() => setMenuActivo("choferes")}
             className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mt-2 ${
               menuActivo === "choferes"
-                ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100"
-                : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+                ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-sm border border-blue-100 dark:border-blue-900"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-blue-600 dark:hover:text-blue-400"
             }`}
           >
             <UserCheck size={20} />
             <span>Añadir Choferes</span>
           </button>
         )}
+
+        {permisos.respaldo && (
+          <button
+            onClick={() => setMenuActivo("respaldo")}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mt-2 ${
+              menuActivo === "respaldo"
+                ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-sm border border-blue-100 dark:border-blue-900"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-blue-600 dark:hover:text-blue-400"
+            }`}
+          >
+            <DatabaseBackup size={20} />
+            <span>Respaldo de Datos</span>
+          </button>
+        )}
       </div>
 
       <div>
-        <div className="h-px bg-slate-100 w-full mb-4 mt-6"></div>
+        <div className="h-px bg-slate-100 dark:bg-slate-700 w-full mb-4 mt-6"></div>
         <div className="text-center mb-3">
-          <span className="bg-slate-100 text-slate-500 font-mono text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-wider">
+          <span className="bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-mono text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-wider">
             {usuarioEmail}
           </span>
         </div>
@@ -239,7 +256,7 @@ export default function SidebarAdmin({
           onClick={() => {
             if (onLogout) onLogout();
           }}
-          className="flex items-center w-full gap-3 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors mt-auto cursor-pointer"
+          className="flex items-center w-full gap-3 px-4 py-3 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors mt-auto cursor-pointer"
         >
           <LogOut size={18} /> Cerrar Sesión
         </button>

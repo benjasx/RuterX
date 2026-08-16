@@ -24,11 +24,11 @@ export default function TablaTripulacion({
   return (
     <div className="flex flex-col mt-4">
       <div className="flex justify-between items-center mb-2">
-        <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-          <Users size={16} className="text-emerald-600" /> Tabla 2: Control de
+        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+          <Users size={16} className="text-emerald-600 dark:text-emerald-400" /> Tabla 2: Control de
           Tripulación y Ayudantes
         </h3>
-        <label className="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-sm">
+        <label className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-sm">
           <UserCheck size={16} />{" "}
           {archivoAyudantes
             ? "Ayudantes Cargados ✓"
@@ -42,8 +42,8 @@ export default function TablaTripulacion({
         </label>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
-        <table className="w-full text-left border-collapse text-sm whitespace-nowrap bg-white">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <table className="w-full text-left border-collapse text-sm whitespace-nowrap bg-white dark:bg-slate-800">
           <thead>
             <tr className="bg-emerald-800 text-white">
               <th colSpan={7} className="px-6 py-4">
@@ -58,7 +58,7 @@ export default function TablaTripulacion({
                     <button
                       onClick={handleExportarPDFTripulacion}
                       disabled={isGenerandoPDF}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-sm bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-sm bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40"
                     >
                       <FileText size={14} />{" "}
                       {isGenerandoPDF ? "Generando..." : "Generar PDF"}
@@ -67,7 +67,7 @@ export default function TablaTripulacion({
                 </div>
               </th>
             </tr>
-            <tr className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-bold">
+            <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">
               <th className="px-4 py-3 text-center w-20">Unidad</th>
               <th className="px-4 py-3 text-left w-56">Ruta Asignada</th>
               <th className="px-4 py-3 text-left w-56">Chofer</th>
@@ -77,26 +77,26 @@ export default function TablaTripulacion({
               <th className="px-4 py-3 text-left">Ayudante 2</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
             {datosProcesados.map((fila, index) => (
               <tr
                 key={index}
                 className="hover:bg-emerald-50/50 transition-colors"
               >
                 <td className="px-4 py-3 text-center">
-                  <span className="inline-flex items-center justify-center bg-slate-100 text-slate-700 font-bold px-2.5 py-1 rounded-md text-xs">
+                  <span className="inline-flex items-center justify-center bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold px-2.5 py-1 rounded-md text-xs">
                     <Truck size={12} className="mr-1.5 opacity-50" />
                     {fila.unidad}
                   </span>
                 </td>
-                <td className="px-4 py-3 font-semibold text-slate-700 text-xs uppercase">
+                <td className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200 text-xs uppercase">
                   {fila.ruta || (
-                    <span className="text-slate-400 italic font-normal">
+                    <span className="text-slate-400 dark:text-slate-500 italic font-normal">
                       Sin ruta asignada
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3 uppercase text-xs font-medium text-slate-700">
+                <td className="px-4 py-3 uppercase text-xs font-medium text-slate-700 dark:text-slate-200">
                   {fila.chofer}
                 </td>
                 <td className="px-4 py-3 text-center text-xs">
@@ -113,7 +113,7 @@ export default function TablaTripulacion({
                     onChange={(e) =>
                       handleCambiarAyudante1(fila.unidad, e.target.value)
                     }
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-xs uppercase text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-3 py-1.5 text-xs uppercase text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </td>
                 <td className="px-3 py-2">
@@ -124,7 +124,7 @@ export default function TablaTripulacion({
                     onChange={(e) =>
                       handleCambiarAyudante2(fila.unidad, e.target.value)
                     }
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-xs uppercase text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-3 py-1.5 text-xs uppercase text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </td>
               </tr>

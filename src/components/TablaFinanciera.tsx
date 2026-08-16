@@ -40,22 +40,22 @@ export default function TablaFinanciera({
   return (
     <div className="flex flex-col">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
-        <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-          <FileText size={16} className="text-blue-600" /> Tabla 1: Relación de
+        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+          <FileText size={16} className="text-blue-600 dark:text-blue-400" /> Tabla 1: Relación de
           Salida Financiera
         </h3>
         <div className="flex items-center gap-2">
           {mostrarGrafico && (
-            <div className="bg-slate-200 p-1 rounded-lg flex text-xs font-semibold">
+            <div className="bg-slate-200 dark:bg-slate-700 p-1 rounded-lg flex text-xs font-semibold">
               <button
                 onClick={() => setTipoMetricaGrafico("monto")}
-                className={`px-3 py-1 rounded-md transition-all ${tipoMetricaGrafico === "monto" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600"}`}
+                className={`px-3 py-1 rounded-md transition-all ${tipoMetricaGrafico === "monto" ? "bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-slate-600 dark:text-slate-300"}`}
               >
                 Monto ($)
               </button>
               <button
                 onClick={() => setTipoMetricaGrafico("kg")}
-                className={`px-3 py-1 rounded-md transition-all ${tipoMetricaGrafico === "kg" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600"}`}
+                className={`px-3 py-1 rounded-md transition-all ${tipoMetricaGrafico === "kg" ? "bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-slate-600 dark:text-slate-300"}`}
               >
                 Peso (KG)
               </button>
@@ -63,7 +63,7 @@ export default function TablaFinanciera({
           )}
           <button
             onClick={() => setMostrarGrafico(!mostrarGrafico)}
-            className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-sm"
+            className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-sm"
           >
             <BarChart3 size={16} />{" "}
             {mostrarGrafico ? "Ocultar Gráfico" : "Ver Gráfico"}
@@ -72,9 +72,9 @@ export default function TablaFinanciera({
       </div>
 
       {mostrarGrafico && (
-        <div className="mb-6 p-6 bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-4 flex items-center gap-2">
-            <BarChart3 size={16} className="text-indigo-600" /> Gráfico
+        <div className="mb-6 p-6 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-4 flex items-center gap-2">
+            <BarChart3 size={16} className="text-indigo-600 dark:text-indigo-400" /> Gráfico
           </h4>
           {/* 🚀 AQUÍ ESTÁ EL CAMBIO: Se eliminó max-h-80 y overflow-y-auto */}
           <div className="space-y-3 pr-2">
@@ -87,19 +87,19 @@ export default function TablaFinanciera({
                 maxValor > 0 ? (valorActual / maxValor) * 100 : 0;
               return (
                 <div key={index} className="flex items-center text-xs">
-                  <div className="w-16 font-bold text-slate-700">
+                  <div className="w-16 font-bold text-slate-700 dark:text-slate-200">
                     Un. {fila.unidad}
                   </div>
-                  <div className="w-40 truncate text-slate-500 mr-2">
+                  <div className="w-40 truncate text-slate-500 dark:text-slate-400 mr-2">
                     {fila.ruta || "Sin ruta"}
                   </div>
-                  <div className="flex-1 bg-slate-200 rounded-full h-4 overflow-hidden flex">
+                  <div className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-4 overflow-hidden flex">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${tipoMetricaGrafico === "monto" ? "bg-indigo-600" : "bg-emerald-600"}`}
                       style={{ width: `${porcentaje}%` }}
                     ></div>
                   </div>
-                  <div className="w-28 text-right font-bold text-slate-800 ml-3">
+                  <div className="w-28 text-right font-bold text-slate-800 dark:text-slate-100 ml-3">
                     {tipoMetricaGrafico === "monto"
                       ? formatearMoneda(fila.totalMonto)
                       : `${formatearNumero(fila.kgTotal)} KG`}
@@ -111,8 +111,8 @@ export default function TablaFinanciera({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
-        <table className="w-full text-left border-collapse text-sm whitespace-nowrap bg-white">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <table className="w-full text-left border-collapse text-sm whitespace-nowrap bg-white dark:bg-slate-800">
           <thead>
             <tr className="bg-slate-800 text-white">
               <th colSpan={7} className="px-6 py-4">
@@ -126,7 +126,7 @@ export default function TablaFinanciera({
                 </div>
               </th>
             </tr>
-            <tr className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-bold">
+            <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">
               <th className="px-6 py-3 text-left w-64">Ruta Asignada</th>
               <th className="px-6 py-3 text-center w-24">Unidad</th>
               <th className="px-6 py-3 text-left">Chofer</th>
@@ -136,26 +136,26 @@ export default function TablaFinanciera({
               <th className="px-6 py-3 text-right">Peso (KG)</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
             {datosProcesados.map((fila, index) => (
               <tr
                 key={index}
                 className="hover:bg-blue-50/50 transition-colors group"
               >
-                <td className="px-6 py-3 text-left font-semibold text-slate-700 text-xs uppercase">
+                <td className="px-6 py-3 text-left font-semibold text-slate-700 dark:text-slate-200 text-xs uppercase">
                   {fila.ruta || (
-                    <span className="text-slate-400 italic font-normal">
+                    <span className="text-slate-400 dark:text-slate-500 italic font-normal">
                       Sin ruta asignada
                     </span>
                   )}
                 </td>
                 <td className="px-6 py-3 text-center">
-                  <span className="inline-flex items-center justify-center bg-slate-100 text-slate-700 font-bold px-2.5 py-1 rounded-md text-xs">
+                  <span className="inline-flex items-center justify-center bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold px-2.5 py-1 rounded-md text-xs">
                     <Truck size={12} className="mr-1.5 opacity-50" />
                     {fila.unidad}
                   </span>
                 </td>
-                <td className="px-6 py-3 text-left uppercase text-xs font-medium text-slate-700">
+                <td className="px-6 py-3 text-left uppercase text-xs font-medium text-slate-700 dark:text-slate-200">
                   {fila.chofer}
                 </td>
                 <td className="px-6 py-3 text-center text-xs">
@@ -170,22 +170,22 @@ export default function TablaFinanciera({
                       {formatearMoneda(fila.totalMonto)}
                     </span>
                   ) : (
-                    <span className="text-slate-400 font-medium">-</span>
+                    <span className="text-slate-400 dark:text-slate-500 font-medium">-</span>
                   )}
                 </td>
                 <td className="px-6 py-3 text-right">
                   {fila.kgTotal > 0 ? (
-                    <span className="font-medium text-slate-600">
+                    <span className="font-medium text-slate-600 dark:text-slate-300">
                       {formatearNumero(fila.kgTotal)}
                     </span>
                   ) : (
-                    <span className="text-slate-400 font-medium">-</span>
+                    <span className="text-slate-400 dark:text-slate-500 font-medium">-</span>
                   )}
                 </td>
               </tr>
             ))}
           </tbody>
-          <tfoot className="bg-slate-50 border-t-2 border-slate-200">
+          <tfoot className="bg-slate-50 dark:bg-slate-900 border-t-2 border-slate-200 dark:border-slate-700">
             <tr>
               <td colSpan={2} className="px-6 py-4 text-left">
                 <div className="flex gap-2">
@@ -198,7 +198,7 @@ export default function TablaFinanciera({
                   <button
                     onClick={handleExportarPDF}
                     disabled={isGenerandoPDF}
-                    className="flex items-center gap-2 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 px-4 py-2 rounded-lg text-sm font-semibold"
+                    className="flex items-center gap-2 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 px-4 py-2 rounded-lg text-sm font-semibold"
                   >
                     <FileText size={16} />{" "}
                     {isGenerandoPDF ? "Generando..." : "Generar PDF"}
@@ -213,21 +213,21 @@ export default function TablaFinanciera({
                   </button>
                 </div>
               </td>
-              <td className="px-6 py-4 text-right uppercase text-slate-500 font-bold text-xs tracking-wider">
+              <td className="px-6 py-4 text-right uppercase text-slate-500 dark:text-slate-400 font-bold text-xs tracking-wider">
                 Totales Generales
               </td>
-              <td className="px-6 py-4 text-center font-bold text-slate-800 text-sm">
+              <td className="px-6 py-4 text-center font-bold text-slate-800 dark:text-slate-100 text-sm">
                 {totales.cred}
               </td>
-              <td className="px-6 py-4 text-center font-bold text-slate-800 text-sm">
+              <td className="px-6 py-4 text-center font-bold text-slate-800 dark:text-slate-100 text-sm">
                 {totales.ctdo}
               </td>
-              <td className="px-6 py-4 text-right font-bold text-blue-700 text-base">
+              <td className="px-6 py-4 text-right font-bold text-blue-700 dark:text-blue-300 text-base">
                 {formatearMoneda(totales.monto)}
               </td>
-              <td className="px-6 py-4 text-right font-bold text-slate-800 text-sm">
+              <td className="px-6 py-4 text-right font-bold text-slate-800 dark:text-slate-100 text-sm">
                 {formatearNumero(totales.kg)}{" "}
-                <span className="text-slate-500 text-xs font-normal">KG</span>
+                <span className="text-slate-500 dark:text-slate-400 text-xs font-normal">KG</span>
               </td>
             </tr>
           </tfoot>

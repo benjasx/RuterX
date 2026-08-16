@@ -4,6 +4,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"; // �
 import "./index.css";
 import "leaflet/dist/leaflet.css";
 import RuterMapas from "./RuterMapas";
+import { inicializarTema } from "./utils/theme";
+
+inicializarTema();
 
 // 🚀 2. CREAMOS EL CEREBRO DE LA CACHÉ
 const queryClient = new QueryClient({

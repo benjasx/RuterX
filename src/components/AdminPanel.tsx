@@ -12,6 +12,7 @@ import Dashboard from "./Dashboard";
 import AdminChoferes from "./AdminChoferes";
 import MonitorRutas from "./MonitorRutas";
 import PanelDistribucion from "./PanelDistribucion";
+import PanelRespaldo from "./PanelRespaldo";
 
 // 🚀 Importamos el nuevo componente de Control de Asistencia
 import PanelAsistencia from "./PanelAsistencia";
@@ -112,6 +113,10 @@ export default function AdminPanel({
         {menuActivo === "ajustesNomina" && <PanelAjustesNomina />}
 
         {menuActivo === "choferes" && <AdminChoferes />}
+
+        {menuActivo === "respaldo" && (
+          <PanelRespaldo usuarioEmail={usuarioEmail} />
+        )}
       </div>
     </div>
   );

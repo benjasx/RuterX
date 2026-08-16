@@ -42,7 +42,7 @@ export default function PanelLateralMapaAdmin({
   limpiarEdicion,
 }: PanelLateralProps) {
   return (
-    <aside className="w-80 bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex flex-col shrink-0">
+    <aside className="w-80 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4 flex flex-col shrink-0">
       {viajesAsignadosHoy && viajesAsignadosHoy.length > 0 && (
         <select
           onChange={(e) => {
@@ -56,7 +56,7 @@ export default function PanelLateralMapaAdmin({
             );
             if (viaje) cargarViajeAsignado(viaje);
           }}
-          className="w-full p-2 mb-4 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-700 font-bold text-xs focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none shadow-sm"
+          className="w-full p-2 mb-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg text-indigo-700 dark:text-indigo-300 font-bold text-xs focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none shadow-sm"
         >
           <option value="">👁️ Ver ruta despachada de hoy...</option>
           {viajesAsignadosHoy.map((v: any) => (
@@ -67,7 +67,7 @@ export default function PanelLateralMapaAdmin({
         </select>
       )}
 
-      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">
+      <h3 className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3 px-2">
         Seleccionar Ruta
       </h3>
 
@@ -78,7 +78,7 @@ export default function PanelLateralMapaAdmin({
           setRutaSeleccionada(e.target.value);
           if (limpiarEdicion) limpiarEdicion(); // 🚀 Cancelamos el modo edición al elegir una ruta nueva
         }}
-        className="w-full p-3 mb-4 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium focus:ring-2 focus:ring-blue-500 cursor-pointer outline-none"
+        className="w-full p-3 mb-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 font-medium focus:ring-2 focus:ring-blue-500 cursor-pointer outline-none"
       >
         {rutasDisponibles.map((ruta) => (
           <option key={ruta.id} value={ruta.nombre}>
@@ -88,12 +88,12 @@ export default function PanelLateralMapaAdmin({
       </select>
 
       <div className="flex items-center justify-between mb-3 px-1">
-        <span className="text-sm text-slate-500 font-medium">
-          <span className="text-blue-600 font-bold">
+        <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+          <span className="text-blue-600 dark:text-blue-400 font-bold">
             {selectedClienteIds.length}
           </span>{" "}
           de{" "}
-          <span className="text-slate-800 font-bold">
+          <span className="text-slate-800 dark:text-slate-200 font-bold">
             {clientesDeRuta.length}
           </span>
         </span>
@@ -117,13 +117,13 @@ export default function PanelLateralMapaAdmin({
         {clientesDeRuta.map((cliente) => (
           <label
             key={cliente.id}
-            className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg hover:border-blue-300 transition-colors cursor-pointer"
+            className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-blue-300 dark:hover:border-blue-600 transition-colors cursor-pointer"
           >
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-slate-800">
+              <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                 {cliente.nombre}
               </span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
                 {cliente.descripcion}
               </span>
             </div>
@@ -137,7 +137,7 @@ export default function PanelLateralMapaAdmin({
         ))}
       </div>
 
-      <div className="pt-4 border-t border-slate-100 flex flex-col gap-2 shrink-0">
+      <div className="pt-4 border-t border-slate-100 dark:border-slate-700 flex flex-col gap-2 shrink-0">
         {!rutaOptima ? (
           <button
             onClick={trazarRutaOptima}
@@ -165,13 +165,13 @@ export default function PanelLateralMapaAdmin({
             <div className="flex gap-2">
               <button
                 onClick={exportarExcel}
-                className="flex-1 flex items-center justify-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-lg transition-colors text-sm cursor-pointer"
+                className="flex-1 flex items-center justify-center gap-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded-lg transition-colors text-sm cursor-pointer"
               >
                 <Download size={16} /> Excel
               </button>
               <button
                 onClick={exportarPDF}
-                className="flex-1 flex items-center justify-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-lg transition-colors text-sm cursor-pointer"
+                className="flex-1 flex items-center justify-center gap-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded-lg transition-colors text-sm cursor-pointer"
               >
                 <FileText size={16} /> PDF
               </button>
