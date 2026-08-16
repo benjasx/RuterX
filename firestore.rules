@@ -1,0 +1,73 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function estaAutenticado() {
+      return request.auth != null;
+    }
+    function esAdmin() {
+      return request.auth.token.email == 'admin@ruterx.com';
+    }
+    function esJefeReparto() {
+      return request.auth.token.email == 'jefedereparto@ruterx.com';
+    }
+    function esEmbarques() {
+      return request.auth.token.email in ['emb01@ruterx.com', 'emb02@ruterx.com'];
+    }
+    function esPersonalAutorizado() {
+      return esAdmin() || esJefeReparto() || esEmbarques();
+    }
+
+    // Catálogos maestros: solo admin escribe
+    match /clientes/{docId} {
+      allow read: if estaAutenticado();
+      allow write: if esAdmin();
+    }
+    match /rutas/{docId} {
+      allow read: if estaAutenticado();
+      allow write: if esAdmin();
+    }
+    match /vendedores/{docId} {
+      allow read: if estaAutenticado();
+      allow write: if esAdmin();
+    }
+
+    // Choferes: admin y jefe de reparto los gestionan (ver SidebarAdmin.tsx)
+    match /choferes/{docId} {
+      allow read: if estaAutenticado();
+      allow write: if esAdmin() || esJefeReparto();
+    }
+
+    // Viajes: personal autorizado gestiona todo; el chofer dueño del viaje
+    // puede actualizar su propio documento (iniciar, marcar entregas, finalizar)
+    match /viajes_activos/{viajeId} {
+      allow read: if estaAutenticado();
+      allow create, delete: if esPersonalAutorizado();
+      allow update: if esPersonalAutorizado()
+        || request.auth.token.email == resource.data.chofer_email;
+    }
+
+    // Asistencia/reparto: admin y jefe de reparto (ver SidebarAdmin.tsx)
+    match /asistencias/{docId} {
+      allow read: if estaAutenticado();
+      allow write: if esAdmin() || esJefeReparto();
+    }
+
+    // Distribución diaria: todo el personal autorizado (admin/jefe/embarques)
+    match /distribucion_diaria/{docId} {
+      allow read, write: if esPersonalAutorizado();
+    }
+
+    // Ajustes de nómina: solo admin
+    match /configuracion/{docId} {
+      allow read: if esPersonalAutorizado();
+      allow write: if esAdmin();
+    }
+
+    // Cualquier otra colección no contemplada: denegar por defecto
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -8,6 +8,11 @@ import Login from "./components/Login";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { auth } from "./firebase/config";
 import { Loader2 } from "lucide-react";
+import {
+  esAdmin,
+  esJefeReparto as checkEsJefeReparto,
+  esPersonalAutorizado as checkEsPersonalAutorizado,
+} from "./utils/roles";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,11 +24,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-const CORREO_ADMIN = "admin@ruterx.com";
-const CORREO_JEFE_REPARTO = "jefedereparto@ruterx.com";
-const CORREO_EMBARQUES_1 = "emb01@ruterx.com";
-const CORREO_EMBARQUES_2 = "emb02@ruterx.com";
 
 export default function RuterMapas() {
   const [vistaActual, setVistaActual] = useState<Vista>(() => {
@@ -37,22 +37,12 @@ export default function RuterMapas() {
   const [usuarioActual, setUsuarioActual] = useState<User | null>(null);
   const [cargandoSesion, setCargandoSesion] = useState(true);
 
-  const checkEsPersonalAutorizado = (email: string | null | undefined) => {
-    if (!email) return false;
-    return (
-      email === CORREO_ADMIN ||
-      email === CORREO_JEFE_REPARTO ||
-      email === CORREO_EMBARQUES_1 ||
-      email === CORREO_EMBARQUES_2
-    );
-  };
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUsuarioActual(user);
 
       if (user) {
-        if (user.email === CORREO_ADMIN || user.email === CORREO_JEFE_REPARTO) {
+        if (esAdmin(user.email) || checkEsJefeReparto(user.email)) {
           // 🚀 ADMIN Y JEFE DE REPARTO inician forzosamente en el Panel Administrativo
           setVistaActual("admin");
         } else {
@@ -80,8 +70,8 @@ export default function RuterMapas() {
     }
   };
 
-  const esAdminPrincipal = usuarioActual?.email === CORREO_ADMIN;
-  const esJefeReparto = usuarioActual?.email === CORREO_JEFE_REPARTO;
+  const esAdminPrincipal = esAdmin(usuarioActual?.email);
+  const esJefeRepartoActual = checkEsJefeReparto(usuarioActual?.email);
   const esPersonalAutorizado = checkEsPersonalAutorizado(usuarioActual?.email);
 
   return (
@@ -104,7 +94,7 @@ export default function RuterMapas() {
             onLogout={handleLogout}
             esAdmin={esAdminPrincipal}
             esPersonalAutorizado={esPersonalAutorizado}
-            esJefeReparto={esJefeReparto} // 🚀 Pasamos esta validación para ocultar el botón
+            esJefeReparto={esJefeRepartoActual} // 🚀 Pasamos esta validación para ocultar el botón
           />
 
           <main className="w-full flex-1 overflow-hidden flex">

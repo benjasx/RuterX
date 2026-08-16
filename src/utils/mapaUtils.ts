@@ -42,6 +42,8 @@ export const LISTA_RUTAS = [
   "TECUALA - RANCHERIAS",
   "TLMK",
   "TLMK 2",
+  "TLMK 3",
+  "Jalcocotan",
   "IXTLAN - OSORIO - MACHUCA",
   "IXTLAN - JOEL - PARRA",
   "LOCAL - KAPDA",
@@ -58,6 +60,7 @@ export const LISTA_RUTAS = [
   "Escuinapa",
   "Mazatlan - Mayoristas",
   "Recoge en Bodega",
+  "CTE: Calleros",
 ].sort();
 
 export const LISTA_UNIDADES = [

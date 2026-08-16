@@ -11,6 +11,7 @@ import {
   Truck,
   CalendarCheck,
 } from "lucide-react";
+import { esAdmin, esJefeReparto } from "../utils/roles";
 
 export type SubVistaAdmin =
   | "dashboard"
@@ -41,26 +42,20 @@ export default function SidebarAdmin({
   usuarioEmail,
   onLogout,
 }: SidebarAdminProps) {
-  // LÓGICA DE ROLES BASADA EN CORREOS
-  const esJefeReparto = usuarioEmail === "jefedereparto@ruterx.com";
-  const esEmbarques =
-    usuarioEmail === "emb01@ruterx.com" || usuarioEmail === "emb02@ruterx.com";
-  const esAdmin = !esJefeReparto && !esEmbarques;
-
   // 🚀 PERMISOS RESTRINGIDOS SEGÚN ROL:
   const permisos = {
-    dashboard: esAdmin,
+    dashboard: esAdmin(usuarioEmail),
     monitorRutas: true,
     distribucion: true,
-    asistencias: esAdmin || esJefeReparto,
-    clientes: esAdmin,
-    rutas: esAdmin,
-    vendedores: esAdmin,
-    historial: esAdmin,
-    historialCompleto: esAdmin,
-    ajustesNomina: esAdmin,
+    asistencias: esAdmin(usuarioEmail) || esJefeReparto(usuarioEmail),
+    clientes: esAdmin(usuarioEmail),
+    rutas: esAdmin(usuarioEmail),
+    vendedores: esAdmin(usuarioEmail),
+    historial: esAdmin(usuarioEmail),
+    historialCompleto: esAdmin(usuarioEmail),
+    ajustesNomina: esAdmin(usuarioEmail),
     // 🚀 AHORA EL JEFE DE REPARTO TAMBIÉN PUEDE VER "AÑADIR CHOFERES"
-    choferes: esAdmin || esJefeReparto,
+    choferes: esAdmin(usuarioEmail) || esJefeReparto(usuarioEmail),
   };
 
   return (

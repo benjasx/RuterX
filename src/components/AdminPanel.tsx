@@ -19,6 +19,7 @@ import PanelAsistencia from "./PanelAsistencia";
 import { obtenerVendedoresFirebase } from "../firebase/vendedoresService";
 import { obtenerClientesFirebase } from "../firebase/clientesService";
 import { obtenerRutasFirebase } from "../firebase/rutasService";
+import { esAdmin } from "../utils/roles";
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -29,15 +30,9 @@ export default function AdminPanel({
   onLogout,
   usuarioEmail,
 }: AdminPanelProps) {
-  // 🚀 LÓGICA DE ROLES PARA LA VISTA INICIAL
-  const esJefeReparto = usuarioEmail === "jefedereparto@ruterx.com";
-  const esEmbarques =
-    usuarioEmail === "emb01@ruterx.com" || usuarioEmail === "emb02@ruterx.com";
-  const esAdmin = !esJefeReparto && !esEmbarques;
-
   // Si es Admin, entra al Dashboard. Si es Jefe o Embarques, entra al Monitor de Rutas.
   const [menuActivo, setMenuActivo] = useState<SubVistaAdmin>(
-    esAdmin ? "dashboard" : "monitorRutas",
+    esAdmin(usuarioEmail) ? "dashboard" : "monitorRutas",
   );
 
   const { data: listaVendedores = [] } = useQuery({
