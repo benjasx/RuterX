@@ -20,6 +20,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
 } from "recharts";
 
@@ -247,10 +248,20 @@ export default function Dashboard() {
       finanzasAyudantes[nombre].viajes += 1;
     };
 
+    const agrupadoPorDiaPrevio: Record<string, number> = {};
+    const agrupadoPorDiaPeso: Record<string, number> = {};
+    const agrupadoPorDiaPesoPrevio: Record<string, number> = {};
+
     for (let i = 0; i <= 6; i++) {
       const d = new Date(hace7Dias);
       d.setDate(d.getDate() + i);
       agrupadoPorDia[obtenerFechaLocalStr(d)] = 0;
+      agrupadoPorDiaPeso[obtenerFechaLocalStr(d)] = 0;
+
+      const dPrevio = new Date(inicioPeriodoPrevio);
+      dPrevio.setDate(dPrevio.getDate() + i);
+      agrupadoPorDiaPrevio[obtenerFechaLocalStr(dPrevio)] = 0;
+      agrupadoPorDiaPesoPrevio[obtenerFechaLocalStr(dPrevio)] = 0;
     }
 
     datosCrudos.forEach((registro) => {
@@ -309,6 +320,8 @@ export default function Dashboard() {
 
             if (agrupadoPorDia[fecha] !== undefined)
               agrupadoPorDia[fecha] += venta;
+            if (agrupadoPorDiaPeso[fecha] !== undefined)
+              agrupadoPorDiaPeso[fecha] += peso;
 
             choferesMap[nombreChofer] = (choferesMap[nombreChofer] || 0) + peso;
 
@@ -353,6 +366,22 @@ export default function Dashboard() {
       }
     });
 
+    datosCrudosPrevios.forEach((registro) => {
+      const fecha = registro.fecha;
+      if (fecha >= strInicioPrevio && fecha <= strFinPrevio) {
+        (registro.filas || []).forEach((v: any) => {
+          if (v.chofer && v.chofer !== "-" && v.chofer.trim() !== "") {
+            const venta = Number(v.totalSumaDinero) || 0;
+            const peso = Number(v.totalSumaKilos) || 0;
+            if (agrupadoPorDiaPrevio[fecha] !== undefined)
+              agrupadoPorDiaPrevio[fecha] += venta;
+            if (agrupadoPorDiaPesoPrevio[fecha] !== undefined)
+              agrupadoPorDiaPesoPrevio[fecha] += peso;
+          }
+        });
+      }
+    });
+
     const arrFinanzas = Object.entries(finanzasChoferes).map(
       ([nombre, data]) => ({ nombre, ...data }),
     );
@@ -366,12 +395,18 @@ export default function Dashboard() {
         viaticos: totalViaticos,
         comisiones: totalComisiones,
       },
-      datosGrafico: Object.keys(agrupadoPorDia)
-        .sort()
-        .map((fecha) => ({
+      datosGrafico: (() => {
+        const fechasActuales = Object.keys(agrupadoPorDia).sort();
+        const fechasPrevias = Object.keys(agrupadoPorDiaPrevio).sort();
+        return fechasActuales.map((fecha, idx) => ({
           fecha,
           ventas: agrupadoPorDia[fecha],
-        })),
+          peso: agrupadoPorDiaPeso[fecha],
+          fechaPrevia: fechasPrevias[idx],
+          ventasPrevias: agrupadoPorDiaPrevio[fechasPrevias[idx]] || 0,
+          pesoPrevio: agrupadoPorDiaPesoPrevio[fechasPrevias[idx]] || 0,
+        }));
+      })(),
       todasRutas: Object.entries(rutasMap)
         .sort((a, b) => b[1].venta - a[1].venta)
         .map(([nombre, datos]) => ({
@@ -396,7 +431,14 @@ export default function Dashboard() {
         .map(([nombre, data]) => ({ nombre, ...data }))
         .sort((a, b) => b.total - a.total),
     };
-  }, [datosCrudos, strHace7Dias, strHoy]);
+  }, [
+    datosCrudos,
+    datosCrudosPrevios,
+    strHace7Dias,
+    strHoy,
+    strInicioPrevio,
+    strFinPrevio,
+  ]);
 
   const fMoneda = (c: number) =>
     new Intl.NumberFormat("es-MX", {
@@ -412,6 +454,7 @@ export default function Dashboard() {
   const handleDescargarReporte = async () => {
     setGenerandoPDF(true);
     let graficoBase64 = null;
+    let graficoPesoBase64 = null;
 
     try {
       const elementoGrafico = document.getElementById("grafico-ventas");
@@ -421,6 +464,16 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error("Error capturando el gráfico:", error);
+    }
+
+    try {
+      const elementoGraficoPeso = document.getElementById("grafico-peso");
+      if (elementoGraficoPeso) {
+        const canvas = await html2canvas(elementoGraficoPeso, { scale: 2 });
+        graficoPesoBase64 = canvas.toDataURL("image/png");
+      }
+    } catch (error) {
+      console.error("Error capturando el gráfico de peso:", error);
     }
 
     await generarPDFGerencial({
@@ -435,6 +488,7 @@ export default function Dashboard() {
       finanzas: dataProcesada.todasFinanzas,
       unidades: dataProcesada.todasUnidades,
       graficoBase64,
+      graficoPesoBase64,
     });
     setGenerandoPDF(false);
   };
@@ -583,6 +637,10 @@ export default function Dashboard() {
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.28} />
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
                   </linearGradient>
+                  <linearGradient id="colorVentasPrevias" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.18} />
+                    <stop offset="95%" stopColor="#94a3b8" stopOpacity={0.01} />
+                  </linearGradient>
                 </defs>
                 <CartesianGrid
                   strokeDasharray="0"
@@ -606,9 +664,9 @@ export default function Dashboard() {
                 />
                 <Tooltip
                   cursor={{ stroke: "#cbd5e1", strokeWidth: 1 }}
-                  formatter={(value: any) => [
+                  formatter={(value: any, name: any) => [
                     fMoneda(Number(value) || 0),
-                    "Ventas",
+                    name,
                   ]}
                   labelFormatter={(label) =>
                     formatearFechaTooltip(String(label))
@@ -619,7 +677,6 @@ export default function Dashboard() {
                     marginBottom: 4,
                   }}
                   itemStyle={{
-                    color: "#10b981",
                     fontWeight: 700,
                   }}
                   contentStyle={{
@@ -629,9 +686,33 @@ export default function Dashboard() {
                     padding: "10px 14px",
                   }}
                 />
+                <Legend
+                  verticalAlign="top"
+                  align="right"
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: 12, fontWeight: 600 }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="ventasPrevias"
+                  name="Semana pasada"
+                  stroke="#94a3b8"
+                  strokeWidth={2}
+                  strokeDasharray="5 4"
+                  fillOpacity={1}
+                  fill="url(#colorVentasPrevias)"
+                  dot={false}
+                  activeDot={{
+                    r: 5,
+                    strokeWidth: 2,
+                    stroke: "#fff",
+                    fill: "#94a3b8",
+                  }}
+                />
                 <Area
                   type="monotone"
                   dataKey="ventas"
+                  name="Semana actual"
                   stroke="#10b981"
                   strokeWidth={2}
                   strokeLinecap="round"
@@ -742,6 +823,120 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col mb-6">
+        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6 flex items-center gap-2">
+          Tendencia de Peso Movido (7 Días)
+        </h3>
+        <div className="w-full h-80" id="grafico-peso">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={dataProcesada.datosGrafico}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="colorPeso" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.28} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
+                </linearGradient>
+                <linearGradient id="colorPesoPrevio" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.18} />
+                  <stop offset="95%" stopColor="#94a3b8" stopOpacity={0.01} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="0"
+                vertical={false}
+                stroke="#eef2f7"
+              />
+              <XAxis
+                dataKey="fecha"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: "#94a3b8" }}
+                tickFormatter={formatearFechaEje}
+                dy={10}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: "#94a3b8" }}
+                tickFormatter={(value) => `${(value / 1000).toFixed(1)}t`}
+                width={48}
+              />
+              <Tooltip
+                cursor={{ stroke: "#cbd5e1", strokeWidth: 1 }}
+                formatter={(value: any, name: any) => [
+                  `${fNumero(Number(value) || 0)} KG`,
+                  name,
+                ]}
+                labelFormatter={(label) =>
+                  formatearFechaTooltip(String(label))
+                }
+                labelStyle={{
+                  color: "#1e293b",
+                  fontWeight: "bold",
+                  marginBottom: 4,
+                }}
+                itemStyle={{
+                  fontWeight: 700,
+                }}
+                contentStyle={{
+                  borderRadius: "12px",
+                  border: "1px solid #e2e8f0",
+                  boxShadow: "0 8px 24px -4px rgb(0 0 0 / 0.12)",
+                  padding: "10px 14px",
+                }}
+              />
+              <Legend
+                verticalAlign="top"
+                align="right"
+                iconType="circle"
+                wrapperStyle={{ fontSize: 12, fontWeight: 600 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="pesoPrevio"
+                name="Semana pasada"
+                stroke="#94a3b8"
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                fillOpacity={1}
+                fill="url(#colorPesoPrevio)"
+                dot={false}
+                activeDot={{
+                  r: 5,
+                  strokeWidth: 2,
+                  stroke: "#fff",
+                  fill: "#94a3b8",
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="peso"
+                name="Semana actual"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                strokeLinecap="round"
+                fillOpacity={1}
+                fill="url(#colorPeso)"
+                dot={{
+                  r: 4,
+                  strokeWidth: 2,
+                  stroke: "#fff",
+                  fill: "#3b82f6",
+                }}
+                activeDot={{
+                  r: 6,
+                  strokeWidth: 2,
+                  stroke: "#fff",
+                  fill: "#3b82f6",
+                }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

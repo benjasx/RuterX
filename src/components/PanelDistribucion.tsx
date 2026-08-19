@@ -14,6 +14,9 @@ import {
   Table,
   Camera,
   X,
+  MapPin,
+  Layers,
+  ClipboardList,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { getAuth } from "firebase/auth";
@@ -27,7 +30,12 @@ import {
   type AjustesNomina,
 } from "../firebase/ajustesNominaService";
 import { LISTA_UNIDADES, LISTA_RUTAS } from "../utils/mapaUtils";
-import { exportarDistribucionPDF } from "../utils/reportesDistribucionUtils";
+import {
+  exportarDistribucionPDF,
+  exportarHojaRutaPDF,
+  exportarHojaMesaninePDF,
+  exportarBitacoraPDF,
+} from "../utils/reportesDistribucionUtils";
 
 const calcularFinanzas = (
   rutaRaw: string,
@@ -843,12 +851,39 @@ export default function PanelDistribucion() {
                   )}
                 </td>
 
-                <td className="p-2 text-center flex items-center justify-center gap-2">
+                <td className="p-2 text-center flex items-center justify-center gap-1">
                   {fila.vinculadoBMS && (
                     <span title="Datos financieros agregados correctamente">
                       <CheckCircle2 size={16} className="text-emerald-500" />
                     </span>
                   )}
+                  <button
+                    onClick={() =>
+                      exportarHojaRutaPDF(fila, fechaSeleccionada)
+                    }
+                    className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                    title="Imprimir hoja de ruta (unidad)"
+                  >
+                    <MapPin size={16} />
+                  </button>
+                  <button
+                    onClick={() =>
+                      exportarHojaMesaninePDF(fila, fechaSeleccionada)
+                    }
+                    className="text-amber-500 hover:text-amber-700 dark:hover:text-amber-300 p-1 rounded hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                    title="Imprimir hoja de mesanine"
+                  >
+                    <Layers size={16} />
+                  </button>
+                  <button
+                    onClick={() =>
+                      exportarBitacoraPDF(fila, fechaSeleccionada)
+                    }
+                    className="text-teal-600 hover:text-teal-800 dark:hover:text-teal-300 p-1 rounded hover:bg-teal-50 dark:hover:bg-teal-950/40"
+                    title="Imprimir bitácora de facturas y cargas"
+                  >
+                    <ClipboardList size={16} />
+                  </button>
                   {/* 🚀 EL BOTÓN ELIMINAR AHORA TAMBIÉN ES VISIBLE PARA EMBARQUES */}
                   {tienePermisosEspeciales && (
                     <button

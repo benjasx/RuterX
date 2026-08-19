@@ -45,6 +45,7 @@ export interface DatosReporteGerencial {
   finanzas: FinanzasPersona[];
   unidades: NombrePeso[];
   graficoBase64: string | null;
+  graficoPesoBase64: string | null;
 }
 
 // --- FORMATOS ---
@@ -98,6 +99,7 @@ export const generarPDFGerencial = async (datos: DatosReporteGerencial) => {
     finanzas,
     unidades,
     graficoBase64,
+    graficoPesoBase64,
   } = datos;
 
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
@@ -208,6 +210,18 @@ export const generarPDFGerencial = async (datos: DatosReporteGerencial) => {
       { text: numerar("Tendencia de Venta"), style: "sectionTitle" },
       {
         image: graficoBase64,
+        width: 515,
+        margin: [0, 8, 0, 20],
+      },
+    );
+  }
+
+  // --- GRÁFICO DE TENDENCIA DE PESO (OPCIONAL) ---
+  if (graficoPesoBase64) {
+    content.push(
+      { text: numerar("Tendencia de Peso Movido"), style: "sectionTitle" },
+      {
+        image: graficoPesoBase64,
         width: 515,
         margin: [0, 8, 0, 20],
       },
