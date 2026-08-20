@@ -10,13 +10,13 @@ import {
   Download,
   FileText,
   Link2,
-  CheckCircle2,
   Table,
   Camera,
   X,
   MapPin,
   Layers,
   ClipboardList,
+  Printer,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { getAuth } from "firebase/auth";
@@ -35,6 +35,7 @@ import {
   exportarHojaRutaPDF,
   exportarHojaMesaninePDF,
   exportarBitacoraPDF,
+  exportarPaqueteCompletoPDF,
 } from "../utils/reportesDistribucionUtils";
 
 const calcularFinanzas = (
@@ -852,11 +853,15 @@ export default function PanelDistribucion() {
                 </td>
 
                 <td className="p-2 text-center flex items-center justify-center gap-1">
-                  {fila.vinculadoBMS && (
-                    <span title="Datos financieros agregados correctamente">
-                      <CheckCircle2 size={16} className="text-emerald-500" />
-                    </span>
-                  )}
+                  <button
+                    onClick={() =>
+                      exportarPaqueteCompletoPDF(fila, fechaSeleccionada)
+                    }
+                    className="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 p-1 rounded hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                    title="Imprimir hoja de ruta, mesanine y bitácora en un solo PDF"
+                  >
+                    <Printer size={16} />
+                  </button>
                   <button
                     onClick={() =>
                       exportarHojaRutaPDF(fila, fechaSeleccionada)

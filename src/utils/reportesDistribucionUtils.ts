@@ -13,6 +13,57 @@ const obtenerLogoBase64Local = async (path: string) => {
   }
 };
 
+// 🚀 Fuente Roboto Black (900) para títulos/números con trazo más grueso
+let fuenteNegritaRegistrada = false;
+
+const obtenerFontBase64Local = async (path: string) => {
+  try {
+    const response = await fetch(path);
+    const buffer = await response.arrayBuffer();
+    let binario = "";
+    new Uint8Array(buffer).forEach((byte) => {
+      binario += String.fromCharCode(byte);
+    });
+    return btoa(binario);
+  } catch (error) {
+    return null;
+  }
+};
+
+const asegurarFuenteNegrita = async () => {
+  const pdfMake = (window as any).pdfMake;
+  if (!pdfMake || fuenteNegritaRegistrada) return;
+
+  const [normal, italica] = await Promise.all([
+    obtenerFontBase64Local("/fonts/Roboto-Black.ttf"),
+    obtenerFontBase64Local("/fonts/Roboto-BlackItalic.ttf"),
+  ]);
+  if (!normal || !italica) return;
+
+  pdfMake.vfs["Roboto-Black.ttf"] = normal;
+  pdfMake.vfs["Roboto-BlackItalic.ttf"] = italica;
+  pdfMake.fonts = {
+    ...pdfMake.fonts,
+    // El resto de reportes de la app usan "Roboto" sin definir `font`
+    // explícito: hay que declararla aquí también, porque pdfMake no la
+    // trae precargada en `pdfMake.fonts` (solo como fallback interno
+    // mientras esa propiedad esté vacía) y al fijarla se pierde ese fallback.
+    Roboto: {
+      normal: "Roboto-Regular.ttf",
+      bold: "Roboto-Medium.ttf",
+      italics: "Roboto-Italic.ttf",
+      bolditalics: "Roboto-MediumItalic.ttf",
+    },
+    RobotoBlack: {
+      normal: "Roboto-Black.ttf",
+      bold: "Roboto-Black.ttf",
+      italics: "Roboto-BlackItalic.ttf",
+      bolditalics: "Roboto-BlackItalic.ttf",
+    },
+  };
+  fuenteNegritaRegistrada = true;
+};
+
 // 🚀 REEMPLAZA TU FUNCIÓN ACTUAL CON ESTA:
 export const exportarDistribucionPDF = async (
   filas: any[],
@@ -232,15 +283,7 @@ const esFolioValido = (val: string) => {
   return str !== "" && str !== "FOLIO" && str !== "TRASPASO" && str !== "0";
 };
 
-// 🚀 HOJA DE RUTA (letrero para pegar en la unidad)
-export const exportarHojaRutaPDF = (fila: any, fechaSeleccionada: string) => {
-  const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
-
-  if (!fila.ruta && !fila.unidad) {
-    return alert("Esta fila no tiene ruta ni unidad para imprimir.");
-  }
-
+const construirContenidoHojaRuta = (fila: any) => {
   const folios = [fila.embarqueCredito, fila.embarqueContado].filter(
     esFolioValido,
   );
@@ -253,6 +296,7 @@ export const exportarHojaRutaPDF = (fila: any, fechaSeleccionada: string) => {
       text: `#${fila.unidad}`,
       fontSize: 55,
       bold: true,
+      font: "RobotoBlack",
       alignment: "center",
       margin: [0, 0, 0, 20],
     });
@@ -264,6 +308,7 @@ export const exportarHojaRutaPDF = (fila: any, fechaSeleccionada: string) => {
       fontSize: 60,
       bold: true,
       italics: true,
+      font: "RobotoBlack",
       alignment: "center",
       margin: [0, 0, 0, 30],
     });
@@ -274,16 +319,36 @@ export const exportarHojaRutaPDF = (fila: any, fechaSeleccionada: string) => {
       text: folio,
       fontSize: folioFontSize,
       bold: true,
+      font: "RobotoBlack",
       color: "#dc2626",
       alignment: "center",
       margin: [0, 0, 0, 20],
     });
   });
 
+  return contenido;
+};
+
+// 🚀 HOJA DE RUTA (letrero para pegar en la unidad)
+export const exportarHojaRutaPDF = async (
+  fila: any,
+  fechaSeleccionada: string,
+) => {
+  const pdfMake = (window as any).pdfMake;
+  if (!pdfMake) return alert("Generador PDF cargando...");
+
+  if (!fila.ruta && !fila.unidad) {
+    return alert("Esta fila no tiene ruta ni unidad para imprimir.");
+  }
+
+  await asegurarFuenteNegrita();
+
   const documentDefinition = {
     pageOrientation: "landscape",
     pageMargins: [20, 20, 20, 20],
-    content: [{ stack: contenido, alignment: "center" }],
+    content: [
+      { stack: construirContenidoHojaRuta(fila), alignment: "center" },
+    ],
   };
 
   pdfMake
@@ -293,18 +358,7 @@ export const exportarHojaRutaPDF = (fila: any, fechaSeleccionada: string) => {
     );
 };
 
-// 🚀 HOJA DE MESANINE (letrero sin número de unidad)
-export const exportarHojaMesaninePDF = (
-  fila: any,
-  fechaSeleccionada: string,
-) => {
-  const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
-
-  if (!fila.ruta) {
-    return alert("Esta fila no tiene ruta para imprimir.");
-  }
-
+const construirContenidoHojaMesanine = (fila: any) => {
   const folios = [fila.embarqueCredito, fila.embarqueContado].filter(
     esFolioValido,
   );
@@ -316,6 +370,7 @@ export const exportarHojaMesaninePDF = (
       fontSize: 65,
       bold: true,
       italics: true,
+      font: "RobotoBlack",
       alignment: "center",
       margin: [0, 0, 0, 30],
     },
@@ -326,16 +381,36 @@ export const exportarHojaMesaninePDF = (
       text: folio,
       fontSize: folioFontSize,
       bold: true,
+      font: "RobotoBlack",
       color: "#dc2626",
       alignment: "center",
       margin: [0, 0, 0, 20],
     });
   });
 
+  return contenido;
+};
+
+// 🚀 HOJA DE MESANINE (letrero sin número de unidad)
+export const exportarHojaMesaninePDF = async (
+  fila: any,
+  fechaSeleccionada: string,
+) => {
+  const pdfMake = (window as any).pdfMake;
+  if (!pdfMake) return alert("Generador PDF cargando...");
+
+  if (!fila.ruta) {
+    return alert("Esta fila no tiene ruta para imprimir.");
+  }
+
+  await asegurarFuenteNegrita();
+
   const documentDefinition = {
     pageOrientation: "landscape",
     pageMargins: [20, 20, 20, 20],
-    content: [{ stack: contenido, alignment: "center" }],
+    content: [
+      { stack: construirContenidoHojaMesanine(fila), alignment: "center" },
+    ],
   };
 
   pdfMake
@@ -343,22 +418,11 @@ export const exportarHojaMesaninePDF = (
     .download(`Hoja_Mesanine_${fila.ruta}_${fechaSeleccionada}.pdf`);
 };
 
-// 🚀 BITÁCORA DE FACTURAS Y CARGAS DIARIAS
-export const exportarBitacoraPDF = async (
+const construirContenidoBitacora = (
   fila: any,
-  fechaSeleccionada: string,
+  fechaHoy: string,
+  logoBase64: string | null,
 ) => {
-  const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
-
-  const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
-
-  const fechaHoy = new Date().toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-
   const ANCHO_PAGINA = 515; // A4 (595.28) - márgenes 40+40
 
   const bordeFormulario = {
@@ -387,10 +451,7 @@ export const exportarBitacoraPDF = async (
     margin: [6, 5, 6, 5],
   });
 
-  const documentDefinition = {
-    pageOrientation: "portrait",
-    pageMargins: [40, 40, 40, 40],
-    content: [
+  return [
       // ENCABEZADO: logo a la izquierda, título centrado respecto a la hoja
       // (columna derecha del mismo ancho que el logo compensa el espacio)
       {
@@ -616,12 +677,95 @@ export const exportarBitacoraPDF = async (
         ],
         margin: [0, 4, 0, 0],
       },
-    ],
+  ];
+};
+
+// 🚀 BITÁCORA DE FACTURAS Y CARGAS DIARIAS
+export const exportarBitacoraPDF = async (
+  fila: any,
+  fechaSeleccionada: string,
+) => {
+  const pdfMake = (window as any).pdfMake;
+  if (!pdfMake) return alert("Generador PDF cargando...");
+
+  const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
+
+  const fechaHoy = new Date().toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
+  const documentDefinition = {
+    pageOrientation: "portrait",
+    pageMargins: [40, 40, 40, 40],
+    content: construirContenidoBitacora(fila, fechaHoy, logoBase64),
   };
 
   pdfMake
     .createPdf(documentDefinition)
     .download(
       `Bitacora_${fila.unidad || fila.ruta || "SR"}_${fechaSeleccionada}.pdf`,
+    );
+};
+
+// 🚀 PAQUETE COMPLETO: hoja de ruta + mesanine + bitácora en un solo PDF
+export const exportarPaqueteCompletoPDF = async (
+  fila: any,
+  fechaSeleccionada: string,
+) => {
+  const pdfMake = (window as any).pdfMake;
+  if (!pdfMake) return alert("Generador PDF cargando...");
+
+  await asegurarFuenteNegrita();
+
+  const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
+  const fechaHoy = new Date().toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
+  const secciones: { orientacion: "landscape" | "portrait"; nodo: any }[] =
+    [];
+
+  if (fila.ruta || fila.unidad) {
+    secciones.push({
+      orientacion: "landscape",
+      nodo: { stack: construirContenidoHojaRuta(fila), alignment: "center" },
+    });
+  }
+
+  if (fila.ruta) {
+    secciones.push({
+      orientacion: "landscape",
+      nodo: {
+        stack: construirContenidoHojaMesanine(fila),
+        alignment: "center",
+      },
+    });
+  }
+
+  secciones.push({
+    orientacion: "portrait",
+    nodo: { stack: construirContenidoBitacora(fila, fechaHoy, logoBase64) },
+  });
+
+  const content = secciones.map((seccion, index) => ({
+    ...seccion.nodo,
+    pageOrientation: seccion.orientacion,
+    ...(index > 0 ? { pageBreak: "before" } : {}),
+  }));
+
+  const documentDefinition = {
+    pageOrientation: secciones[0].orientacion,
+    pageMargins: [40, 40, 40, 40],
+    content,
+  };
+
+  pdfMake
+    .createPdf(documentDefinition)
+    .download(
+      `Paquete_${fila.unidad || fila.ruta || "SR"}_${fechaSeleccionada}.pdf`,
     );
 };
