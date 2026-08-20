@@ -25,6 +25,8 @@ import {
   suscribirDistribucionFecha,
 } from "../firebase/distribucionService";
 import { obtenerChoferesFirebase } from "../firebase/choferesService";
+import { obtenerVacacionesFirebase } from "../firebase/vacacionesService";
+import { estadoEfectivo } from "../utils/vacacionesUtils";
 import {
   obtenerAjustesNomina,
   type AjustesNomina,
@@ -155,6 +157,11 @@ export default function PanelDistribucion() {
     queryFn: obtenerChoferesFirebase,
   });
 
+  const { data: vacacionesData = [] } = useQuery({
+    queryKey: ["vacaciones"],
+    queryFn: obtenerVacacionesFirebase,
+  });
+
   const { data: reglasNomina } = useQuery({
     queryKey: ["ajustes_nomina"],
     queryFn: obtenerAjustesNomina,
@@ -173,6 +180,21 @@ export default function PanelDistribucion() {
     );
     return () => cancelarSuscripcion();
   }, [fechaSeleccionada]);
+
+  // Estado (Vacaciones/Incapacidad/Inactivo) de cada empleado en la fecha de salida seleccionada
+  const estadoPorNombre = useMemo(() => {
+    const mapa = new Map<string, string>();
+    choferesData.forEach((c: any) => {
+      const nombre = (c.nombre || "").toUpperCase();
+      if (!nombre) return;
+      const periodos = vacacionesData.filter(
+        (v: any) => v.chofer_id === c.id,
+      );
+      const estado = estadoEfectivo(c, periodos, fechaSeleccionada);
+      if (estado !== "Disponible") mapa.set(nombre, estado);
+    });
+    return mapa;
+  }, [choferesData, vacacionesData, fechaSeleccionada]);
 
   const { listaChoferes, listaAuxiliares } = useMemo(() => {
     const choferes: string[] = [];
@@ -195,6 +217,17 @@ export default function PanelDistribucion() {
       listaAuxiliares: todos.sort(),
     };
   }, [choferesData]);
+
+  // Estilo del <option> según si el empleado está de vacaciones/incapacidad/inactivo ese día
+  const estiloOpcionEstado = (nombre: string) => {
+    if (!estadoPorNombre.has(nombre)) return undefined;
+    return { color: "#dc2626", textDecoration: "line-through" };
+  };
+
+  const etiquetaEstado = (nombre: string) => {
+    const estado = estadoPorNombre.get(nombre);
+    return estado ? ` (${estado.toUpperCase()})` : "";
+  };
 
   const { unidadesUsadas, choferesUsados, auxiliaresUsados } = useMemo(() => {
     const unidades = new Set<string>();
@@ -729,13 +762,16 @@ export default function PanelDistribucion() {
                         (choferesUsados.has(nombreChofer) ||
                           auxiliaresUsados.has(nombreChofer)) &&
                         fila.chofer !== nombreChofer;
+                      const noDisponible = estadoPorNombre.has(nombreChofer);
                       return (
                         <option
                           key={i}
                           value={nombreChofer}
-                          disabled={estaOcupado}
+                          disabled={estaOcupado || noDisponible}
+                          style={estiloOpcionEstado(nombreChofer)}
                         >
                           {nombreChofer} {estaOcupado ? "(RUTA)" : ""}
+                          {etiquetaEstado(nombreChofer)}
                         </option>
                       );
                     })}
@@ -755,13 +791,16 @@ export default function PanelDistribucion() {
                         (choferesUsados.has(nombreAux) ||
                           auxiliaresUsados.has(nombreAux)) &&
                         fila.auxiliar1 !== nombreAux;
+                      const noDisponible = estadoPorNombre.has(nombreAux);
                       return (
                         <option
                           key={i}
                           value={nombreAux}
-                          disabled={estaOcupado}
+                          disabled={estaOcupado || noDisponible}
+                          style={estiloOpcionEstado(nombreAux)}
                         >
                           {nombreAux}
+                          {etiquetaEstado(nombreAux)}
                         </option>
                       );
                     })}
@@ -781,13 +820,16 @@ export default function PanelDistribucion() {
                         (choferesUsados.has(nombreAux) ||
                           auxiliaresUsados.has(nombreAux)) &&
                         fila.auxiliar2 !== nombreAux;
+                      const noDisponible = estadoPorNombre.has(nombreAux);
                       return (
                         <option
                           key={i}
                           value={nombreAux}
-                          disabled={estaOcupado}
+                          disabled={estaOcupado || noDisponible}
+                          style={estiloOpcionEstado(nombreAux)}
                         >
                           {nombreAux}
+                          {etiquetaEstado(nombreAux)}
                         </option>
                       );
                     })}

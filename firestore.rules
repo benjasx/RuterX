@@ -39,6 +39,12 @@ service cloud.firestore {
       allow write: if esAdmin() || esJefeReparto();
     }
 
+    // Vacaciones: admin y jefe de reparto (ver SidebarAdmin.tsx)
+    match /vacaciones/{docId} {
+      allow read: if estaAutenticado();
+      allow write: if esAdmin() || esJefeReparto();
+    }
+
     // Viajes: personal autorizado gestiona todo; el chofer dueño del viaje
     // puede actualizar su propio documento (iniciar, marcar entregas, finalizar)
     match /viajes_activos/{viajeId} {

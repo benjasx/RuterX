@@ -7,6 +7,15 @@ import {
   eliminarChoferFirebase,
   actualizarChoferFirebase,
 } from "../firebase/choferesService";
+import { obtenerVacacionesFirebase } from "../firebase/vacacionesService";
+import {
+  calcularAntiguedad,
+  claseEstadoBadge,
+  diasVacacionesPorAnios,
+  estadoEfectivo,
+  resumenVacaciones,
+} from "../utils/vacacionesUtils";
+import PanelVacacionesPersonal from "./PanelVacacionesPersonal";
 import {
   UserPlus,
   Trash2,
@@ -21,6 +30,8 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
+  TreePalm,
+  Users,
 } from "lucide-react";
 
 // FUNCIÓN EXTERNA PARA OBTENER EL LOGO EN BASE64
@@ -44,6 +55,11 @@ const ITEMS_POR_PAGINA = 10;
 export default function AdminChoferes() {
   const queryClient = useQueryClient();
 
+  // Pestaña activa: Directorio o Vacaciones
+  const [pestana, setPestana] = useState<"directorio" | "vacaciones">(
+    "directorio",
+  );
+
   // Estados del formulario
   const [editingId, setEditingId] = useState<string | null>(null);
   const [nombre, setNombre] = useState("");
@@ -51,6 +67,7 @@ export default function AdminChoferes() {
   const [telefono, setTelefono] = useState("");
   const [tipo, setTipo] = useState<"Chofer" | "Auxiliar">("Chofer");
   const [estado, setEstado] = useState("Disponible");
+  const [fechaIngreso, setFechaIngreso] = useState("");
 
   // Estados para Búsqueda y Filtro
   const [busqueda, setBusqueda] = useState("");
@@ -64,6 +81,16 @@ export default function AdminChoferes() {
     queryKey: ["choferes"],
     queryFn: obtenerChoferesFirebase,
   });
+
+  // Obtener periodos de vacaciones registrados
+  const { data: vacaciones = [] } = useQuery({
+    queryKey: ["vacaciones"],
+    queryFn: obtenerVacacionesFirebase,
+  });
+
+  const hoyStr = new Date().toLocaleDateString("sv-SE");
+  const vacacionesPorChofer = (id: string) =>
+    vacaciones.filter((v: any) => v.chofer_id === id);
 
   // Lógica de filtrado
   const choferesFiltrados = choferes.filter((c: any) => {
@@ -93,6 +120,7 @@ export default function AdminChoferes() {
     setTelefono("");
     setTipo("Chofer");
     setEstado("Disponible");
+    setFechaIngreso("");
     setEditingId(null);
   };
 
@@ -127,7 +155,14 @@ export default function AdminChoferes() {
     e.preventDefault();
     if (!nombre || !email)
       return alert("Por favor completa los campos obligatorios.");
-    const dataToSend = { nombre, email, telefono, tipo, estado };
+    const dataToSend = {
+      nombre,
+      email,
+      telefono,
+      tipo,
+      estado,
+      fecha_ingreso: fechaIngreso,
+    };
     if (editingId) {
       actualizarMutation.mutate(dataToSend);
     } else {
@@ -142,17 +177,29 @@ export default function AdminChoferes() {
     setTelefono(chofer.telefono || "");
     setTipo(chofer.tipo || "Chofer");
     setEstado(chofer.estado || "Disponible");
+    setFechaIngreso(chofer.fecha_ingreso || "");
   };
 
   // FUNCIÓN: EXPORTAR A EXCEL
   const exportarExcel = () => {
-    const dataAExportar = choferesFiltrados.map((c: any) => ({
-      "Nombre Completo": c.nombre || "Sin nombre",
-      "Correo Electrónico": c.email || c.correo || "Sin correo",
-      Teléfono: c.telefono || "N/A",
-      "Rol / Puesto": c.tipo || "Chofer",
-      Estado: c.estado || "Disponible",
-    }));
+    const dataAExportar = choferesFiltrados.map((c: any) => {
+      const resumen = resumenVacaciones(c, vacacionesPorChofer(c.id), hoyStr);
+      const antiguedad = calcularAntiguedad(c.fecha_ingreso, hoyStr);
+      return {
+        "Nombre Completo": c.nombre || "Sin nombre",
+        "Correo Electrónico": c.email || c.correo || "Sin correo",
+        Teléfono: c.telefono || "N/A",
+        "Rol / Puesto": c.tipo || "Chofer",
+        Estado: estadoEfectivo(c, vacacionesPorChofer(c.id), hoyStr),
+        "Fecha de Ingreso": c.fecha_ingreso || "N/A",
+        Antigüedad: c.fecha_ingreso
+          ? `${antiguedad.anios}a ${antiguedad.meses}m`
+          : "N/A",
+        "Días Derecho": resumen.diasDerecho,
+        "Días Tomados": resumen.diasTomados,
+        "Días Pendientes": resumen.diasPendientes,
+      };
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(dataAExportar);
     const workbook = XLSX.utils.book_new();
@@ -179,18 +226,42 @@ export default function AdminChoferes() {
         c.tipo === "Auxiliar" && (c.estado === "Disponible" || !c.estado),
     ).length;
     const totalActivos = choferesActivos + auxiliaresActivos;
+    const enVacacionesHoy = choferesFiltrados.filter(
+      (c: any) =>
+        estadoEfectivo(c, vacacionesPorChofer(c.id), hoyStr) === "Vacaciones",
+    ).length;
 
     // 3. Preparar cuerpo de la tabla principal
     const bodyData = choferesFiltrados.map((c: any, index: number) => {
       const esPar = index % 2 === 0;
       const bgFila = esPar ? "#ffffff" : "#f8fafc";
+      const resumen = resumenVacaciones(c, vacacionesPorChofer(c.id), hoyStr);
+      const antiguedad = calcularAntiguedad(c.fecha_ingreso, hoyStr);
       return [
         { text: c.nombre || "Sin nombre", style: "td", fillColor: bgFila },
         { text: c.email || c.correo || "-", style: "td", fillColor: bgFila },
         { text: c.telefono || "-", style: "tdCenter", fillColor: bgFila },
         { text: c.tipo || "Chofer", style: "tdCenter", fillColor: bgFila },
         {
-          text: c.estado || "Disponible",
+          text: estadoEfectivo(c, vacacionesPorChofer(c.id), hoyStr),
+          style: "tdCenter",
+          fillColor: bgFila,
+        },
+        { text: c.fecha_ingreso || "-", style: "tdCenter", fillColor: bgFila },
+        {
+          text: c.fecha_ingreso
+            ? `${antiguedad.anios}a ${antiguedad.meses}m`
+            : "-",
+          style: "tdCenter",
+          fillColor: bgFila,
+        },
+        {
+          text: c.fecha_ingreso ? String(resumen.diasDerecho) : "-",
+          style: "tdCenter",
+          fillColor: bgFila,
+        },
+        {
+          text: c.fecha_ingreso ? String(resumen.diasPendientes) : "-",
           style: "tdCenter",
           fillColor: bgFila,
         },
@@ -198,7 +269,7 @@ export default function AdminChoferes() {
     });
 
     const documentDefinition = {
-      pageOrientation: "portrait",
+      pageOrientation: "landscape",
       pageMargins: [30, 30, 30, 30],
       content: [
         // CABECERA CON LOGO Y TÍTULO
@@ -219,15 +290,16 @@ export default function AdminChoferes() {
         // SECCIÓN DE RESUMEN EJECUTIVO
         {
           table: {
-            widths: ["*", "*", "*"],
+            widths: ["*", "*", "*", "*"],
             body: [
               [
                 {
                   text: "RESUMEN DE PLANTILLA (ACTIVOS)",
-                  colSpan: 3,
+                  colSpan: 4,
                   style: "thResumen",
                   alignment: "center",
                 },
+                {},
                 {},
                 {},
               ],
@@ -247,6 +319,11 @@ export default function AdminChoferes() {
                   style: "tdResumen",
                   alignment: "center",
                 },
+                {
+                  text: `En Vacaciones Hoy: ${enVacacionesHoy}`,
+                  style: "tdResumen",
+                  alignment: "center",
+                },
               ],
             ],
           },
@@ -263,7 +340,17 @@ export default function AdminChoferes() {
         {
           table: {
             headerRows: 1,
-            widths: ["*", "auto", "auto", "auto", "auto"],
+            widths: [
+              "*",
+              "*",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+            ],
             body: [
               [
                 { text: "NOMBRE COMPLETO", style: "th" },
@@ -271,6 +358,10 @@ export default function AdminChoferes() {
                 { text: "TELÉFONO", style: "th", alignment: "center" },
                 { text: "ROL", style: "th", alignment: "center" },
                 { text: "ESTADO", style: "th", alignment: "center" },
+                { text: "INGRESO", style: "th", alignment: "center" },
+                { text: "ANTIG.", style: "th", alignment: "center" },
+                { text: "DERECHO", style: "th", alignment: "center" },
+                { text: "PENDIENTES", style: "th", alignment: "center" },
               ],
               ...bodyData,
             ],
@@ -333,22 +424,55 @@ export default function AdminChoferes() {
         </div>
 
         {/* BOTONES DE EXPORTACIÓN GENERAL */}
-        <div className="flex gap-2 w-full sm:w-auto">
-          <button
-            onClick={exportarExcel}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors"
-          >
-            <Download size={16} /> Excel (XLSX)
-          </button>
-          <button
-            onClick={exportarPDF}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors"
-          >
-            <FileText size={16} /> Reporte PDF
-          </button>
-        </div>
+        {pestana === "directorio" && (
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button
+              onClick={exportarExcel}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors"
+            >
+              <Download size={16} /> Excel (XLSX)
+            </button>
+            <button
+              onClick={exportarPDF}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors"
+            >
+              <FileText size={16} /> Reporte PDF
+            </button>
+          </div>
+        )}
       </div>
 
+      {/* BARRA DE PESTAÑAS */}
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={() => setPestana("directorio")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
+            pestana === "directorio"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+          }`}
+        >
+          <Users size={16} /> Directorio
+        </button>
+        <button
+          onClick={() => setPestana("vacaciones")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
+            pestana === "vacaciones"
+              ? "bg-teal-600 text-white shadow-sm"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+          }`}
+        >
+          <TreePalm size={16} /> Vacaciones y Permisos
+        </button>
+      </div>
+
+      {pestana === "vacaciones" ? (
+        <PanelVacacionesPersonal
+          choferes={choferes}
+          choferesFiltrados={choferesFiltrados}
+          vacaciones={vacaciones}
+        />
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* FORMULARIO DE REGISTRO/EDICIÓN */}
         <div className="lg:col-span-1 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 h-fit sticky top-6">
@@ -433,8 +557,31 @@ export default function AdminChoferes() {
                   <option value="Disponible">Disponible</option>
                   <option value="Inactivo">Inactivo</option>
                   <option value="Incapacidad">Incapacidad</option>
+                  <option value="Vacaciones">Vacaciones</option>
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                Fecha de Ingreso
+              </label>
+              <input
+                type="date"
+                value={fechaIngreso}
+                onChange={(e) => setFechaIngreso(e.target.value)}
+                className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-800 dark:text-slate-100"
+              />
+              {fechaIngreso && (
+                <p className="text-xs text-teal-700 dark:text-teal-400 font-semibold mt-1.5 bg-teal-50 dark:bg-teal-950/30 px-2.5 py-1.5 rounded-lg">
+                  {calcularAntiguedad(fechaIngreso).anios} año(s) de
+                  antigüedad ·{" "}
+                  {diasVacacionesPorAnios(
+                    calcularAntiguedad(fechaIngreso).anios,
+                  )}{" "}
+                  días de vacaciones por ley
+                </p>
+              )}
             </div>
 
             <div className="pt-2 flex flex-col gap-2">
@@ -543,12 +690,22 @@ export default function AdminChoferes() {
                     <th className="p-4 pl-6">Nombre</th>
                     <th className="p-4">Contacto</th>
                     <th className="p-4 text-center">Rol</th>
+                    <th className="p-4 text-center">Ingreso</th>
+                    <th className="p-4 text-center">Vacaciones</th>
                     <th className="p-4 text-center">Estado</th>
                     <th className="p-4 text-center pr-6">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
-                  {choferesPaginados.map((c: any) => (
+                  {choferesPaginados.map((c: any) => {
+                    const periodos = vacacionesPorChofer(c.id);
+                    const resumen = resumenVacaciones(c, periodos, hoyStr);
+                    const antiguedad = calcularAntiguedad(
+                      c.fecha_ingreso,
+                      hoyStr,
+                    );
+                    const estadoActual = estadoEfectivo(c, periodos, hoyStr);
+                    return (
                     <tr
                       key={c.id}
                       className="hover:bg-slate-50/80 transition-colors group"
@@ -574,10 +731,42 @@ export default function AdminChoferes() {
                         </span>
                       </td>
                       <td className="p-4 text-center">
+                        {c.fecha_ingreso ? (
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-slate-600 dark:text-slate-300 text-xs">
+                              {c.fecha_ingreso}
+                            </span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                              {antiguedad.anios}a {antiguedad.meses}m
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400 dark:text-slate-500">
+                            N/A
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4 text-center">
+                        {c.fecha_ingreso ? (
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-700 dark:text-slate-200 text-xs">
+                              {resumen.diasPendientes}/{resumen.diasDerecho}
+                            </span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                              {resumen.diasTomados} tomados
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400 dark:text-slate-500">
+                            N/A
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4 text-center">
                         <span
-                          className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full tracking-wider border ${c.estado === "Disponible" || !c.estado ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800" : "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200"}`}
+                          className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full tracking-wider border ${claseEstadoBadge(estadoActual)}`}
                         >
-                          {c.estado || "Disponible"}
+                          {estadoActual}
                         </span>
                       </td>
                       <td className="p-4 pr-6">
@@ -604,7 +793,8 @@ export default function AdminChoferes() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -654,6 +844,7 @@ export default function AdminChoferes() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

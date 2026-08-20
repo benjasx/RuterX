@@ -15,6 +15,8 @@ export const agregarChoferFirebase = async (datosChofer: {
   email: string;
   telefono: string;
   tipo: "Chofer" | "Auxiliar";
+  estado?: string;
+  fecha_ingreso?: string;
 }) => {
   try {
     const docRef = await addDoc(collection(db, "choferes"), {
@@ -22,6 +24,8 @@ export const agregarChoferFirebase = async (datosChofer: {
       email: datosChofer.email,
       telefono: datosChofer.telefono,
       tipo: datosChofer.tipo,
+      estado: datosChofer.estado || "Disponible",
+      fecha_ingreso: datosChofer.fecha_ingreso || "",
       fecha_creacion: serverTimestamp(),
     });
     return docRef.id;
