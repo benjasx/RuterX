@@ -98,6 +98,7 @@ export const TIPOS_AUSENCIA = [
   "Permiso con goce",
   "Permiso sin goce",
   "Descanso",
+  "Falta injustificada",
 ] as const;
 
 export type TipoAusencia = (typeof TIPOS_AUSENCIA)[number];
@@ -186,21 +187,34 @@ export const resumenVacaciones = (
 // Clases Tailwind para la píldora de estado/tipo de ausencia (usada en Directorio y Vacaciones).
 export const claseEstadoBadge = (estado: string): string => {
   switch (estado) {
+    case "Disponible":
+      return "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
     case "Vacaciones":
-      return "bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800";
     case "Incapacidad":
-      return "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800";
+    case "Permiso con goce":
+    case "Permiso sin goce":
+      return "bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800";
     case "Inactivo":
       return "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800";
-    case "Permiso con goce":
-      return "bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800";
-    case "Permiso sin goce":
-      return "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600";
     case "Descanso":
       return "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800";
+    case "Falta injustificada":
+      return "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800";
     default:
       return "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800";
   }
+};
+
+// Código usado en Control de Asistencia (PanelAsistencia) para cada tipo de ausencia,
+// para precargar el estado del día a partir de los periodos de vacaciones/permisos.
+export const CODIGO_ASISTENCIA_POR_TIPO: Record<string, string> = {
+  Vacaciones: "V",
+  Incapacidad: "I",
+  "Permiso con goce": "PCG",
+  "Permiso sin goce": "PSG",
+  Descanso: "DS",
+  "Falta injustificada": "F",
+  Inactivo: "S",
 };
 
 // Estado a mostrar para el empleado en una fecha dada: el manual (Incapacidad/Inactivo) gana;

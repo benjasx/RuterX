@@ -226,7 +226,7 @@ export default function SidebarAdmin({
             }`}
           >
             <UserCheck size={20} />
-            <span>Añadir Choferes</span>
+            <span>Choferes/Auxiliares</span>
           </button>
         )}
 

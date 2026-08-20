@@ -11,11 +11,31 @@ import {
   Filter,
 } from "lucide-react";
 import { obtenerChoferesFirebase } from "../firebase/choferesService";
+import { obtenerVacacionesFirebase } from "../firebase/vacacionesService";
 import {
   obtenerAsistenciaPorFecha,
   guardarAsistenciaFecha,
 } from "../firebase/asistenciaService";
+import {
+  claseEstadoBadge,
+  estadoEfectivo,
+  CODIGO_ASISTENCIA_POR_TIPO,
+} from "../utils/vacacionesUtils";
 import { exportarAsistenciaPDF } from "../utils/reportesAsistenciaUtils";
+
+const ESTADOS_ASISTENCIA = [
+  { codigo: "A", etiqueta: "Asistencia" },
+  { codigo: "RET", etiqueta: "Retardo" },
+  { codigo: "V", etiqueta: "Vacaciones" },
+  { codigo: "I", etiqueta: "Incapacidad" },
+  { codigo: "PCG", etiqueta: "Permiso c/goce" },
+  { codigo: "CAP", etiqueta: "Capacitación" },
+  { codigo: "PSG", etiqueta: "Permiso s/goce" },
+  { codigo: "DF", etiqueta: "Día festivo" },
+  { codigo: "DS", etiqueta: "Descanso" },
+  { codigo: "F", etiqueta: "Falta injustif." },
+  { codigo: "S", etiqueta: "Suspensión" },
+];
 
 export default function PanelAsistencia() {
   const hoyStr = new Date().toLocaleDateString("sv-SE");
@@ -25,6 +45,7 @@ export default function PanelAsistencia() {
 
   const [busqueda, setBusqueda] = useState("");
   const [filtroPuesto, setFiltroPuesto] = useState("TODOS");
+  const [filtroEstado, setFiltroEstado] = useState("TODOS");
 
   const queryClient = useQueryClient();
 
@@ -39,43 +60,40 @@ export default function PanelAsistencia() {
       queryFn: () => obtenerAsistenciaPorFecha(fechaSeleccionada),
     });
 
+  const { data: vacacionesData = [] } = useQuery({
+    queryKey: ["vacaciones"],
+    queryFn: obtenerVacacionesFirebase,
+  });
+
   useEffect(() => {
     if (personalData.length > 0) {
-      let nuevaLista: any[] = [];
-
-      if (asistenciaGuardada.length > 0) {
-        const mapaGuardado = new Map(
-          asistenciaGuardada.map((r: any) => [r.id || r.nombre, r]),
+      const mapaGuardado = new Map(
+        asistenciaGuardada.map((r: any) => [r.id || r.nombre, r]),
+      );
+      const nuevaLista = personalData.map((p: any) => {
+        const guardado: any = mapaGuardado.get(p.id || p.nombre);
+        const rol = (p.rol || p.puesto || p.tipo || "CHOFER").toUpperCase();
+        const periodos = vacacionesData.filter(
+          (v: any) => v.chofer_id === p.id,
         );
-        nuevaLista = personalData.map((p: any) => {
-          const guardado: any = mapaGuardado.get(p.id || p.nombre);
-          const rol = (p.rol || p.puesto || p.tipo || "CHOFER").toUpperCase();
-          return {
-            id: p.id || p.nombre,
-            nombre: (p.nombre || "").toUpperCase(),
-            puesto:
-              rol.includes("AYUDANTE") || rol.includes("AUXILIAR")
-                ? "AUXILIAR"
-                : "CHOFER",
-            estado: guardado ? guardado.estado : "A",
-            observaciones: guardado ? guardado.observaciones : "",
-          };
-        });
-      } else {
-        nuevaLista = personalData.map((p: any) => {
-          const rol = (p.rol || p.puesto || p.tipo || "CHOFER").toUpperCase();
-          return {
-            id: p.id || p.nombre,
-            nombre: (p.nombre || "").toUpperCase(),
-            puesto:
-              rol.includes("AYUDANTE") || rol.includes("AUXILIAR")
-                ? "AUXILIAR"
-                : "CHOFER",
-            estado: "A",
-            observaciones: "",
-          };
-        });
-      }
+        const tipoDetectado = estadoEfectivo(p, periodos, fechaSeleccionada);
+        const estadoSugerido =
+          tipoDetectado === "Disponible"
+            ? "A"
+            : CODIGO_ASISTENCIA_POR_TIPO[tipoDetectado] || "A";
+        return {
+          id: p.id || p.nombre,
+          nombre: (p.nombre || "").toUpperCase(),
+          puesto:
+            rol.includes("AYUDANTE") || rol.includes("AUXILIAR")
+              ? "AUXILIAR"
+              : "CHOFER",
+          estado: guardado ? guardado.estado : estadoSugerido,
+          observaciones: guardado ? guardado.observaciones : "",
+          tipoDetectado:
+            tipoDetectado !== "Disponible" ? tipoDetectado : undefined,
+        };
+      });
 
       // 🚀 SOLUCIÓN AL BUCLE INFINITO:
       // Comparamos el estado actual con la nueva lista.
@@ -87,16 +105,26 @@ export default function PanelAsistencia() {
         return nuevaLista;
       });
     }
-  }, [personalData, asistenciaGuardada]);
+  }, [personalData, asistenciaGuardada, vacacionesData, fechaSeleccionada]);
 
   const registrosFiltrados = useMemo(() => {
     return registros.filter((reg) => {
       const coincideNombre = reg.nombre.includes(busqueda.toUpperCase().trim());
       const coincidePuesto =
         filtroPuesto === "TODOS" || reg.puesto === filtroPuesto;
-      return coincideNombre && coincidePuesto;
+      const coincideEstado =
+        filtroEstado === "TODOS" || reg.estado === filtroEstado;
+      return coincideNombre && coincidePuesto && coincideEstado;
     });
-  }, [registros, busqueda, filtroPuesto]);
+  }, [registros, busqueda, filtroPuesto, filtroEstado]);
+
+  const resumenPorEstado = useMemo(() => {
+    const conteo: Record<string, number> = {};
+    registros.forEach((reg) => {
+      conteo[reg.estado] = (conteo[reg.estado] || 0) + 1;
+    });
+    return conteo;
+  }, [registros]);
 
   const actualizarRegistro = (id: string, campo: string, valor: string) => {
     setRegistros((prev) =>
@@ -212,6 +240,30 @@ export default function PanelAsistencia() {
         </div>
       </div>
 
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+          <p className="text-[10px] font-black tracking-wider text-slate-400 dark:text-slate-500">
+            Total Personal
+          </p>
+          <p className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">
+            {registros.length}
+          </p>
+        </div>
+        {ESTADOS_ASISTENCIA.map((e) => (
+          <div
+            key={e.codigo}
+            className={`p-4 rounded-xl border ${obtenerEstiloEstado(e.codigo)}`}
+          >
+            <p className="text-[10px] font-black tracking-wider opacity-80">
+              {e.etiqueta}
+            </p>
+            <p className="text-2xl font-black mt-1">
+              {resumenPorEstado[e.codigo] || 0}
+            </p>
+          </div>
+        ))}
+      </div>
+
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
         <div className="relative w-full sm:w-80">
           <Search
@@ -241,6 +293,18 @@ export default function PanelAsistencia() {
             <option value="CHOFER">SOLO CHOFERES</option>
             <option value="AUXILIAR">SOLO AUXILIARES</option>
           </select>
+          <select
+            value={filtroEstado}
+            onChange={(e) => setFiltroEstado(e.target.value)}
+            className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
+          >
+            <option value="TODOS">TODOS LOS ESTADOS</option>
+            {ESTADOS_ASISTENCIA.map((e) => (
+              <option key={e.codigo} value={e.codigo}>
+                {e.codigo} - {e.etiqueta.toUpperCase()}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -262,7 +326,16 @@ export default function PanelAsistencia() {
             {registrosFiltrados.map((reg) => (
               <tr key={reg.id} className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
                 <td className="p-3 border-r border-slate-200 dark:border-slate-700 font-bold text-slate-800 dark:text-slate-100 text-xs">
-                  {reg.nombre}
+                  <div className="flex flex-col gap-1">
+                    <span>{reg.nombre}</span>
+                    {reg.tipoDetectado && (
+                      <span
+                        className={`w-fit text-[9px] font-black uppercase px-1.5 py-0.5 rounded border normal-case tracking-wider ${claseEstadoBadge(reg.tipoDetectado)}`}
+                      >
+                        {reg.tipoDetectado}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="p-3 border-r border-slate-200 dark:border-slate-700 text-center text-xs font-semibold text-slate-600 dark:text-slate-300">
                   {reg.puesto}
