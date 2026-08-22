@@ -4,11 +4,21 @@ import { Mail, Lock, Loader2, AlertCircle } from "lucide-react";
 // ⚠️ Nota: En el siguiente paso ajustaremos esta ruta de importación de Firebase
 import { auth } from "../firebase/config";
 
-export default function Login() {
+interface LoginProps {
+  mensajeInicial?: string;
+}
+
+export default function Login({ mensajeInicial }: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
+
+  // Login no se desmonta si el intento de sesión termina rechazado (cuenta
+  // deshabilitada): la sesión nunca llega a establecerse en RuterMapas. Por eso
+  // el mensaje que llega por prop se combina con el error local en vez de copiarlo
+  // a un estado aparte.
+  const mensajeMostrado = error || mensajeInicial || "";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,22 +41,12 @@ export default function Login() {
       <div className="max-w-md w-full bg-white dark:bg-slate-900 rounded-2xl shadow-lg p-8 border border-slate-200 dark:border-slate-800">
         {/* Logo / Encabezado */}
         <div className="text-center mb-8">
-          <div className="bg-blue-600 text-white w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-8 h-8"
-            >
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-              <path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" />
-              <path d="M2 7h20" />
-              <path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7" />
-            </svg>
+          <div className="w-16 h-16 rounded-xl overflow-hidden mx-auto mb-4 shadow-md">
+            <img
+              src="https://avatars.githubusercontent.com/u/62582879?v=4&size=64"
+              alt="Avatar"
+              className="w-full h-full object-cover"
+            />
           </div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
             RuterX Logistics
@@ -57,10 +57,10 @@ export default function Login() {
         </div>
 
         {/* Mensaje de Error */}
-        {error && (
+        {mensajeMostrado && (
           <div className="mb-6 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-sm rounded-lg flex items-start gap-2">
             <AlertCircle size={18} className="shrink-0 mt-0.5" />
-            <span>{error}</span>
+            <span>{mensajeMostrado}</span>
           </div>
         )}
 

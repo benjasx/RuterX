@@ -27,6 +27,7 @@ import {
 import { obtenerChoferesFirebase } from "../firebase/choferesService";
 import { obtenerVacacionesFirebase } from "../firebase/vacacionesService";
 import { estadoEfectivo } from "../utils/vacacionesUtils";
+import { esAdmin as checkEsAdmin, esEmbarques as checkEsEmbarques } from "../utils/roles";
 import {
   obtenerAjustesNomina,
   type AjustesNomina,
@@ -131,9 +132,8 @@ export default function PanelDistribucion() {
   // 🚀 LÓGICA DE PERMISOS ACTUALIZADA
   const auth = getAuth();
   const correoActual = auth.currentUser?.email;
-  const esAdmin = correoActual === "admin@ruterx.com";
-  const esEmbarques =
-    correoActual === "emb01@ruterx.com" || correoActual === "emb02@ruterx.com";
+  const esAdmin = checkEsAdmin(correoActual);
+  const esEmbarques = checkEsEmbarques(correoActual);
 
   // Agrupamos los permisos para que ambos (Admin y Embarques) puedan ver los botones
   const tienePermisosEspeciales = esAdmin || esEmbarques;

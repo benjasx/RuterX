@@ -11,6 +11,7 @@ import {
   Truck,
   CalendarCheck,
   DatabaseBackup,
+  UserCog,
 } from "lucide-react";
 import { esAdmin, esJefeReparto } from "../utils/roles";
 
@@ -26,7 +27,8 @@ export type SubVistaAdmin =
   | "historialCompleto"
   | "ajustesNomina"
   | "choferes"
-  | "respaldo";
+  | "respaldo"
+  | "usuarios";
 
 interface SidebarAdminProps {
   menuActivo: SubVistaAdmin;
@@ -59,6 +61,7 @@ export default function SidebarAdmin({
     // 🚀 AHORA EL JEFE DE REPARTO TAMBIÉN PUEDE VER "AÑADIR CHOFERES"
     choferes: esAdmin(usuarioEmail) || esJefeReparto(usuarioEmail),
     respaldo: esAdmin(usuarioEmail),
+    usuarios: esAdmin(usuarioEmail),
   };
 
   return (
@@ -241,6 +244,20 @@ export default function SidebarAdmin({
           >
             <DatabaseBackup size={20} />
             <span>Respaldo de Datos</span>
+          </button>
+        )}
+
+        {permisos.usuarios && (
+          <button
+            onClick={() => setMenuActivo("usuarios")}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl font-semibold transition-all duration-300 mt-2 ${
+              menuActivo === "usuarios"
+                ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-sm border border-blue-100 dark:border-blue-900"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-blue-600 dark:hover:text-blue-400"
+            }`}
+          >
+            <UserCog size={20} />
+            <span>Gestión de Usuarios</span>
           </button>
         )}
       </div>

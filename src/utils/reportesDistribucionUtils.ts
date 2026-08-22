@@ -283,6 +283,44 @@ const esFolioValido = (val: string) => {
   return str !== "" && str !== "FOLIO" && str !== "TRASPASO" && str !== "0";
 };
 
+// Guía de display de siete segmentos (como los números de un tablero
+// digital) en tinta muy tenue: al no haber camión asignado, se imprimen
+// los 7 segmentos de cada dígito apenas visibles para que, con un
+// plumón, se pueda trazar encima cualquier número del 0 al 9.
+const construirCanvasGuiaUnidad = () => {
+  const colorGuia = "#e8ecf1";
+  const t = 6; // grosor del segmento
+  const w = 34; // ancho de cada dígito
+  const h = 58; // alto de cada dígito
+  const espacio = 10; // separación entre los dos dígitos
+
+  const segmento = (x: number, y: number, ancho: number, alto: number) => ({
+    type: "rect",
+    x,
+    y,
+    w: ancho,
+    h: alto,
+    color: colorGuia,
+    lineColor: colorGuia,
+  });
+
+  const digito = (offsetX: number) => [
+    segmento(offsetX + t * 0.5, 0, w - t, t), // A - superior
+    segmento(offsetX, t * 0.5, t, h / 2 - t * 0.5), // F - superior izq.
+    segmento(offsetX + w - t, t * 0.5, t, h / 2 - t * 0.5), // B - superior der.
+    segmento(offsetX + t * 0.5, h / 2 - t / 2, w - t, t), // G - medio
+    segmento(offsetX, h / 2 + t * 0.5, t, h / 2 - t * 0.5), // E - inferior izq.
+    segmento(offsetX + w - t, h / 2 + t * 0.5, t, h / 2 - t * 0.5), // C - inferior der.
+    segmento(offsetX + t * 0.5, h - t, w - t, t), // D - inferior
+  ];
+
+  return {
+    canvas: [...digito(0), ...digito(w + espacio)],
+    alignment: "center",
+    margin: [0, 0, 0, 18],
+  };
+};
+
 const construirContenidoHojaRuta = (fila: any) => {
   const folios = [fila.embarqueCredito, fila.embarqueContado].filter(
     esFolioValido,
@@ -300,6 +338,8 @@ const construirContenidoHojaRuta = (fila: any) => {
       alignment: "center",
       margin: [0, 0, 0, 20],
     });
+  } else {
+    contenido.push(construirCanvasGuiaUnidad());
   }
 
   if (fila.ruta) {
@@ -422,6 +462,7 @@ const construirContenidoBitacora = (
   fila: any,
   fechaHoy: string,
   logoBase64: string | null,
+  horaImpresion: string,
 ) => {
   const ANCHO_PAGINA = 515; // A4 (595.28) - márgenes 40+40
 
@@ -538,7 +579,7 @@ const construirContenidoBitacora = (
           body: [
             [
               celdaEtiqueta("HORA DE IMPRESION"),
-              celdaValor(""),
+              celdaValor(horaImpresion),
               { text: "", rowSpan: 4, border: [true, true, true, true] },
             ],
             [celdaEtiqueta("HORA DE ENRUTADO"), celdaValor(""), {}],
@@ -695,11 +736,20 @@ export const exportarBitacoraPDF = async (
     month: "2-digit",
     year: "numeric",
   });
+  const horaImpresion = new Date().toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   const documentDefinition = {
     pageOrientation: "portrait",
     pageMargins: [40, 40, 40, 40],
-    content: construirContenidoBitacora(fila, fechaHoy, logoBase64),
+    content: construirContenidoBitacora(
+      fila,
+      fechaHoy,
+      logoBase64,
+      horaImpresion,
+    ),
   };
 
   pdfMake
@@ -725,11 +775,20 @@ export const exportarPaqueteCompletoPDF = async (
     month: "2-digit",
     year: "numeric",
   });
+  const horaImpresion = new Date().toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   const secciones: { orientacion: "landscape" | "portrait"; nodo: any }[] =
     [];
 
   if (fila.ruta || fila.unidad) {
+    // 🚀 Dos copias: una para la unidad y otra para el mezanín
+    secciones.push({
+      orientacion: "landscape",
+      nodo: { stack: construirContenidoHojaRuta(fila), alignment: "center" },
+    });
     secciones.push({
       orientacion: "landscape",
       nodo: { stack: construirContenidoHojaRuta(fila), alignment: "center" },
@@ -744,11 +803,25 @@ export const exportarPaqueteCompletoPDF = async (
         alignment: "center",
       },
     });
+    secciones.push({
+      orientacion: "landscape",
+      nodo: {
+        stack: construirContenidoHojaMesanine(fila),
+        alignment: "center",
+      },
+    });
   }
 
   secciones.push({
     orientacion: "portrait",
-    nodo: { stack: construirContenidoBitacora(fila, fechaHoy, logoBase64) },
+    nodo: {
+      stack: construirContenidoBitacora(
+        fila,
+        fechaHoy,
+        logoBase64,
+        horaImpresion,
+      ),
+    },
   });
 
   const content = secciones.map((seccion, index) => ({

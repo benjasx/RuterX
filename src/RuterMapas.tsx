@@ -6,12 +6,15 @@ import MapaRutero from "./components/MapaRutero";
 import Login from "./components/Login";
 
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
-import { auth } from "./firebase/config";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { auth, db } from "./firebase/config";
 import { Loader2 } from "lucide-react";
 import {
   esAdmin,
   esJefeReparto as checkEsJefeReparto,
   esPersonalAutorizado as checkEsPersonalAutorizado,
+  setRolDinamico,
+  type RolUsuario,
 } from "./utils/roles";
 
 const queryClient = new QueryClient({
@@ -37,9 +40,57 @@ export default function RuterMapas() {
 
   const [usuarioActual, setUsuarioActual] = useState<User | null>(null);
   const [cargandoSesion, setCargandoSesion] = useState(true);
+  const [mensajeSesion, setMensajeSesion] = useState("");
+
+  const MENSAJE_CUENTA_DESHABILITADA =
+    "Tu cuenta fue deshabilitada. Comunícate con el administrador.";
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    // Escucha en vivo del doc "usuarios/{uid}" del usuario logueado: si el admin
+    // lo deshabilita mientras tiene la sesión abierta, lo expulsamos al instante.
+    let unsubUsuario: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (unsubUsuario) {
+        unsubUsuario();
+        unsubUsuario = null;
+      }
+
+      if (user) {
+        // Resolvemos el rol asignado desde "Gestión de Usuarios" (si existe) antes
+        // de decidir la vista inicial, y respetamos si la cuenta fue deshabilitada.
+        try {
+          const snap = await getDoc(doc(db, "usuarios", user.uid));
+          const datos = snap.exists()
+            ? (snap.data() as { role?: RolUsuario; activo?: boolean })
+            : null;
+
+          if (datos?.activo === false) {
+            setMensajeSesion(MENSAJE_CUENTA_DESHABILITADA);
+            await signOut(auth);
+            setUsuarioActual(null);
+            setCargandoSesion(false);
+            return;
+          }
+
+          setMensajeSesion("");
+          setRolDinamico(user.email, datos?.role ?? null);
+        } catch (error) {
+          console.error("Error al resolver el rol del usuario:", error);
+          setRolDinamico(null, null);
+        }
+
+        unsubUsuario = onSnapshot(doc(db, "usuarios", user.uid), (snap) => {
+          const datos = snap.data() as { activo?: boolean } | undefined;
+          if (datos?.activo === false) {
+            setMensajeSesion(MENSAJE_CUENTA_DESHABILITADA);
+            signOut(auth);
+          }
+        });
+      } else {
+        setRolDinamico(null, null);
+      }
+
       setUsuarioActual(user);
 
       if (user) {
@@ -55,7 +106,10 @@ export default function RuterMapas() {
       setCargandoSesion(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubUsuario) unsubUsuario();
+    };
   }, []);
 
   useEffect(() => {
@@ -64,6 +118,7 @@ export default function RuterMapas() {
 
   const handleLogout = async () => {
     try {
+      setMensajeSesion("");
       await signOut(auth);
       setVistaActual("rutero");
     } catch (error) {
@@ -85,7 +140,7 @@ export default function RuterMapas() {
           </h2>
         </div>
       ) : !usuarioActual ? (
-        <Login />
+        <Login mensajeInicial={mensajeSesion} />
       ) : (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans flex flex-col">
           <Navbar

@@ -71,6 +71,13 @@ service cloud.firestore {
       allow write: if esAdmin();
     }
 
+    // Usuarios del sistema (roles asignados desde el panel de Gestión de Usuarios):
+    // cada quien puede leer su propio doc para resolver su rol; solo admin gestiona.
+    match /usuarios/{uid} {
+      allow read: if estaAutenticado() && (request.auth.uid == uid || esAdmin());
+      allow write: if esAdmin();
+    }
+
     // Cualquier otra colección no contemplada: denegar por defecto
     match /{document=**} {
       allow read, write: if false;
