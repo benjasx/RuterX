@@ -1,3 +1,5 @@
+import { notificarAdvertencia } from "./notificaciones";
+
 // Si no tienes esta función arriba del archivo, déjala, es para el logo:
 const obtenerLogoBase64Local = async (path: string) => {
   try {
@@ -70,7 +72,7 @@ export const exportarDistribucionPDF = async (
   fechaSeleccionada: string,
 ) => {
   const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
 
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
 
@@ -375,10 +377,10 @@ export const exportarHojaRutaPDF = async (
   fechaSeleccionada: string,
 ) => {
   const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
 
   if (!fila.ruta && !fila.unidad) {
-    return alert("Esta fila no tiene ruta ni unidad para imprimir.");
+    return notificarAdvertencia("Esta fila no tiene ruta ni unidad para imprimir.");
   }
 
   await asegurarFuenteNegrita();
@@ -437,10 +439,10 @@ export const exportarHojaMesaninePDF = async (
   fechaSeleccionada: string,
 ) => {
   const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
 
   if (!fila.ruta) {
-    return alert("Esta fila no tiene ruta para imprimir.");
+    return notificarAdvertencia("Esta fila no tiene ruta para imprimir.");
   }
 
   await asegurarFuenteNegrita();
@@ -727,7 +729,7 @@ export const exportarBitacoraPDF = async (
   fechaSeleccionada: string,
 ) => {
   const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
 
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
 
@@ -765,7 +767,7 @@ export const exportarPaqueteCompletoPDF = async (
   fechaSeleccionada: string,
 ) => {
   const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
 
   await asegurarFuenteNegrita();
 

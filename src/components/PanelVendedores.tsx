@@ -10,6 +10,12 @@ import {
   actualizarVendedorFirebase,
   eliminarVendedorFirebase,
 } from "../firebase/vendedoresService";
+import {
+  notificarExito,
+  notificarError,
+  notificarAdvertencia,
+  confirmar,
+} from "../utils/notificaciones";
 
 interface PanelVendedoresProps {
   listaVendedores: DatosVendedor[];
@@ -52,7 +58,8 @@ export default function PanelVendedores({
 
   const handleGuardarVendedor = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nuevoNombreVend.trim()) return alert("El nombre es obligatorio");
+    if (!nuevoNombreVend.trim())
+      return notificarAdvertencia("El nombre es obligatorio");
 
     setGuardando(true);
 
@@ -79,11 +86,11 @@ export default function PanelVendedores({
         // 🚀 3. INVALIDAMOS LA CACHÉ PARA ACTUALIZAR AL INSTANTE
         queryClient.invalidateQueries({ queryKey: ["vendedores"] });
 
-        alert("Vendedor actualizado en la nube correctamente.");
+        notificarExito("Vendedor actualizado en la nube correctamente.");
         setVendedorEditando(null);
         limpiarFormulario();
       } else {
-        alert("Error al actualizar en Firebase. Revisa la consola.");
+        notificarError("Error al actualizar en Firebase. Revisa la consola.");
       }
     } else {
       // --- LÓGICA DE CREACIÓN EN FIREBASE ---
@@ -106,10 +113,12 @@ export default function PanelVendedores({
         // 🚀 3. INVALIDAMOS LA CACHÉ PARA ACTUALIZAR AL INSTANTE
         queryClient.invalidateQueries({ queryKey: ["vendedores"] });
 
-        alert(`¡Vendedor ${nuevoNombreVend} registrado en la nube con éxito!`);
+        notificarExito(
+          `¡Vendedor ${nuevoNombreVend} registrado en la nube con éxito!`,
+        );
         limpiarFormulario();
       } else {
-        alert("Hubo un error al guardar en Firebase.");
+        notificarError("Hubo un error al guardar en Firebase.");
       }
     }
 
@@ -133,11 +142,12 @@ export default function PanelVendedores({
 
   const handleEliminarVendedor = async (id: string) => {
     // --- LÓGICA DE ELIMINACIÓN EN FIREBASE ---
-    if (
-      window.confirm(
-        "¿Estás seguro de eliminar este vendedor de la base de datos?",
-      )
-    ) {
+    const ok = await confirmar({
+      mensaje: "¿Estás seguro de eliminar este vendedor de la base de datos?",
+      peligroso: true,
+      textoConfirmar: "Eliminar",
+    });
+    if (ok) {
       setGuardando(true);
 
       const resultado = await eliminarVendedorFirebase(id);
@@ -152,9 +162,9 @@ export default function PanelVendedores({
           setVendedorEditando(null);
           limpiarFormulario();
         }
-        alert("Vendedor eliminado de la nube.");
+        notificarExito("Vendedor eliminado de la nube.");
       } else {
-        alert("Error al eliminar el vendedor de Firebase.");
+        notificarError("Error al eliminar el vendedor de Firebase.");
       }
 
       setGuardando(false);
@@ -189,7 +199,7 @@ export default function PanelVendedores({
               value={nuevoNombreVend}
               onChange={(e) => setNuevoNombreVend(e.target.value)}
               placeholder="Ej. Benjamin R-2"
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
             />
           </div>
 
@@ -202,7 +212,7 @@ export default function PanelVendedores({
               value={nuevoCorreoVend}
               onChange={(e) => setNuevoCorreoVend(e.target.value)}
               placeholder="Ej. correo@empresa.com"
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
             />
           </div>
 
@@ -215,7 +225,7 @@ export default function PanelVendedores({
               value={nuevoTelefonoVend}
               onChange={(e) => setNuevoTelefonoVend(e.target.value)}
               placeholder="Ej. 311-123-4567"
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
             />
           </div>
 

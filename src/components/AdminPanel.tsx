@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import GestionRutas from "./GestionRutas";
 import PanelClientes from "./PanelClientes";
 import PanelVendedores from "./PanelVendedores";
-import SidebarAdmin, { type SubVistaAdmin } from "./SidebarAdmin";
+import type { SubVistaAdmin } from "./SidebarAdmin";
 
 import PanelHistorial from "./PanelHistorial";
 import PanelHistorialCompleto from "./PanelHistorialCompleto";
@@ -21,28 +20,16 @@ import PanelAsistencia from "./PanelAsistencia";
 import { obtenerVendedoresFirebase } from "../firebase/vendedoresService";
 import { obtenerClientesFirebase } from "../firebase/clientesService";
 import { obtenerRutasFirebase } from "../firebase/rutasService";
-import { esAdmin } from "../utils/roles";
 
 interface AdminPanelProps {
-  onLogout: () => void;
+  menuActivo: SubVistaAdmin;
   usuarioEmail: string | null;
 }
 
 export default function AdminPanel({
-  onLogout,
+  menuActivo,
   usuarioEmail,
 }: AdminPanelProps) {
-  // Si hay una sub-vista guardada de una sesión previa, se restaura al refrescar.
-  // Si no, entra al Dashboard (Admin) o al Monitor de Rutas (Jefe/Embarques).
-  const [menuActivo, setMenuActivo] = useState<SubVistaAdmin>(() => {
-    const guardado = localStorage.getItem("menuActivoAdmin") as SubVistaAdmin | null;
-    return guardado || (esAdmin(usuarioEmail) ? "dashboard" : "monitorRutas");
-  });
-
-  useEffect(() => {
-    localStorage.setItem("menuActivoAdmin", menuActivo);
-  }, [menuActivo]);
-
   const { data: listaVendedores = [] } = useQuery({
     queryKey: ["vendedores"],
     queryFn: obtenerVendedoresFirebase,
@@ -65,62 +52,55 @@ export default function AdminPanel({
   const setListaRutasDummy = () => {};
 
   return (
-    <div className="flex flex-col xl:flex-row items-start gap-5 w-full mt-10">
-      <SidebarAdmin
-        menuActivo={menuActivo}
-        setMenuActivo={setMenuActivo}
-        onLogout={onLogout}
-        usuarioEmail={usuarioEmail}
-      />
+    <div className="w-full h-full p-4 sm:p-6">
+      {menuActivo === "dashboard" && <Dashboard />}
 
-      <div className="flex-1 w-full min-w-0">
-        {menuActivo === "dashboard" && <Dashboard />}
+      {menuActivo === "monitorRutas" && <MonitorRutas />}
 
-        {menuActivo === "monitorRutas" && <MonitorRutas />}
+      {menuActivo === "distribucion" && <PanelDistribucion />}
 
-        {menuActivo === "distribucion" && <PanelDistribucion />}
+      {/* 🚀 Renderizamos el Control de Asistencia */}
+      {menuActivo === "asistencias" && <PanelAsistencia />}
 
-        {/* 🚀 Renderizamos el Control de Asistencia */}
-        {menuActivo === "asistencias" && <PanelAsistencia />}
+      {menuActivo === "clientes" && (
+        <PanelClientes
+          vendedores={listaVendedores}
+          listaClientes={listaClientes}
+          setListaClientes={setListaClientesDummy}
+          rutas={listaRutas}
+        />
+      )}
 
-        {menuActivo === "clientes" && (
-          <PanelClientes
-            vendedores={listaVendedores}
-            listaClientes={listaClientes}
-            setListaClientes={setListaClientesDummy}
-            rutas={listaRutas}
-          />
-        )}
+      {menuActivo === "rutas" && (
+        <GestionRutas
+          listaRutas={listaRutas}
+          setListaRutas={setListaRutasDummy}
+        />
+      )}
 
-        {menuActivo === "rutas" && (
-          <GestionRutas
-            listaRutas={listaRutas}
-            setListaRutas={setListaRutasDummy}
-          />
-        )}
+      {menuActivo === "vendedores" && (
+        <PanelVendedores
+          listaVendedores={listaVendedores}
+          setListaVendedores={setListaVendedoresDummy}
+          rutas={listaRutas}
+        />
+      )}
 
-        {menuActivo === "vendedores" && (
-          <PanelVendedores
-            listaVendedores={listaVendedores}
-            setListaVendedores={setListaVendedoresDummy}
-            rutas={listaRutas}
-          />
-        )}
+      {menuActivo === "historial" && <PanelHistorial />}
 
-        {menuActivo === "historial" && <PanelHistorial />}
+      {menuActivo === "historialCompleto" && <PanelHistorialCompleto />}
 
-        {menuActivo === "historialCompleto" && <PanelHistorialCompleto />}
+      {menuActivo === "ajustesNomina" && <PanelAjustesNomina />}
 
-        {menuActivo === "ajustesNomina" && <PanelAjustesNomina />}
+      {menuActivo === "choferes" && <AdminChoferes />}
 
-        {menuActivo === "choferes" && <AdminChoferes />}
+      {menuActivo === "respaldo" && (
+        <PanelRespaldo usuarioEmail={usuarioEmail} />
+      )}
 
-        {menuActivo === "respaldo" && (
-          <PanelRespaldo usuarioEmail={usuarioEmail} />
-        )}
-
-        {menuActivo === "usuarios" && <GestionUsuarios />}
-      </div>
+      {menuActivo === "usuarios" && (
+        <GestionUsuarios usuarioEmail={usuarioEmail} />
+      )}
     </div>
   );
 }

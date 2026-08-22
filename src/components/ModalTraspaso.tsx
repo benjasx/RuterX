@@ -47,7 +47,7 @@ export default function ModalTraspaso({
               placeholder="Ej. 17"
               value={unidad}
               onChange={(e) => setUnidad(e.target.value)}
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
             />
           </div>
           <div>
@@ -59,7 +59,7 @@ export default function ModalTraspaso({
               placeholder="Chofer..."
               value={chofer}
               onChange={(e) => setChofer(e.target.value)}
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm uppercase bg-white dark:bg-slate-800"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm uppercase bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
             />
           </div>
           <div>
@@ -71,7 +71,7 @@ export default function ModalTraspaso({
               placeholder="Vallarta..."
               value={ruta}
               onChange={(e) => setRuta(e.target.value)}
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm uppercase bg-white dark:bg-slate-800"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm uppercase bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
             />
           </div>
         </div>

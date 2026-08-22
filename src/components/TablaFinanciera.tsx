@@ -140,7 +140,7 @@ export default function TablaFinanciera({
             {datosProcesados.map((fila, index) => (
               <tr
                 key={index}
-                className="hover:bg-blue-50/50 transition-colors group"
+                className="hover:bg-blue-50/50 dark:hover:bg-slate-900 transition-colors group"
               >
                 <td className="px-6 py-3 text-left font-semibold text-slate-700 dark:text-slate-200 text-xs uppercase">
                   {fila.ruta || (
@@ -158,15 +158,15 @@ export default function TablaFinanciera({
                 <td className="px-6 py-3 text-left uppercase text-xs font-medium text-slate-700 dark:text-slate-200">
                   {fila.chofer}
                 </td>
-                <td className="px-6 py-3 text-center text-xs">
+                <td className="px-6 py-3 text-center text-xs text-slate-700 dark:text-slate-200">
                   {fila.embCred}
                 </td>
-                <td className="px-6 py-3 text-center text-xs">
+                <td className="px-6 py-3 text-center text-xs text-slate-700 dark:text-slate-200">
                   {fila.embCtdo}
                 </td>
                 <td className="px-6 py-3 text-right">
                   {fila.totalMonto > 0 ? (
-                    <span className="font-bold text-slate-900">
+                    <span className="font-bold text-slate-900 dark:text-slate-100">
                       {formatearMoneda(fila.totalMonto)}
                     </span>
                   ) : (

@@ -81,7 +81,7 @@ export default function TablaTripulacion({
             {datosProcesados.map((fila, index) => (
               <tr
                 key={index}
-                className="hover:bg-emerald-50/50 transition-colors"
+                className="hover:bg-emerald-50/50 dark:hover:bg-slate-900 transition-colors"
               >
                 <td className="px-4 py-3 text-center">
                   <span className="inline-flex items-center justify-center bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold px-2.5 py-1 rounded-md text-xs">
@@ -99,10 +99,10 @@ export default function TablaTripulacion({
                 <td className="px-4 py-3 uppercase text-xs font-medium text-slate-700 dark:text-slate-200">
                   {fila.chofer}
                 </td>
-                <td className="px-4 py-3 text-center text-xs">
+                <td className="px-4 py-3 text-center text-xs text-slate-700 dark:text-slate-200">
                   {fila.embCred}
                 </td>
-                <td className="px-4 py-3 text-center text-xs">
+                <td className="px-4 py-3 text-center text-xs text-slate-700 dark:text-slate-200">
                   {fila.embCtdo}
                 </td>
                 <td className="px-3 py-2">

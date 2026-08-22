@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { obtenerLogoBase64Local } from "./mapaUtils";
+import { notificarAdvertencia } from "./notificaciones";
 
 export const exportarExcelAdmin = (
   rutaOptima: any[],
@@ -29,7 +30,7 @@ export const exportarPDFAdmin = async (
 ) => {
   if (!rutaOptima || rutaOptima.length === 0) return;
   const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
 
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
 
@@ -117,7 +118,7 @@ export const generarPDFFinalChofer = async (
   nombreChoferConectado: string,
 ) => {
   const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
 
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
 

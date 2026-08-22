@@ -1,4 +1,5 @@
 import type { ResumenVacaciones } from "./vacacionesUtils";
+import { notificarAdvertencia } from "./notificaciones";
 
 const obtenerLogoBase64Local = async (path: string) => {
   try {
@@ -33,7 +34,7 @@ export const exportarConstanciaVacacionesPDF = async (
   resumen: ResumenVacaciones,
 ) => {
   const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
 
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
   const fechaEmision = new Date().toLocaleDateString("es-MX");
@@ -280,7 +281,7 @@ export const exportarListadoVacacionesPDF = async (
   hoyStr: string,
 ) => {
   const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
 
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
 

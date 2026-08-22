@@ -6,6 +6,7 @@ import {
   eliminarRutaFirebase,
   type Ruta,
 } from "../firebase/rutasService";
+import { notificarError, confirmar } from "../utils/notificaciones";
 
 interface Props {
   listaRutas: Ruta[];
@@ -40,17 +41,18 @@ export default function GestionRutas({ listaRutas, setListaRutas }: Props) {
 
       setNuevaRuta("");
     } else {
-      alert("Error al guardar la ruta");
+      notificarError("Error al guardar la ruta");
     }
     setCargando(false);
   };
 
   const handleEliminar = async (id: string) => {
-    if (
-      window.confirm(
-        "¿Seguro que deseas eliminar esta ruta de la base de datos?",
-      )
-    ) {
+    const ok = await confirmar({
+      mensaje: "¿Seguro que deseas eliminar esta ruta de la base de datos?",
+      peligroso: true,
+      textoConfirmar: "Eliminar",
+    });
+    if (ok) {
       const resultado = await eliminarRutaFirebase(id);
       if (resultado.success) {
         // ACTUALIZAMOS EL ESTADO GLOBAL AL BORRAR
@@ -80,7 +82,7 @@ export default function GestionRutas({ listaRutas, setListaRutas }: Props) {
           value={nuevaRuta}
           onChange={(e) => setNuevaRuta(e.target.value)}
           placeholder="Ej. NUEVA RUTA NORTE"
-          className="flex-1 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 uppercase outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
         />
         <button
           onClick={handleAgregar}

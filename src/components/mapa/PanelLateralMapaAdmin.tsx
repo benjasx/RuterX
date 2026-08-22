@@ -1,10 +1,13 @@
-import { Route, Send, Download, FileText, Loader2 } from "lucide-react";
+import { Route, Send, Download, FileText, Loader2, Search } from "lucide-react";
 
 interface PanelLateralProps {
   rutaSeleccionada: string;
   setRutaSeleccionada: (ruta: string) => void;
   rutasDisponibles: any[];
   clientesDeRuta: any[];
+  clientesFiltrados: any[];
+  busquedaCliente: string;
+  setBusquedaCliente: (val: string) => void;
   selectedClienteIds: string[];
   toggleCliente: (id: string) => void;
   seleccionarTodos: () => void;
@@ -26,6 +29,9 @@ export default function PanelLateralMapaAdmin({
   setRutaSeleccionada,
   rutasDisponibles,
   clientesDeRuta,
+  clientesFiltrados,
+  busquedaCliente,
+  setBusquedaCliente,
   selectedClienteIds,
   toggleCliente,
   seleccionarTodos,
@@ -87,6 +93,20 @@ export default function PanelLateralMapaAdmin({
         ))}
       </select>
 
+      <div className="relative mb-4">
+        <Search
+          size={16}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+        />
+        <input
+          type="text"
+          value={busquedaCliente}
+          onChange={(e) => setBusquedaCliente(e.target.value)}
+          placeholder="Buscar por nombre o domicilio..."
+          className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
+        />
+      </div>
+
       <div className="flex items-center justify-between mb-3 px-1">
         <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">
           <span className="text-blue-600 dark:text-blue-400 font-bold">
@@ -114,7 +134,12 @@ export default function PanelLateralMapaAdmin({
       </div>
 
       <div className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar mb-4">
-        {clientesDeRuta.map((cliente) => (
+        {clientesFiltrados.length === 0 && (
+          <p className="text-sm text-slate-400 text-center py-4">
+            Sin resultados para "{busquedaCliente}"
+          </p>
+        )}
+        {clientesFiltrados.map((cliente) => (
           <label
             key={cliente.id}
             className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-blue-300 dark:hover:border-blue-600 transition-colors cursor-pointer"

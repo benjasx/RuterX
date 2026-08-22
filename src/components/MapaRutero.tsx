@@ -23,6 +23,11 @@ import {
   generarPDFFinalChofer,
 } from "../utils/reportesUtils";
 import { calcularRutaOptimaYCarretera } from "../utils/rutasUtils";
+import {
+  notificarExito,
+  notificarError,
+  notificarAdvertencia,
+} from "../utils/notificaciones";
 import PanelLateralMapaAdmin from "./mapa/PanelLateralMapaAdmin";
 import ModalAsignarDespacho from "./mapa/ModalAsignarDespacho";
 import ModalFinalizarViaje from "./mapa/ModalFinalizarViaje";
@@ -252,7 +257,7 @@ export default function MapaRutero({
       await iniciarViajeFirebase(viajeActivoChofer.id);
       await cargarViajeChofer();
     } catch (error) {
-      alert("Error al iniciar la ruta.");
+      notificarError("Error al iniciar la ruta.");
     } finally {
       setIniciandoViaje(false);
     }
@@ -276,7 +281,7 @@ export default function MapaRutero({
       );
       await cargarViajeChofer();
     } catch (error) {
-      alert("Error al actualizar.");
+      notificarError("Error al actualizar.");
     }
   };
 
@@ -302,12 +307,28 @@ export default function MapaRutero({
     );
   }, [rutaSeleccionada, clientesData]);
 
+  const [busquedaCliente, setBusquedaCliente] = useState("");
+
+  const clientesDeRutaFiltrados = useMemo(() => {
+    const busqueda = busquedaCliente.trim().toLowerCase();
+    if (!busqueda) return clientesDeRuta;
+    return clientesDeRuta.filter(
+      (c) =>
+        c.nombre?.toLowerCase().includes(busqueda) ||
+        c.descripcion?.toLowerCase().includes(busqueda),
+    );
+  }, [clientesDeRuta, busquedaCliente]);
+
   useEffect(() => {
     if (!esAdmin) return;
     setRutaOptima(null);
     setRutaCarretera(null);
     setCentroMapa(null);
   }, [selectedClienteIds, rutaSeleccionada, esAdmin]);
+
+  useEffect(() => {
+    setBusquedaCliente("");
+  }, [rutaSeleccionada]);
 
   useEffect(() => {
     if (!esAdmin || !rutaSeleccionada || clientesDeRuta.length === 0) return;
@@ -372,13 +393,13 @@ export default function MapaRutero({
 
   const handleAsignarViaje = async () => {
     if (!rutaOptima) {
-      alert(
-        "⚠️ No puedes asignar el viaje todavía. Primero debes hacer clic en 'Trazar Ruta Óptima'.",
+      notificarAdvertencia(
+        "No puedes asignar el viaje todavía. Primero debes hacer clic en 'Trazar Ruta Óptima'.",
       );
       return;
     }
     if (!nombreRutaPersonalizado) {
-      alert("⚠️ Por favor selecciona un Nombre de Ruta válido.");
+      notificarAdvertencia("Por favor selecciona un Nombre de Ruta válido.");
       return;
     }
 
@@ -396,17 +417,17 @@ export default function MapaRutero({
 
       if (viajeEditandoId) {
         await actualizarViajeFirebase(viajeEditandoId, datosNuevoViaje);
-        alert(`¡Éxito! Ruta actualizada correctamente.`);
+        notificarExito("¡Éxito! Ruta actualizada correctamente.");
       } else {
         await asignarViajeFirebase(datosNuevoViaje);
-        alert(`¡Éxito! Ruta asignada correctamente.`);
+        notificarExito("¡Éxito! Ruta asignada correctamente.");
       }
 
       setMostrarModalDespacho(false);
       setViajeEditandoId(null);
       queryClient.invalidateQueries({ queryKey: ["viajesAsignadosAdmin"] });
     } catch (error) {
-      alert("Error al procesar el viaje en la base de datos.");
+      notificarError("Error al procesar el viaje en la base de datos.");
     } finally {
       setEnviandoViaje(false);
     }
@@ -431,7 +452,7 @@ export default function MapaRutero({
       await cargarViajeChofer();
       setMostrarModalFinalizar(false);
     } catch (error) {
-      alert("Error al cerrar el viaje.");
+      notificarError("Error al cerrar el viaje.");
     } finally {
       setFinalizandoViaje(false);
     }
@@ -490,7 +511,7 @@ export default function MapaRutero({
 
   if ((esAdmin && cargandoClientes) || (!esAdmin && cargandoViajeChofer)) {
     return (
-      <div className="flex w-full h-[calc(100vh-80px)] items-center justify-center bg-slate-50 dark:bg-slate-950">
+      <div className="flex w-full h-full items-center justify-center bg-slate-50 dark:bg-slate-950">
         <p className="text-slate-500 dark:text-slate-400 font-bold text-lg animate-pulse flex items-center gap-2">
           <Loader2 className="animate-spin" /> Cargando ruta...
         </p>
@@ -499,7 +520,7 @@ export default function MapaRutero({
   }
 
   return (
-    <div className="flex w-full h-[calc(100vh-80px)] p-2 sm:p-5 gap-2 sm:gap-5 bg-slate-50 dark:bg-slate-950 relative">
+    <div className="flex w-full h-full p-2 sm:p-5 gap-2 sm:gap-5 bg-slate-50 dark:bg-slate-950 relative">
       {!esAdmin && mostrarModalFinalizar && (
         <ModalFinalizarViaje
           onClose={() => setMostrarModalFinalizar(false)}
@@ -540,6 +561,9 @@ export default function MapaRutero({
           setRutaSeleccionada={setRutaSeleccionada}
           rutasDisponibles={rutasDisponibles}
           clientesDeRuta={clientesDeRuta}
+          clientesFiltrados={clientesDeRutaFiltrados}
+          busquedaCliente={busquedaCliente}
+          setBusquedaCliente={setBusquedaCliente}
           selectedClienteIds={selectedClienteIds}
           toggleCliente={toggleCliente}
           seleccionarTodos={seleccionarTodos}

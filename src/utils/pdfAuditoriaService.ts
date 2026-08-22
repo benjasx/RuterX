@@ -1,4 +1,5 @@
 // src/utils/pdfAuditoriaService.ts
+import { notificarAdvertencia } from "./notificaciones";
 
 const obtenerLogoBase64Local = async (path: string) => {
   try {
@@ -80,7 +81,7 @@ export const generarPDFAuditoria = async (
   columnasActivas: Record<string, boolean>,
 ) => {
   const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
 
   const columnasExportar = MASTER_COLUMNS.filter(

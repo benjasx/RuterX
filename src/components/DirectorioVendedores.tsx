@@ -112,7 +112,7 @@ export default function DirectorioVendedores({
             placeholder="Buscar por nombre..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
           />
         </div>
 
@@ -123,7 +123,7 @@ export default function DirectorioVendedores({
           <select
             value={filtroRuta}
             onChange={(e) => setFiltroRuta(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white dark:bg-slate-800"
+            className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
           >
             <option value="">Todas las rutas</option>
             {rutasOrdenadas.map((r) => (
@@ -153,7 +153,7 @@ export default function DirectorioVendedores({
                   className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
                 >
                   <td className="py-3 px-4">
-                    <p className="font-semibold text-slate-900">
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">
                       {vendedor.nombre}
                     </p>
                   </td>
@@ -217,7 +217,7 @@ export default function DirectorioVendedores({
           <button
             onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
             disabled={paginaActual === 1}
-            className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+            className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
           >
             <ChevronLeft size={20} />
           </button>
@@ -226,7 +226,7 @@ export default function DirectorioVendedores({
               setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))
             }
             disabled={paginaActual === totalPaginas}
-            className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+            className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
           >
             <ChevronRight size={20} />
           </button>

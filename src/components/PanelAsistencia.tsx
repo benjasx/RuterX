@@ -22,6 +22,7 @@ import {
   CODIGO_ASISTENCIA_POR_TIPO,
 } from "../utils/vacacionesUtils";
 import { exportarAsistenciaPDF } from "../utils/reportesAsistenciaUtils";
+import { notificarExito, notificarError } from "../utils/notificaciones";
 
 const ESTADOS_ASISTENCIA = [
   { codigo: "A", etiqueta: "Asistencia" },
@@ -141,9 +142,9 @@ export default function PanelAsistencia() {
       queryClient.invalidateQueries({
         queryKey: ["asistencia", fechaSeleccionada],
       });
-      alert("¡ASISTENCIA GUARDADA CORRECTAMENTE!");
+      notificarExito("¡Asistencia guardada correctamente!");
     } catch (error) {
-      alert("Error al guardar la asistencia.");
+      notificarError("Error al guardar la asistencia.");
     } finally {
       setGuardando(false);
     }
@@ -177,7 +178,7 @@ export default function PanelAsistencia() {
 
   if (cargandoPersonal || cargandoAsistencia) {
     return (
-      <div className="flex w-full min-h-screen items-center justify-center">
+      <div className="flex w-full min-h-full items-center justify-center">
         <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={40} />
       </div>
     );
@@ -213,7 +214,7 @@ export default function PanelAsistencia() {
   };
 
   return (
-    <div className="w-full bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 min-h-screen uppercase">
+    <div className="w-full bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 min-h-full uppercase">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-700">
         <div>
           <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-3">
@@ -275,7 +276,7 @@ export default function PanelAsistencia() {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre..."
-            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs font-semibold uppercase"
+            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs font-semibold uppercase text-slate-800 dark:text-slate-100"
           />
         </div>
 
@@ -373,7 +374,7 @@ export default function PanelAsistencia() {
                       )
                     }
                     placeholder="MOTIVO O COMENTARIO..."
-                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 uppercase text-xs"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 uppercase text-xs text-slate-800 dark:text-slate-100"
                   />
                 </td>
               </tr>

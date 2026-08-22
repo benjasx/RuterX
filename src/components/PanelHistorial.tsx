@@ -384,7 +384,7 @@ export default function PanelHistorial() {
           </div>
 
           <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 w-full sm:w-auto">
-            <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer hover:text-slate-900 transition-colors">
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
               <input
                 type="checkbox"
                 checked={mostrarViaticos}
@@ -393,7 +393,7 @@ export default function PanelHistorial() {
               />
               Incluir Viáticos
             </label>
-            <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer hover:text-slate-900 transition-colors">
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
               <input
                 type="checkbox"
                 checked={mostrarComisiones}

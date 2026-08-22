@@ -9,6 +9,12 @@ import {
   cambiarEstadoUsuarioFirebase,
 } from "../firebase/usuariosService";
 import type { RolUsuario } from "../utils/roles";
+import {
+  notificarExito,
+  notificarError,
+  notificarAdvertencia,
+  confirmar,
+} from "../utils/notificaciones";
 
 const ETIQUETA_ROL: Record<RolUsuario, string> = {
   admin: "Administrador",
@@ -17,7 +23,11 @@ const ETIQUETA_ROL: Record<RolUsuario, string> = {
   chofer: "Chofer",
 };
 
-export default function GestionUsuarios() {
+interface GestionUsuariosProps {
+  usuarioEmail: string | null;
+}
+
+export default function GestionUsuarios({ usuarioEmail }: GestionUsuariosProps) {
   const queryClient = useQueryClient();
 
   const { data: usuarios = [], isLoading } = useQuery({
@@ -33,10 +43,10 @@ export default function GestionUsuarios() {
   const handleCrearUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoEmail.trim() || !nuevoPassword.trim()) {
-      return alert("Correo y contraseña son obligatorios.");
+      return notificarAdvertencia("Correo y contraseña son obligatorios.");
     }
     if (nuevoPassword.length < 6) {
-      return alert("La contraseña debe tener al menos 6 caracteres.");
+      return notificarAdvertencia("La contraseña debe tener al menos 6 caracteres.");
     }
 
     setGuardando(true);
@@ -48,12 +58,12 @@ export default function GestionUsuarios() {
 
     if (resultado.success) {
       queryClient.invalidateQueries({ queryKey: ["usuarios"] });
-      alert(`Usuario ${nuevoEmail} creado correctamente.`);
+      notificarExito(`Usuario ${nuevoEmail} creado correctamente.`);
       setNuevoEmail("");
       setNuevoPassword("");
       setNuevoRol("chofer");
     } else {
-      alert("Error al crear el usuario. Revisa la consola.");
+      notificarError("Error al crear el usuario. Revisa la consola.");
     }
     setGuardando(false);
   };
@@ -63,25 +73,55 @@ export default function GestionUsuarios() {
     if (resultado.success) {
       queryClient.invalidateQueries({ queryKey: ["usuarios"] });
     } else {
-      alert("Error al actualizar el rol. Revisa la consola.");
+      notificarError("Error al actualizar el rol. Revisa la consola.");
     }
   };
 
-  const handleCambiarEstado = async (uid: string, activo: boolean) => {
-    if (
-      !window.confirm(
-        activo
-          ? "¿Reactivar el acceso de este usuario?"
-          : "¿Deshabilitar el acceso de este usuario? No podrá iniciar sesión.",
-      )
-    ) {
-      return;
+  // 🚀 PROTECCIÓN: evita quedarte sin forma de reactivar una cuenta.
+  // "Deshabilitar" cierra la sesión de inmediato (ver RuterMapas.tsx), así que
+  // deshabilitarte a ti mismo o al último admin activo te dejaría sin nadie
+  // con acceso al panel para revertirlo.
+  const adminsActivos = usuarios.filter(
+    (u) => u.role === "admin" && u.activo,
+  );
+
+  const motivoBloqueo = (usuario: (typeof usuarios)[number]): string | null => {
+    if (!usuario.activo) return null; // reactivar siempre está permitido
+    if (usuarioEmail && usuario.email === usuarioEmail) {
+      return "No puedes deshabilitar tu propia cuenta.";
     }
-    const resultado = await cambiarEstadoUsuarioFirebase(uid, activo);
+    if (usuario.role === "admin" && adminsActivos.length <= 1) {
+      return "No puedes deshabilitar al último administrador activo.";
+    }
+    return null;
+  };
+
+  const handleCambiarEstado = async (
+    usuario: (typeof usuarios)[number],
+    activo: boolean,
+  ) => {
+    if (!activo) {
+      const bloqueo = motivoBloqueo(usuario);
+      if (bloqueo) {
+        notificarAdvertencia(bloqueo);
+        return;
+      }
+    }
+
+    const ok = await confirmar({
+      mensaje: activo
+        ? "¿Reactivar el acceso de este usuario?"
+        : "¿Deshabilitar el acceso de este usuario? No podrá iniciar sesión.",
+      peligroso: !activo,
+      textoConfirmar: activo ? "Reactivar" : "Deshabilitar",
+    });
+    if (!ok) return;
+
+    const resultado = await cambiarEstadoUsuarioFirebase(usuario.id, activo);
     if (resultado.success) {
       queryClient.invalidateQueries({ queryKey: ["usuarios"] });
     } else {
-      alert("Error al cambiar el estado del usuario. Revisa la consola.");
+      notificarError("Error al cambiar el estado del usuario. Revisa la consola.");
     }
   };
 
@@ -108,7 +148,7 @@ export default function GestionUsuarios() {
               value={nuevoEmail}
               onChange={(e) => setNuevoEmail(e.target.value)}
               placeholder="Ej. chofer03@ruterx.com"
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
             />
           </div>
 
@@ -121,7 +161,7 @@ export default function GestionUsuarios() {
               value={nuevoPassword}
               onChange={(e) => setNuevoPassword(e.target.value)}
               placeholder="Mínimo 6 caracteres"
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
             />
           </div>
 
@@ -132,7 +172,7 @@ export default function GestionUsuarios() {
             <select
               value={nuevoRol}
               onChange={(e) => setNuevoRol(e.target.value as RolUsuario)}
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {Object.entries(ETIQUETA_ROL).map(([valor, etiqueta]) => (
                 <option key={valor} value={valor}>
@@ -225,11 +265,13 @@ export default function GestionUsuarios() {
                     <td className="py-2 pr-4">
                       <button
                         onClick={() =>
-                          handleCambiarEstado(usuario.id, !usuario.activo)
+                          handleCambiarEstado(usuario, !usuario.activo)
                         }
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors border ${
+                        disabled={!!motivoBloqueo(usuario)}
+                        title={motivoBloqueo(usuario) ?? undefined}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors border disabled:opacity-40 disabled:cursor-not-allowed ${
                           usuario.activo
-                            ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/40"
+                            ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:hover:bg-transparent"
                             : "text-green-700 dark:text-green-400 border-green-200 dark:border-green-900 hover:bg-green-50 dark:hover:bg-green-950/40"
                         }`}
                       >

@@ -1,3 +1,5 @@
+import { notificarAdvertencia } from "./notificaciones";
+
 const obtenerLogoBase64Local = async (path: string) => {
   try {
     const response = await fetch(path);
@@ -34,7 +36,7 @@ export const generarPDFNominaChoferes = async (
   mostrarComisiones: boolean = true,
 ) => {
   const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
 
   const setChoferes = new Set<string>();
@@ -423,7 +425,7 @@ export const generarPDFNominaAyudantes = async (
   mostrarComisiones: boolean = true,
 ) => {
   const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
 
   const viajesPorAyudante: Record<string, any[]> = {};
@@ -792,7 +794,7 @@ export const generarPDFResumenGeneral = async (
   mostrarComisiones: boolean = true,
 ) => {
   const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
 
   const totales: Record<

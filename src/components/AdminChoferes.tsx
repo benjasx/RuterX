@@ -17,6 +17,12 @@ import {
 } from "../utils/vacacionesUtils";
 import PanelVacacionesPersonal from "./PanelVacacionesPersonal";
 import {
+  notificarExito,
+  notificarError,
+  notificarAdvertencia,
+  confirmar,
+} from "../utils/notificaciones";
+import {
   UserPlus,
   Trash2,
   Loader2,
@@ -129,9 +135,9 @@ export default function AdminChoferes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["choferes"] });
       limpiarFormulario();
-      alert("¡Personal registrado con éxito!");
+      notificarExito("¡Personal registrado con éxito!");
     },
-    onError: () => alert("Error al registrar el personal."),
+    onError: () => notificarError("Error al registrar el personal."),
   });
 
   const actualizarMutation = useMutation({
@@ -139,9 +145,9 @@ export default function AdminChoferes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["choferes"] });
       limpiarFormulario();
-      alert("¡Personal actualizado correctamente!");
+      notificarExito("¡Personal actualizado correctamente!");
     },
-    onError: () => alert("Error al actualizar los datos."),
+    onError: () => notificarError("Error al actualizar los datos."),
   });
 
   const eliminarMutation = useMutation({
@@ -154,7 +160,7 @@ export default function AdminChoferes() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre || !email)
-      return alert("Por favor completa los campos obligatorios.");
+      return notificarAdvertencia("Por favor completa los campos obligatorios.");
     const dataToSend = {
       nombre,
       email,
@@ -211,7 +217,7 @@ export default function AdminChoferes() {
   // FUNCIÓN: EXPORTAR A PDF
   const exportarPDF = async () => {
     const pdfMake = (window as any).pdfMake;
-    if (!pdfMake) return alert("Generador PDF cargando...");
+    if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
 
     // 1. Obtener Logo
     const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
@@ -623,7 +629,7 @@ export default function AdminChoferes() {
         {/* TABLA DE PERSONAL Y CONTROLES */}
         <div className="lg:col-span-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col">
           {/* BARRA DE BÚSQUEDA Y FILTROS */}
-          <div className="p-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex flex-col">
               <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
                 Directorio de Empleados
@@ -708,7 +714,7 @@ export default function AdminChoferes() {
                     return (
                     <tr
                       key={c.id}
-                      className="hover:bg-slate-50/80 transition-colors group"
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition-colors group"
                     >
                       <td className="p-4 pl-6 font-bold text-slate-800 dark:text-slate-100 uppercase">
                         {c.nombre || "Sin nombre"}
@@ -779,11 +785,13 @@ export default function AdminChoferes() {
                             <Edit2 size={18} />
                           </button>
                           <button
-                            onClick={() => {
-                              if (
-                                confirm(`¿Eliminar a ${c.nombre || c.email}?`)
-                              )
-                                eliminarMutation.mutate(c.id);
+                            onClick={async () => {
+                              const ok = await confirmar({
+                                mensaje: `¿Eliminar a ${c.nombre || c.email}?`,
+                                peligroso: true,
+                                textoConfirmar: "Eliminar",
+                              });
+                              if (ok) eliminarMutation.mutate(c.id);
                             }}
                             className="p-2 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
                             title="Eliminar"

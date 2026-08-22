@@ -1,4 +1,5 @@
 // src/utils/pdfReporterutasxchofer.ts
+import { notificarAdvertencia } from "./notificaciones";
 
 const obtenerLogoBase64Local = async (path: string) => {
   try {
@@ -23,7 +24,7 @@ export const generarPDFRutasPorChofer = async (
 ) => {
   const pdfMake = (window as any).pdfMake;
   if (!pdfMake) {
-    alert(
+    notificarAdvertencia(
       "El generador de PDF está cargando... intenta de nuevo en un segundo.",
     );
     return;

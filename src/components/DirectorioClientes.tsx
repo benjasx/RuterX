@@ -124,7 +124,7 @@ export default function DirectorioClientes({
             placeholder="Buscar por nombre..."
             value={busquedaNombre}
             onChange={(e) => setBusquedaNombre(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
           />
         </div>
 
@@ -135,7 +135,7 @@ export default function DirectorioClientes({
           <select
             value={filtroRuta}
             onChange={(e) => setFiltroRuta(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white dark:bg-slate-800 cursor-pointer"
+            className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 cursor-pointer"
           >
             <option value="">Todas las rutas</option>
             {rutasOrdenadas.map((r) => (
@@ -166,7 +166,7 @@ export default function DirectorioClientes({
                   className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
                 >
                   <td className="py-3 px-4">
-                    <p className="font-semibold text-slate-900">
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">
                       {cliente.nombre}
                     </p>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -228,7 +228,7 @@ export default function DirectorioClientes({
           <button
             onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
             disabled={paginaActual === 1}
-            className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors cursor-pointer"
+            className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors cursor-pointer"
           >
             <ChevronLeft size={20} />
           </button>
@@ -237,7 +237,7 @@ export default function DirectorioClientes({
               setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))
             }
             disabled={paginaActual === totalPaginas}
-            className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors cursor-pointer"
+            className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors cursor-pointer"
           >
             <ChevronRight size={20} />
           </button>

@@ -1,4 +1,5 @@
 // src/utils/exportaciones.ts
+import { notificarAdvertencia } from "./notificaciones";
 
 // ==========================================
 //        EXPORTACIONES DE CLIENTES
@@ -11,7 +12,7 @@ export const generarPDFDirectorio = (
   const pdfMake = (window as any).pdfMake;
 
   if (!pdfMake) {
-    alert(
+    notificarAdvertencia(
       "El generador de PDF está cargando... intenta de nuevo en un segundo.",
     );
     return;
@@ -115,7 +116,7 @@ export const generarPDFVendedores = (
   const pdfMake = (window as any).pdfMake;
 
   if (!pdfMake) {
-    alert(
+    notificarAdvertencia(
       "El generador de PDF está cargando... intenta de nuevo en un segundo.",
     );
     return;

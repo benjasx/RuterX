@@ -34,6 +34,11 @@ import {
 } from "../firebase/ajustesNominaService";
 import { LISTA_UNIDADES, LISTA_RUTAS } from "../utils/mapaUtils";
 import {
+  notificarExito,
+  notificarError,
+  notificarAdvertencia,
+} from "../utils/notificaciones";
+import {
   exportarDistribucionPDF,
   exportarHojaRutaPDF,
   exportarHojaMesaninePDF,
@@ -284,7 +289,8 @@ export default function PanelDistribucion() {
     setFilas([{ ...FilaVacia, id: Date.now() }, ...filas]);
 
   const eliminarFila = (index: number) => {
-    if (filas.length === 1) return alert("Debe quedar al menos una fila.");
+    if (filas.length === 1)
+      return notificarAdvertencia("Debe quedar al menos una fila.");
     setFilas(filas.filter((_, i) => i !== index));
   };
 
@@ -348,11 +354,11 @@ export default function PanelDistribucion() {
       });
 
       setFilas(filasActualizadas);
-      alert(
-        `¡Vinculación Exitosa! Se extrajo información financiera para ${vinculados} rutas.`,
+      notificarExito(
+        `¡Vinculación exitosa! Se extrajo información financiera para ${vinculados} rutas.`,
       );
     } catch (error) {
-      alert(
+      notificarError(
         "Error al leer Excel. Asegúrate de subir el archivo original del BMS.",
       );
     }
@@ -364,8 +370,8 @@ export default function PanelDistribucion() {
       const f = filas[i];
       if (f.ruta || f.unidad || f.chofer) {
         if (!f.embarqueCredito.trim() && !f.embarqueContado.trim()) {
-          alert(
-            `⚠️ LA FILA ${i + 1} TIENE DATOS PERO FALTA UN FOLIO DE EMBARQUE.`,
+          notificarAdvertencia(
+            `La fila ${i + 1} tiene datos pero falta un folio de embarque.`,
           );
           return;
         }
@@ -404,9 +410,9 @@ export default function PanelDistribucion() {
 
       await guardarDistribucionFecha(fechaSeleccionada, datosCompletos);
       setFilas(filasOrdenadas);
-      alert("¡GUARDADO Y ORDENADO EXITOSAMENTE!");
+      notificarExito("¡Guardado y ordenado exitosamente!");
     } catch (error) {
-      alert("ERROR AL GUARDAR. Verifica tu conexión a internet.");
+      notificarError("Error al guardar. Verifica tu conexión a internet.");
     } finally {
       setGuardando(false);
     }
@@ -482,7 +488,7 @@ export default function PanelDistribucion() {
     }).format(num);
 
   return (
-    <div className="w-full bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 min-h-[calc(100vh-120px)] uppercase flex flex-col relative">
+    <div className="w-full bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 min-h-full uppercase flex flex-col relative">
       {/* MODAL PARA CAPTURA DE WHATSAPP */}
       {mostrarCaptura && (
         <div className="fixed inset-0 z-99 bg-slate-900/90 flex items-start justify-center p-4 overflow-y-auto backdrop-blur-sm">
@@ -718,7 +724,7 @@ export default function PanelDistribucion() {
                     onChange={(e) =>
                       actualizarCelda(index, "ruta", e.target.value)
                     }
-                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-semibold cursor-pointer uppercase text-xs"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-semibold cursor-pointer uppercase text-xs text-slate-800 dark:text-slate-100"
                   >
                     <option value="">-- RUTA --</option>
                     {LISTA_RUTAS.map((rutaNombre, i) => (
@@ -754,7 +760,7 @@ export default function PanelDistribucion() {
                     onChange={(e) =>
                       actualizarCelda(index, "chofer", e.target.value)
                     }
-                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs uppercase"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs uppercase text-slate-800 dark:text-slate-100"
                   >
                     <option value="">-- CHOFER --</option>
                     {listaChoferes.map((nombreChofer: string, i: number) => {
@@ -783,7 +789,7 @@ export default function PanelDistribucion() {
                     onChange={(e) =>
                       actualizarCelda(index, "auxiliar1", e.target.value)
                     }
-                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-[11px] uppercase"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-[11px] uppercase text-slate-800 dark:text-slate-100"
                   >
                     <option value=""></option>
                     {listaAuxiliares.map((nombreAux: string, i: number) => {
@@ -812,7 +818,7 @@ export default function PanelDistribucion() {
                     onChange={(e) =>
                       actualizarCelda(index, "auxiliar2", e.target.value)
                     }
-                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-[11px] uppercase"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-[11px] uppercase text-slate-800 dark:text-slate-100"
                   >
                     <option value=""></option>
                     {listaAuxiliares.map((nombreAux: string, i: number) => {
@@ -844,7 +850,7 @@ export default function PanelDistribucion() {
                       actualizarCelda(index, "embarqueCredito", e.target.value)
                     }
                     placeholder="FOLIO"
-                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center uppercase text-xs"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center uppercase text-xs text-slate-800 dark:text-slate-100"
                   />
                   {(fila.totalMontoCredito > 0 || fila.totalkgCredito > 0) && (
                     <div
@@ -873,7 +879,7 @@ export default function PanelDistribucion() {
                       actualizarCelda(index, "embarqueContado", e.target.value)
                     }
                     placeholder="FOLIO"
-                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center uppercase text-xs"
+                    className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center uppercase text-xs text-slate-800 dark:text-slate-100"
                   />
                   {(fila.totalMontoContado > 0 || fila.totalkgContado > 0) && (
                     <div
@@ -991,7 +997,7 @@ export default function PanelDistribucion() {
                   return (
                     <tr
                       key={i}
-                      className="hover:bg-slate-50/80 transition-colors"
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition-colors"
                     >
                       <td className="p-3 border-r border-slate-100 dark:border-slate-700 font-semibold text-slate-800 dark:text-slate-100">
                         {f.ruta || "-"}

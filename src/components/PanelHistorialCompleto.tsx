@@ -35,6 +35,7 @@ import {
   obtenerAjustesNomina,
   type AjustesNomina,
 } from "../firebase/ajustesNominaService";
+import { notificarExito, notificarError } from "../utils/notificaciones";
 
 interface ViajeDetalle {
   originalIndex?: number;
@@ -401,13 +402,13 @@ export default function PanelHistorialCompleto() {
 
       try {
         await guardarDistribucionFecha(viajeEditando.fecha, registroDia.filas);
-        alert("¡Registro actualizado y guardado correctamente!");
+        notificarExito("¡Registro actualizado y guardado correctamente!");
         setModalAbierto(false);
         queryClient.invalidateQueries({
           queryKey: ["distribucion_rango", "auditoria"],
         });
       } catch (error) {
-        alert("Error al guardar los cambios en la base de datos.");
+        notificarError("Error al guardar los cambios en la base de datos.");
       }
     }
     setGuardandoCambios(false);
@@ -534,7 +535,7 @@ export default function PanelHistorialCompleto() {
                       <span
                         className={
                           columnasPDF[opcion.id]
-                            ? "font-semibold text-slate-900"
+                            ? "font-semibold text-slate-900 dark:text-slate-100"
                             : ""
                         }
                       >
@@ -779,7 +780,7 @@ export default function PanelHistorialCompleto() {
                   onChange={(e) =>
                     setViajeEditando({ ...viajeEditando, ruta: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                 >
                   <option value="">-- SELECCIONAR RUTA --</option>
                   {listasPersonal.rutas.map((r, i) => (
@@ -808,7 +809,7 @@ export default function PanelHistorialCompleto() {
                       chofer: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                 >
                   <option value="">-- SELECCIONAR CHOFER --</option>
                   {listasPersonal.choferes.map((c, i) => (
@@ -841,7 +842,7 @@ export default function PanelHistorialCompleto() {
                       ayudante1: e.target.value || "-",
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                 >
                   <option value="">-- SIN AYUDANTE --</option>
                   {listasPersonal.ayudantes.map((a, i) => (
@@ -876,7 +877,7 @@ export default function PanelHistorialCompleto() {
                       ayudante2: e.target.value || "-",
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                 >
                   <option value="">-- SIN AYUDANTE --</option>
                   {listasPersonal.ayudantes.map((a, i) => (
@@ -908,7 +909,7 @@ export default function PanelHistorialCompleto() {
                       embCred: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                 />
               </div>
 
@@ -925,7 +926,7 @@ export default function PanelHistorialCompleto() {
                       embCtdo: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                 />
               </div>
 

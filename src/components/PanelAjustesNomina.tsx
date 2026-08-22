@@ -14,6 +14,7 @@ import {
   guardarAjustesNomina,
   type AjustesNomina,
 } from "../firebase/ajustesNominaService";
+import { notificarExito, notificarError } from "../utils/notificaciones";
 
 export default function PanelAjustesNomina() {
   const queryClient = useQueryClient();
@@ -45,10 +46,10 @@ export default function PanelAjustesNomina() {
     const exito = await guardarAjustesNomina(ajustes);
 
     if (exito) {
-      alert("Ajustes de nómina guardados correctamente en la nube.");
+      notificarExito("Ajustes de nómina guardados correctamente en la nube.");
       queryClient.invalidateQueries({ queryKey: ["ajustes_nomina"] });
     } else {
-      alert("Hubo un error al guardar los ajustes.");
+      notificarError("Hubo un error al guardar los ajustes.");
     }
     setGuardando(false);
   };
@@ -208,14 +209,14 @@ export default function PanelAjustesNomina() {
               placeholder="Nombre Ruta (Ej. MAZATLAN)"
               value={nuevaRuta}
               onChange={(e) => setNuevaRuta(e.target.value)}
-              className="flex-1 p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800"
+              className="flex-1 p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold uppercase outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
             />
             <input
               type="number"
               placeholder="$ Monto"
               value={nuevoViatico}
               onChange={(e) => setNuevoViatico(e.target.value)}
-              className="w-28 p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800"
+              className="w-28 p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
             />
             <button
               onClick={handleAgregarRuta}

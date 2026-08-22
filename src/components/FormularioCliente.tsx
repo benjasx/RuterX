@@ -66,7 +66,7 @@ export default function FormularioCliente({
             required
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
-            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
             placeholder="Ej. Abarrotes El Sol"
           />
         </div>
@@ -80,7 +80,7 @@ export default function FormularioCliente({
             required
             value={domicilio}
             onChange={(e) => setDomicilio(e.target.value)}
-            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
             placeholder="Ej. Av. Principal 123"
           />
         </div>
@@ -93,7 +93,7 @@ export default function FormularioCliente({
             required
             value={vendedorSeleccionado}
             onChange={(e) => setVendedorSeleccionado(e.target.value)}
-            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
           >
             {opcionesVendedores.map((v, i) => (
               <option key={i} value={v === "Seleccionar Vendedor..." ? "" : v}>
@@ -111,7 +111,7 @@ export default function FormularioCliente({
             required
             value={ruta}
             onChange={(e) => setRuta(e.target.value)}
-            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
           >
             <option value="">Seleccionar Ruta...</option>
             {rutas.map((r) => (
@@ -130,11 +130,13 @@ export default function FormularioCliente({
             <input
               type="number"
               step="any"
+              min={-90}
+              max={90}
               required
               placeholder="ej. 19.432608"
               value={latitud}
               onChange={(e) => setLatitud(e.target.value)}
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
             />
           </div>
           <div>
@@ -144,11 +146,13 @@ export default function FormularioCliente({
             <input
               type="number"
               step="any"
+              min={-180}
+              max={180}
               required
               placeholder="ej. -99.133209"
               value={longitud}
               onChange={(e) => setLongitud(e.target.value)}
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
             />
           </div>
         </div>

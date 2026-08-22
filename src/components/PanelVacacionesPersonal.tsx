@@ -23,6 +23,12 @@ import {
   exportarListadoVacacionesPDF,
 } from "../utils/vacacionesPdfUtils";
 import {
+  notificarExito,
+  notificarError,
+  notificarAdvertencia,
+  confirmar,
+} from "../utils/notificaciones";
+import {
   TreePalm,
   CalendarRange,
   Plus,
@@ -107,9 +113,9 @@ export default function PanelVacacionesPersonal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vacaciones"] });
       limpiarFormulario();
-      alert("¡Periodo registrado!");
+      notificarExito("¡Periodo registrado!");
     },
-    onError: () => alert("Error al registrar el periodo."),
+    onError: () => notificarError("Error al registrar el periodo."),
   });
 
   const eliminarMutation = useMutation({
@@ -130,15 +136,17 @@ export default function PanelVacacionesPersonal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const chofer = choferes.find((c: any) => c.id === choferId);
-    if (!chofer) return alert("Selecciona un empleado.");
+    if (!chofer) return notificarAdvertencia("Selecciona un empleado.");
     if (!chofer.fecha_ingreso)
-      return alert(
+      return notificarAdvertencia(
         "Este empleado no tiene fecha de ingreso registrada. Edítalo en el Directorio primero.",
       );
     if (!fechaInicio || !fechaFin)
-      return alert("Completa la fecha de inicio y fin.");
+      return notificarAdvertencia("Completa la fecha de inicio y fin.");
     if (fechaFin < fechaInicio)
-      return alert("La fecha de fin no puede ser anterior a la de inicio.");
+      return notificarAdvertencia(
+        "La fecha de fin no puede ser anterior a la de inicio.",
+      );
 
     const nuevoPeriodo = {
       chofer_id: chofer.id,
@@ -197,7 +205,9 @@ export default function PanelVacacionesPersonal({
   const handleReimprimirPDF = (periodo: any) => {
     const chofer = choferes.find((c: any) => c.id === periodo.chofer_id);
     if (!chofer)
-      return alert("No se encontró el empleado dueño de este periodo.");
+      return notificarAdvertencia(
+        "No se encontró el empleado dueño de este periodo.",
+      );
     const resumen = resumenVacaciones(
       chofer,
       vacacionesPorChofer(chofer.id),
@@ -493,13 +503,13 @@ export default function PanelVacacionesPersonal({
                               <Printer size={18} />
                             </button>
                             <button
-                              onClick={() => {
-                                if (
-                                  confirm(
-                                    `¿Eliminar el periodo de ${v.chofer_nombre}?`,
-                                  )
-                                )
-                                  eliminarMutation.mutate(v.id);
+                              onClick={async () => {
+                                const ok = await confirmar({
+                                  mensaje: `¿Eliminar el periodo de ${v.chofer_nombre}?`,
+                                  peligroso: true,
+                                  textoConfirmar: "Eliminar",
+                                });
+                                if (ok) eliminarMutation.mutate(v.id);
                               }}
                               className="p-2 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
                               title="Eliminar"

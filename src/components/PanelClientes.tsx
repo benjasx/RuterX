@@ -8,12 +8,56 @@ import {
   actualizarClienteFirebase,
   eliminarClienteFirebase,
 } from "../firebase/clientesService";
+import {
+  notificarExito,
+  notificarError,
+  notificarAdvertencia,
+  confirmar,
+} from "../utils/notificaciones";
 
 interface PanelClientesProps {
   vendedores: DatosVendedor[];
   listaClientes: any[];
   setListaClientes: React.Dispatch<React.SetStateAction<any[]>>;
   rutas: any[];
+}
+
+// 🚀 PROTECCIÓN DE COORDENADAS: rechaza datos que harían tronar el mapa
+// (no numéricos, fuera del rango válido de lat/lng, o claramente mal
+// capturados) antes de que lleguen a Firebase. El rango de México es una
+// validación adicional pensada para atrapar el error más común: escribir la
+// longitud sin el signo negativo.
+const RANGO_MEXICO = { latMin: 14, latMax: 33, lngMin: -118, lngMax: -86 };
+
+function validarCoordenadas(latStr: string, lngStr: string): string | null {
+  if (latStr.trim() === "" || lngStr.trim() === "") {
+    return "Debes capturar latitud y longitud.";
+  }
+
+  const lat = Number(latStr);
+  const lng = Number(lngStr);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return "Latitud y longitud deben ser números válidos.";
+  }
+  if (lat < -90 || lat > 90) {
+    return "La latitud debe estar entre -90 y 90.";
+  }
+  if (lng < -180 || lng > 180) {
+    return "La longitud debe estar entre -180 y 180.";
+  }
+  if (lat === 0 && lng === 0) {
+    return "Latitud y longitud no pueden ser ambas 0. Revisa los datos capturados.";
+  }
+  if (
+    lat < RANGO_MEXICO.latMin ||
+    lat > RANGO_MEXICO.latMax ||
+    lng < RANGO_MEXICO.lngMin ||
+    lng > RANGO_MEXICO.lngMax
+  ) {
+    return "Las coordenadas quedan fuera del rango esperado para México. Revisa que la longitud tenga el signo negativo (ej. -104.890221) y que no hayas invertido latitud y longitud.";
+  }
+  return null;
 }
 
 export default function PanelClientes({
@@ -46,6 +90,13 @@ export default function PanelClientes({
 
   const handleGuardarCliente = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const errorCoordenadas = validarCoordenadas(latitud, longitud);
+    if (errorCoordenadas) {
+      notificarAdvertencia(errorCoordenadas);
+      return;
+    }
+
     setGuardando(true);
 
     const datosCliente = {
@@ -53,10 +104,7 @@ export default function PanelClientes({
       descripcion: domicilio,
       vendedor: vendedorSeleccionado,
       ruta,
-      posicion: [parseFloat(latitud) || 0, parseFloat(longitud) || 0] as [
-        number,
-        number,
-      ],
+      posicion: [Number(latitud), Number(longitud)] as [number, number],
     };
 
     try {
@@ -69,7 +117,7 @@ export default function PanelClientes({
             ),
           );
           queryClient.invalidateQueries({ queryKey: ["clientes"] });
-          alert("Cliente actualizado correctamente");
+          notificarExito("Cliente actualizado correctamente");
           limpiarFormulario();
         }
       } else {
@@ -80,12 +128,12 @@ export default function PanelClientes({
             { ...datosCliente, id: res.id },
           ]);
           queryClient.invalidateQueries({ queryKey: ["clientes"] });
-          alert("¡Cliente registrado en la nube!");
+          notificarExito("¡Cliente registrado en la nube!");
           limpiarFormulario();
         }
       }
     } catch (error) {
-      alert("Ocurrió un error al procesar la solicitud.");
+      notificarError("Ocurrió un error al procesar la solicitud.");
     } finally {
       setGuardando(false);
     }
@@ -102,7 +150,12 @@ export default function PanelClientes({
   };
 
   const handleEliminar = async (id: string) => {
-    if (window.confirm("¿Seguro que deseas eliminar este cliente?")) {
+    const ok = await confirmar({
+      mensaje: "¿Seguro que deseas eliminar este cliente?",
+      peligroso: true,
+      textoConfirmar: "Eliminar",
+    });
+    if (ok) {
       const res = await eliminarClienteFirebase(id);
       if (res.success) {
         setListaClientes((prev) => prev.filter((c) => c.id !== id));

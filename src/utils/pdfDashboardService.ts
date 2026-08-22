@@ -1,4 +1,5 @@
 import { obtenerLogoBase64Local } from "./mapaUtils";
+import { notificarAdvertencia } from "./notificaciones";
 
 export interface KpisPeriodo {
   ventas: number;
@@ -85,7 +86,7 @@ const celdaVariacion = (
 
 export const generarPDFGerencial = async (datos: DatosReporteGerencial) => {
   const pdfMake = (window as any).pdfMake;
-  if (!pdfMake) return alert("Generador PDF cargando...");
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
 
   const {
     fechas,
