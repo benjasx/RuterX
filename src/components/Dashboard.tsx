@@ -135,7 +135,7 @@ function BadgeVariacion({
   if (variacion.tipo === "nuevo") {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-full mt-1.5">
-        Nuevo vs. semana anterior
+        Nuevo vs. periodo anterior
       </span>
     );
   }
@@ -152,7 +152,7 @@ function BadgeVariacion({
     >
       <Icono size={12} />
       {esAumento ? "+" : ""}
-      {variacion.pct.toFixed(1)}% vs. sem. anterior
+      {variacion.pct.toFixed(1)}% vs. periodo anterior
     </span>
   );
 }
@@ -163,15 +163,25 @@ export default function Dashboard() {
   const hoy = new Date();
   const hace7Dias = new Date();
   hace7Dias.setDate(hoy.getDate() - 6);
+  const strHoyDefault = obtenerFechaLocalStr(hoy);
+  const strHace7DiasDefault = obtenerFechaLocalStr(hace7Dias);
 
-  const strHoy = obtenerFechaLocalStr(hoy);
-  const strHace7Dias = obtenerFechaLocalStr(hace7Dias);
+  // Rango seleccionado por el usuario, por defecto los últimos 7 días
+  const [strHace7Dias, setStrHace7Dias] = useState(strHace7DiasDefault);
+  const [strHoy, setStrHoy] = useState(strHoyDefault);
 
-  // Semana inmediatamente anterior, para la comparativa (WoW) de los KPIs
-  const finPeriodoPrevio = new Date(hace7Dias);
+  const diasEnRango = useMemo(() => {
+    const inicio = new Date(`${strHace7Dias}T00:00:00`);
+    const fin = new Date(`${strHoy}T00:00:00`);
+    return Math.round((fin.getTime() - inicio.getTime()) / 86400000) + 1;
+  }, [strHace7Dias, strHoy]);
+
+  // Periodo inmediatamente anterior (misma duración que el rango elegido),
+  // para la comparativa (WoW) de los KPIs
+  const finPeriodoPrevio = new Date(`${strHace7Dias}T00:00:00`);
   finPeriodoPrevio.setDate(finPeriodoPrevio.getDate() - 1);
   const inicioPeriodoPrevio = new Date(finPeriodoPrevio);
-  inicioPeriodoPrevio.setDate(inicioPeriodoPrevio.getDate() - 6);
+  inicioPeriodoPrevio.setDate(inicioPeriodoPrevio.getDate() - (diasEnRango - 1));
   const strFinPrevio = obtenerFechaLocalStr(finPeriodoPrevio);
   const strInicioPrevio = obtenerFechaLocalStr(inicioPeriodoPrevio);
 
@@ -199,6 +209,7 @@ export default function Dashboard() {
     () => calcularKpisPeriodo(datosCrudosPrevios),
     [datosCrudosPrevios],
   );
+  const hayDatosPrevios = datosCrudosPrevios.length > 0;
 
   const dataProcesada = useMemo(() => {
     let totalVentas = 0;
@@ -252,8 +263,9 @@ export default function Dashboard() {
     const agrupadoPorDiaPeso: Record<string, number> = {};
     const agrupadoPorDiaPesoPrevio: Record<string, number> = {};
 
-    for (let i = 0; i <= 6; i++) {
-      const d = new Date(hace7Dias);
+    const inicioRango = new Date(`${strHace7Dias}T00:00:00`);
+    for (let i = 0; i < diasEnRango; i++) {
+      const d = new Date(inicioRango);
       d.setDate(d.getDate() + i);
       agrupadoPorDia[obtenerFechaLocalStr(d)] = 0;
       agrupadoPorDiaPeso[obtenerFechaLocalStr(d)] = 0;
@@ -438,6 +450,7 @@ export default function Dashboard() {
     strHoy,
     strInicioPrevio,
     strFinPrevio,
+    diasEnRango,
   ]);
 
   const fMoneda = (c: number) =>
@@ -497,7 +510,7 @@ export default function Dashboard() {
     return (
       <div className="flex w-full h-full items-center justify-center">
         <p className="text-slate-500 dark:text-slate-400 font-bold animate-pulse flex items-center gap-2">
-          <Activity size={20} /> Analizando operación de los últimos 7 días...
+          <Activity size={20} /> Analizando operación del periodo seleccionado...
         </p>
       </div>
     );
@@ -522,17 +535,63 @@ export default function Dashboard() {
             Resumen Operativo
           </h2>
           <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">
-            Rendimiento de los últimos 7 días ({strHace7Dias} al {strHoy})
+            Rendimiento del periodo seleccionado ({strHace7Dias} al {strHoy})
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+            {hayDatosPrevios
+              ? `Comparado contra ${strInicioPrevio} al ${strFinPrevio}`
+              : `Sin datos en el periodo anterior (${strInicioPrevio} al ${strFinPrevio})`}
           </p>
         </div>
-        <button
-          onClick={handleDescargarReporte}
-          disabled={generandoPDF}
-          className="flex items-center justify-center gap-2 px-5 py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl transition-colors shadow-sm disabled:opacity-50"
-        >
-          <FileDown size={20} />
-          {generandoPDF ? "Generando..." : "Reporte Gerencial PDF"}
-        </button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
+          <div className="flex items-center gap-2">
+            <div className="flex flex-col">
+              <label
+                htmlFor="dashboard-fecha-inicio"
+                className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase"
+              >
+                Inicio
+              </label>
+              <input
+                id="dashboard-fecha-inicio"
+                type="date"
+                value={strHace7Dias}
+                onChange={(e) => setStrHace7Dias(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-700 dark:text-slate-200"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label
+                htmlFor="dashboard-fecha-fin"
+                className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase"
+              >
+                Fin
+              </label>
+              <input
+                id="dashboard-fecha-fin"
+                type="date"
+                value={strHoy}
+                onChange={(e) => {
+                  const nuevoFin = e.target.value;
+                  setStrHoy(nuevoFin);
+                  const finDate = new Date(`${nuevoFin}T00:00:00`);
+                  const inicioDate = new Date(finDate);
+                  inicioDate.setDate(inicioDate.getDate() - 6);
+                  setStrHace7Dias(obtenerFechaLocalStr(inicioDate));
+                }}
+                className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-700 dark:text-slate-200"
+              />
+            </div>
+          </div>
+          <button
+            onClick={handleDescargarReporte}
+            disabled={generandoPDF}
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl transition-colors shadow-sm disabled:opacity-50"
+          >
+            <FileDown size={20} />
+            {generandoPDF ? "Generando..." : "Reporte Gerencial PDF"}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
@@ -570,6 +629,9 @@ export default function Dashboard() {
             >
               {fNumero(dataProcesada.kpis.peso)}{" "}
               <span className="text-sm text-slate-500 dark:text-slate-400 font-bold">KG</span>
+            </p>
+            <p className="text-xs font-bold text-slate-400 dark:text-slate-500">
+              {fNumero(dataProcesada.kpis.peso / 1000)} Ton
             </p>
             <BadgeVariacion
               actual={dataProcesada.kpis.peso}
@@ -624,7 +686,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
         <div className="xl:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col">
           <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6 flex items-center gap-2">
-            Tendencia de Ventas (7 Días)
+            Tendencia de Ventas ({diasEnRango} {diasEnRango === 1 ? "Día" : "Días"})
           </h3>
           <div className="w-full flex-1 min-h-75" id="grafico-ventas">
             <ResponsiveContainer width="100%" height="100%">
@@ -664,10 +726,16 @@ export default function Dashboard() {
                 />
                 <Tooltip
                   cursor={{ stroke: "#cbd5e1", strokeWidth: 1 }}
-                  formatter={(value: any, name: any) => [
-                    fMoneda(Number(value) || 0),
-                    name,
-                  ]}
+                  formatter={(value: any, name: any, item: any) => {
+                    if (name === "Periodo anterior") {
+                      const fechaPrevia = item?.payload?.fechaPrevia;
+                      const etiqueta = fechaPrevia
+                        ? `${name} (${formatearFechaTooltip(fechaPrevia)})`
+                        : name;
+                      return [fMoneda(Number(value) || 0), etiqueta];
+                    }
+                    return [fMoneda(Number(value) || 0), name];
+                  }}
                   labelFormatter={(label) =>
                     formatearFechaTooltip(String(label))
                   }
@@ -692,27 +760,29 @@ export default function Dashboard() {
                   iconType="circle"
                   wrapperStyle={{ fontSize: 12, fontWeight: 600 }}
                 />
-                <Area
-                  type="monotone"
-                  dataKey="ventasPrevias"
-                  name="Semana pasada"
-                  stroke="#94a3b8"
-                  strokeWidth={2}
-                  strokeDasharray="5 4"
-                  fillOpacity={1}
-                  fill="url(#colorVentasPrevias)"
-                  dot={false}
-                  activeDot={{
-                    r: 5,
-                    strokeWidth: 2,
-                    stroke: "#fff",
-                    fill: "#94a3b8",
-                  }}
-                />
+                {hayDatosPrevios && (
+                  <Area
+                    type="monotone"
+                    dataKey="ventasPrevias"
+                    name="Periodo anterior"
+                    stroke="#94a3b8"
+                    strokeWidth={2}
+                    strokeDasharray="5 4"
+                    fillOpacity={1}
+                    fill="url(#colorVentasPrevias)"
+                    dot={false}
+                    activeDot={{
+                      r: 5,
+                      strokeWidth: 2,
+                      stroke: "#fff",
+                      fill: "#94a3b8",
+                    }}
+                  />
+                )}
                 <Area
                   type="monotone"
                   dataKey="ventas"
-                  name="Semana actual"
+                  name="Periodo actual"
                   stroke="#10b981"
                   strokeWidth={2}
                   strokeLinecap="round"
@@ -828,7 +898,7 @@ export default function Dashboard() {
 
       <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col mb-6">
         <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6 flex items-center gap-2">
-          Tendencia de Peso Movido (7 Días)
+          Tendencia de Peso Movido ({diasEnRango} {diasEnRango === 1 ? "Día" : "Días"})
         </h3>
         <div className="w-full h-80" id="grafico-peso">
           <ResponsiveContainer width="100%" height="100%">
@@ -868,10 +938,17 @@ export default function Dashboard() {
               />
               <Tooltip
                 cursor={{ stroke: "#cbd5e1", strokeWidth: 1 }}
-                formatter={(value: any, name: any) => [
-                  `${fNumero(Number(value) || 0)} KG`,
-                  name,
-                ]}
+                formatter={(value: any, name: any, item: any) => {
+                  const valorFormateado = `${fNumero(Number(value) || 0)} KG`;
+                  if (name === "Periodo anterior") {
+                    const fechaPrevia = item?.payload?.fechaPrevia;
+                    const etiqueta = fechaPrevia
+                      ? `${name} (${formatearFechaTooltip(fechaPrevia)})`
+                      : name;
+                    return [valorFormateado, etiqueta];
+                  }
+                  return [valorFormateado, name];
+                }}
                 labelFormatter={(label) =>
                   formatearFechaTooltip(String(label))
                 }
@@ -896,27 +973,29 @@ export default function Dashboard() {
                 iconType="circle"
                 wrapperStyle={{ fontSize: 12, fontWeight: 600 }}
               />
-              <Area
-                type="monotone"
-                dataKey="pesoPrevio"
-                name="Semana pasada"
-                stroke="#94a3b8"
-                strokeWidth={2}
-                strokeDasharray="5 4"
-                fillOpacity={1}
-                fill="url(#colorPesoPrevio)"
-                dot={false}
-                activeDot={{
-                  r: 5,
-                  strokeWidth: 2,
-                  stroke: "#fff",
-                  fill: "#94a3b8",
-                }}
-              />
+              {hayDatosPrevios && (
+                <Area
+                  type="monotone"
+                  dataKey="pesoPrevio"
+                  name="Periodo anterior"
+                  stroke="#94a3b8"
+                  strokeWidth={2}
+                  strokeDasharray="5 4"
+                  fillOpacity={1}
+                  fill="url(#colorPesoPrevio)"
+                  dot={false}
+                  activeDot={{
+                    r: 5,
+                    strokeWidth: 2,
+                    stroke: "#fff",
+                    fill: "#94a3b8",
+                  }}
+                />
+              )}
               <Area
                 type="monotone"
                 dataKey="peso"
-                name="Semana actual"
+                name="Periodo actual"
                 stroke="#3b82f6"
                 strokeWidth={2}
                 strokeLinecap="round"

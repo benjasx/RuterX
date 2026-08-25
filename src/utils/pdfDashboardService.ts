@@ -66,7 +66,7 @@ const celdaVariacion = (
 ) => {
   if (previo === 0) {
     return {
-      text: actual === 0 ? "Sin datos previos" : "Nuevo vs. semana anterior",
+      text: actual === 0 ? "Sin datos previos" : "Nuevo vs. periodo anterior",
       color: "#64748b",
       italics: true,
       fontSize: 8,
@@ -77,7 +77,7 @@ const celdaVariacion = (
   const esBueno = invertido ? !esAumento : esAumento;
   const signo = esAumento ? "+" : "";
   return {
-    text: `${signo}${pct.toFixed(1)}% vs. semana anterior`,
+    text: `${signo}${pct.toFixed(1)}% vs. periodo anterior`,
     color: esBueno ? "#16a34a" : "#dc2626",
     bold: true,
     fontSize: 9,
