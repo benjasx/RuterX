@@ -7,6 +7,8 @@ import {
   Popup,
   useMap,
   Polyline,
+  LayersControl,
+  LayerGroup,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -700,7 +702,29 @@ export default function MapaRutero({
           style={{ height: "100%", width: "100%" }}
         >
           <MapUpdater markers={markerPositions} centerCoord={centroMapa} />
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <LayersControl position="topright">
+            <LayersControl.BaseLayer checked name="Calles">
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution="&copy; OpenStreetMap contributors"
+              />
+            </LayersControl.BaseLayer>
+            <LayersControl.BaseLayer name="Satélite">
+              <TileLayer
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                attribution="Tiles &copy; Esri"
+              />
+            </LayersControl.BaseLayer>
+            <LayersControl.BaseLayer name="Híbrido">
+              <LayerGroup>
+                <TileLayer
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                  attribution="Tiles &copy; Esri"
+                />
+                <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}" />
+              </LayerGroup>
+            </LayersControl.BaseLayer>
+          </LayersControl>
           <Marker
             position={[BASE_XALISCO.lat, BASE_XALISCO.lng]}
             icon={baseIcon}

@@ -61,6 +61,8 @@ export const LISTA_RUTAS = [
   "Mazatlan - Mayoristas",
   "Recoge en Bodega",
   "CTE: Calleros",
+  "San Pedro Lagunillas",
+  "Ixtlan - San pedro",
 ].sort();
 
 export const LISTA_UNIDADES = [
