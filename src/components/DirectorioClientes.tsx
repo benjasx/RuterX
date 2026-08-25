@@ -10,6 +10,7 @@ import {
   FileText,
   FileSpreadsheet,
   Loader2,
+  MapPin,
 } from "lucide-react";
 
 import {
@@ -76,6 +77,26 @@ export default function DirectorioClientes({
       await onDelete(id);
     } finally {
       setEliminandoId(null);
+    }
+  };
+
+  const handleCompartirUbicacion = async (cliente: any) => {
+    const [lat, lng] = cliente.posicion || [];
+    const mapsUrl =
+      lat != null && lng != null
+        ? `https://www.google.com/maps?q=${lat},${lng}`
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cliente.descripcion || cliente.nombre)}`;
+
+    const texto = `Ubicación de ${cliente.nombre}: ${mapsUrl}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: cliente.nombre, text: texto, url: mapsUrl });
+      } catch {
+        // Usuario canceló el share, no hacer nada
+      }
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
     }
   };
 
@@ -182,6 +203,13 @@ export default function DirectorioClientes({
                     {cliente.vendedor}
                   </td>
                   <td className="py-3 px-4 text-center">
+                    <button
+                      onClick={() => handleCompartirUbicacion(cliente)}
+                      className="text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors p-2 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-full cursor-pointer"
+                      title="Compartir ubicación"
+                    >
+                      <MapPin size={18} />
+                    </button>
                     <button
                       onClick={() => onEdit(cliente)}
                       className="text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-full cursor-pointer"
