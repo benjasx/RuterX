@@ -1,4 +1,19 @@
-import { Route, Send, Download, FileText, Loader2, Search } from "lucide-react";
+import {
+  Route,
+  Send,
+  Download,
+  FileText,
+  Loader2,
+  Search,
+  Navigation,
+} from "lucide-react";
+import type { NivelPrioridad } from "../../utils/rutasUtils";
+
+const NIVELES_PRIORIDAD: { nivel: NivelPrioridad; label: string }[] = [
+  { nivel: 1, label: "Normal" },
+  { nivel: 2, label: "Prioritario" },
+  { nivel: 3, label: "Urgente" },
+];
 
 interface PanelLateralProps {
   rutaSeleccionada: string;
@@ -13,8 +28,12 @@ interface PanelLateralProps {
   seleccionarTodos: () => void;
   deseleccionarTodos: () => void;
   rutaOptima: any[] | null;
-  trazarRutaOptima: () => void;
+  trazarRutaOptima: (motor?: "basico" | "osrm") => void;
   cargandoRuta: boolean;
+  osrmDisponible?: boolean;
+  resumenRutaOSRM?: { distanciaKm: number; duracionMin: number } | null;
+  prioridadClientes: Record<string, NivelPrioridad>;
+  setPrioridadCliente: (id: string, nivel: NivelPrioridad) => void;
   setMostrarModalDespacho: (val: boolean) => void;
   exportarExcel: () => void;
   exportarPDF: () => void;
@@ -39,6 +58,10 @@ export default function PanelLateralMapaAdmin({
   rutaOptima,
   trazarRutaOptima,
   cargandoRuta,
+  osrmDisponible,
+  resumenRutaOSRM,
+  prioridadClientes,
+  setPrioridadCliente,
   setMostrarModalDespacho,
   exportarExcel,
   exportarPDF,
@@ -144,13 +167,38 @@ export default function PanelLateralMapaAdmin({
             key={cliente.id}
             className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-blue-300 dark:hover:border-blue-600 transition-colors cursor-pointer"
           >
-            <div className="flex flex-col">
+            <div className="flex flex-col gap-1">
               <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                 {cliente.nombre}
               </span>
               <span className="text-xs text-slate-500 dark:text-slate-400">
                 {cliente.descripcion}
               </span>
+              {selectedClienteIds.includes(cliente.id) && (
+                <div className="flex gap-1 mt-1">
+                  {NIVELES_PRIORIDAD.map(({ nivel, label }) => {
+                    const activo = (prioridadClientes[cliente.id] || 1) === nivel;
+                    return (
+                      <button
+                        key={nivel}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setPrioridadCliente(cliente.id, nivel);
+                        }}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded cursor-pointer ${
+                          activo
+                            ? "bg-blue-600 text-white"
+                            : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <input
               type="checkbox"
@@ -164,21 +212,55 @@ export default function PanelLateralMapaAdmin({
 
       <div className="pt-4 border-t border-slate-100 dark:border-slate-700 flex flex-col gap-2 shrink-0">
         {!rutaOptima ? (
-          <button
-            onClick={trazarRutaOptima}
-            disabled={selectedClienteIds.length < 2 || cargandoRuta}
-            className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white font-bold py-3 rounded-lg transition-colors shadow-sm cursor-pointer"
-          >
-            {cargandoRuta ? (
-              <>
-                <Loader2 size={18} className="animate-spin" /> Generando...
-              </>
-            ) : (
-              <>
-                <Route size={18} /> Trazar Ruta Óptima
-              </>
+          <>
+            <button
+              onClick={() => trazarRutaOptima("basico")}
+              disabled={selectedClienteIds.length < 2 || cargandoRuta}
+              className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white font-bold py-3 rounded-lg transition-colors shadow-sm cursor-pointer"
+            >
+              {cargandoRuta ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" /> Generando...
+                </>
+              ) : (
+                <>
+                  <Route size={18} /> Trazar Ruta Óptima
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => trazarRutaOptima("osrm")}
+              disabled={
+                selectedClienteIds.length < 2 || cargandoRuta || !osrmDisponible
+              }
+              title={
+                osrmDisponible
+                  ? "Recalcula el orden con tiempos reales de manejo, evitando casetas de cuota"
+                  : "El contenedor OSRM local no está corriendo"
+              }
+              className="w-full flex items-center justify-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold py-3 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+            >
+              {cargandoRuta ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" /> Generando...
+                </>
+              ) : (
+                <>
+                  <Navigation size={18} /> Mejorar con OSRM local
+                </>
+              )}
+            </button>
+            {resumenRutaOSRM && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                ~{resumenRutaOSRM.distanciaKm.toFixed(1)} km ·{" "}
+                {Math.round(resumenRutaOSRM.duracionMin)} min (evitando cuota)
+              </p>
             )}
-          </button>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center">
+              La prioridad de cada cliente solo aplica al trazar con OSRM
+              local.
+            </p>
+          </>
         ) : (
           <>
             <button

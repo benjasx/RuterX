@@ -24,7 +24,12 @@ import {
   exportarPDFAdmin,
   generarPDFFinalChofer,
 } from "../utils/reportesUtils";
-import { calcularRutaOptimaYCarretera } from "../utils/rutasUtils";
+import {
+  calcularRutaOptimaYCarretera,
+  calcularRutaOptimaOSRM,
+  osrmLocalDisponible,
+  type NivelPrioridad,
+} from "../utils/rutasUtils";
 import {
   notificarExito,
   notificarError,
@@ -95,6 +100,14 @@ export default function MapaRutero({
     null,
   );
   const [cargandoRuta, setCargandoRuta] = useState(false);
+  const [osrmDisponible, setOsrmDisponible] = useState(false);
+  const [resumenRutaOSRM, setResumenRutaOSRM] = useState<{
+    distanciaKm: number;
+    duracionMin: number;
+  } | null>(null);
+  const [prioridadClientes, setPrioridadClientes] = useState<
+    Record<string, NivelPrioridad>
+  >({});
   const [mostrarModalDespacho, setMostrarModalDespacho] = useState(false);
   const [choferSeleccionado, setChoferSeleccionado] = useState<string>("");
   const [fechaViaje, setFechaViaje] = useState(hoyStr);
@@ -325,12 +338,23 @@ export default function MapaRutero({
     if (!esAdmin) return;
     setRutaOptima(null);
     setRutaCarretera(null);
+    setResumenRutaOSRM(null);
     setCentroMapa(null);
   }, [selectedClienteIds, rutaSeleccionada, esAdmin]);
 
   useEffect(() => {
+    if (!esAdmin) return;
+    osrmLocalDisponible().then(setOsrmDisponible);
+  }, [esAdmin]);
+
+  useEffect(() => {
     setBusquedaCliente("");
+    setPrioridadClientes({});
   }, [rutaSeleccionada]);
+
+  const setPrioridadCliente = (id: string, nivel: NivelPrioridad) => {
+    setPrioridadClientes((prev) => ({ ...prev, [id]: nivel }));
+  };
 
   useEffect(() => {
     if (!esAdmin || !rutaSeleccionada || clientesDeRuta.length === 0) return;
@@ -377,7 +401,7 @@ export default function MapaRutero({
       localStorage.setItem("rutasmart_clientes", JSON.stringify([]));
   };
 
-  const trazarRutaOptima = async () => {
+  const trazarRutaOptima = async (motor: "basico" | "osrm" = "basico") => {
     const clientesValidos = clientesDeRuta.filter(
       (c) =>
         selectedClienteIds.includes(c.id) &&
@@ -386,11 +410,27 @@ export default function MapaRutero({
     );
     if (clientesValidos.length === 0) return;
     setCargandoRuta(true);
-    const { rutaCalculada, rutaCarretera: carreteraCalc } =
-      await calcularRutaOptimaYCarretera(clientesValidos);
-    setRutaOptima(rutaCalculada);
-    setRutaCarretera(carreteraCalc);
-    setCargandoRuta(false);
+    setResumenRutaOSRM(null);
+    try {
+      if (motor === "osrm") {
+        const { rutaCalculada, rutaCarretera: carreteraCalc, resumen } =
+          await calcularRutaOptimaOSRM(clientesValidos, prioridadClientes);
+        setRutaOptima(rutaCalculada);
+        setRutaCarretera(carreteraCalc);
+        setResumenRutaOSRM(resumen || null);
+      } else {
+        const { rutaCalculada, rutaCarretera: carreteraCalc } =
+          await calcularRutaOptimaYCarretera(clientesValidos);
+        setRutaOptima(rutaCalculada);
+        setRutaCarretera(carreteraCalc);
+      }
+    } catch {
+      notificarError(
+        "No se pudo calcular la ruta con OSRM local. Verifica que el contenedor esté corriendo.",
+      );
+    } finally {
+      setCargandoRuta(false);
+    }
   };
 
   const handleAsignarViaje = async () => {
@@ -573,6 +613,10 @@ export default function MapaRutero({
           rutaOptima={rutaOptima}
           trazarRutaOptima={trazarRutaOptima}
           cargandoRuta={cargandoRuta}
+          osrmDisponible={osrmDisponible}
+          resumenRutaOSRM={resumenRutaOSRM}
+          prioridadClientes={prioridadClientes}
+          setPrioridadCliente={setPrioridadCliente}
           setMostrarModalDespacho={setMostrarModalDespacho}
           exportarExcel={() =>
             exportarExcelAdmin(rutaOptima || [], rutaSeleccionada)

@@ -1,0 +1,10 @@
+services:
+  osrm:
+    image: osrm/osrm-backend
+    container_name: ruterx-osrm
+    command: osrm-routed --algorithm mld --max-trip-size 200 --max-table-size 200 /data/region.osrm
+    volumes:
+      - ./data:/data
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
