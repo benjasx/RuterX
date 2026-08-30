@@ -85,6 +85,21 @@ function MapUpdater({
   return null;
 }
 
+// Recalcula el tamaño del mapa cuando su contenedor cambia (ej: ocultar el sidebar),
+// evitando que queden tiles sin cargar (zonas grises).
+function InvalidarTamanoMapa() {
+  const map = useMap();
+  useEffect(() => {
+    const contenedor = map.getContainer();
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize({ animate: false });
+    });
+    observer.observe(contenedor);
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
+}
+
 export default function MapaRutero({
   esAdmin = false,
   usuarioEmail,
@@ -746,6 +761,7 @@ export default function MapaRutero({
           style={{ height: "100%", width: "100%" }}
         >
           <MapUpdater markers={markerPositions} centerCoord={centroMapa} />
+          <InvalidarTamanoMapa />
           <LayersControl position="topright">
             <LayersControl.BaseLayer checked name="Calles">
               <TileLayer
