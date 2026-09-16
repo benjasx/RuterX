@@ -3,6 +3,8 @@ import {
   collection,
   addDoc,
   getDocs,
+  query,
+  where,
   updateDoc,
   doc,
   serverTimestamp,
@@ -10,13 +12,19 @@ import {
 import { db } from "./config";
 
 export type EstatusAltaCliente = "pendiente" | "aprobada" | "rechazada";
+export type TipoCliente = "credito" | "contado" | "pagoAnticipado";
 
 export interface AltaClienteNueva {
+  nombreCliente: string;
   nombreNegocio: string;
   domicilio: string;
+  entreCalles: string;
   referenciasDomicilio: string;
   nombreContacto: string;
   telefonoContacto: string;
+  telefonoReferencia: string;
+  correo: string;
+  tipoCliente: TipoCliente;
   notas: string;
   vendedorNombre: string;
   ubicacionTexto: string;
@@ -42,10 +50,16 @@ export const agregarAltaClienteFirebase = async (alta: AltaClienteNueva) => {
   }
 };
 
-// 2. READ (Traer todas las altas)
-export const obtenerAltasClientesFirebase = async () => {
+// 2. READ (admin: todas las altas; vendedor: solo las suyas, requerido por
+// las reglas de Firestore, que para "list" exigen que la propia query ya
+// esté acotada por creadoPorEmail, no basta con filtrar en el cliente)
+export const obtenerAltasClientesFirebase = async (creadoPorEmail?: string) => {
   try {
-    const querySnapshot = await getDocs(collection(db, "altasClientes"));
+    const altasRef = collection(db, "altasClientes");
+    const consulta = creadoPorEmail
+      ? query(altasRef, where("creadoPorEmail", "==", creadoPorEmail))
+      : altasRef;
+    const querySnapshot = await getDocs(consulta);
     return querySnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),

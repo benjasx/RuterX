@@ -75,13 +75,18 @@ service cloud.firestore {
     }
 
     // Altas de clientes capturadas por vendedores en campo, pendientes de revisión
-    // del admin (ver specs/02-altas-clientes.md). El vendedor solo crea/lee las suyas.
+    // del admin (ver specs/02-altas-clientes.md). El vendedor crea/lee/edita las
+    // suyas, pero pierde el permiso de editar en cuanto el admin la aprueba.
     match /altasClientes/{docId} {
       allow create: if esVendedorDinamico()
         && request.resource.data.creadoPorEmail == request.auth.token.email;
       allow read: if esAdmin()
         || (esVendedorDinamico() && resource.data.creadoPorEmail == request.auth.token.email);
-      allow update, delete: if esAdmin();
+      allow update: if esAdmin()
+        || (esVendedorDinamico()
+            && resource.data.creadoPorEmail == request.auth.token.email
+            && resource.data.estatus != 'aprobada');
+      allow delete: if esAdmin();
     }
 
     // Usuarios del sistema (roles asignados desde el panel de Gestión de Usuarios):

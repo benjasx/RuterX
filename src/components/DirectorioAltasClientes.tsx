@@ -11,10 +11,13 @@ import {
 import FormularioAltaCliente, {
   type AltaClienteConId,
 } from "./FormularioAltaCliente";
-import { actualizarEstatusAltaClienteFirebase } from "../firebase/altasClientesService";
+import {
+  actualizarEstatusAltaClienteFirebase,
+  type TipoCliente,
+} from "../firebase/altasClientesService";
 import { notificarExito, notificarError } from "../utils/notificaciones";
 
-interface AltaCliente extends AltaClienteConId {
+export interface AltaCliente extends AltaClienteConId {
   estatus: "pendiente" | "aprobada" | "rechazada";
   motivoRechazo?: string;
 }
@@ -37,6 +40,12 @@ const ESTILO_ESTATUS: Record<AltaCliente["estatus"], string> = {
   aprobada:
     "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300",
   rechazada: "bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300",
+};
+
+const ETIQUETA_TIPO_CLIENTE: Record<TipoCliente, string> = {
+  credito: "Crédito",
+  contado: "Contado",
+  pagoAnticipado: "Pago anticipado",
 };
 
 export default function DirectorioAltasClientes({
@@ -114,9 +123,10 @@ export default function DirectorioAltasClientes({
         <table className="w-full text-left border-collapse min-w-200">
           <thead className="bg-slate-50 dark:bg-slate-900">
             <tr className="border-b border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              <th className="px-6 py-3 text-left">Negocio</th>
+              <th className="px-6 py-3 text-left">Cliente</th>
               <th className="px-6 py-3 text-left">Contacto</th>
               <th className="px-6 py-3 text-left">Vendedor</th>
+              <th className="px-6 py-3 text-left">Tipo</th>
               {esAdmin && <th className="px-6 py-3 text-left">Capturado por</th>}
               <th className="px-6 py-3 text-left">Estatus</th>
               <th className="px-6 py-3 text-center">Acciones</th>
@@ -131,9 +141,12 @@ export default function DirectorioAltasClientes({
                   >
                     <td className="py-3 px-4">
                       <p className="font-semibold text-slate-900 dark:text-slate-100">
-                        {alta.nombreNegocio}
+                        {alta.nombreCliente}
                       </p>
                       <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {alta.nombreNegocio}
+                      </p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
                         {alta.domicilio}
                       </p>
                     </td>
@@ -142,9 +155,17 @@ export default function DirectorioAltasClientes({
                       <p className="text-slate-500 dark:text-slate-400">
                         {alta.telefonoContacto}
                       </p>
+                      {alta.correo && (
+                        <p className="text-slate-500 dark:text-slate-400">
+                          {alta.correo}
+                        </p>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-sm text-slate-600 dark:text-slate-300">
                       {alta.vendedorNombre}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-slate-600 dark:text-slate-300">
+                      {ETIQUETA_TIPO_CLIENTE[alta.tipoCliente]}
                     </td>
                     {esAdmin && (
                       <td className="py-3 px-4 text-sm text-slate-600 dark:text-slate-300">
@@ -171,15 +192,17 @@ export default function DirectorioAltasClientes({
                       >
                         <MapPin size={18} />
                       </button>
+                      {(esAdmin || alta.estatus !== "aprobada") && (
+                        <button
+                          onClick={() => setAltaEditando(alta)}
+                          className="text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-full cursor-pointer"
+                          title="Editar"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                      )}
                       {esAdmin && (
                         <>
-                          <button
-                            onClick={() => setAltaEditando(alta)}
-                            className="text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-full cursor-pointer"
-                            title="Editar"
-                          >
-                            <Pencil size={18} />
-                          </button>
                           <button
                             onClick={() => handleAprobar(alta.id)}
                             disabled={procesandoId === alta.id}
@@ -208,7 +231,7 @@ export default function DirectorioAltasClientes({
                   </tr>
                   {esAdmin && rechazandoId === alta.id && (
                     <tr className="bg-red-50 dark:bg-red-950/20">
-                      <td colSpan={esAdmin ? 6 : 5} className="px-4 py-3">
+                      <td colSpan={esAdmin ? 7 : 6} className="px-4 py-3">
                         <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
                           <input
                             type="text"
@@ -241,7 +264,7 @@ export default function DirectorioAltasClientes({
             ) : (
               <tr>
                 <td
-                  colSpan={esAdmin ? 6 : 5}
+                  colSpan={esAdmin ? 7 : 6}
                   className="text-center py-12 text-slate-500 dark:text-slate-400"
                 >
                   No hay altas de clientes.
@@ -252,7 +275,7 @@ export default function DirectorioAltasClientes({
         </table>
       </div>
 
-      {esAdmin && altaEditando && (
+      {altaEditando && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="max-h-[90vh] overflow-y-auto">
             <FormularioAltaCliente

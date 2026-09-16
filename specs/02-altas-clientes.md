@@ -22,12 +22,13 @@ El rol "vendedor" no existe hoy en el sistema de roles (`src/utils/roles.ts`): l
 - Sub-vista nueva `"altasClientes"` en el sidebar, con label "Altas de Clientes", visible solo para `admin` y `vendedor`.
 - Un usuario con rol `vendedor` entra directo al Panel Administrativo mostrando únicamente esta sección (sin Dashboard, sin Monitor de Rutas, sin acceso al Rutero/mapa).
 - Componente dual por rol (mismo patrón que `MapaRutero.tsx` con su prop `esAdmin`):
-  - **Vendedor:** ve un formulario para capturar un cliente nuevo, y debajo la lista de las altas que él mismo ha capturado, con su estatus (`pendiente` / `aprobada` / `rechazada`).
+  - **Vendedor:** ve un formulario para capturar un cliente nuevo, y debajo la lista de las altas que él mismo ha capturado, con su estatus (`pendiente` / `aprobada` / `rechazada`). Puede editar los campos de una alta propia mientras su estatus sea `pendiente` o `rechazada`; una vez `aprobada`, deja de poder editarla (solo el admin puede).
   - **Admin:** ve una bandeja con todas las altas de todos los vendedores, puede editar los campos de cualquiera antes de decidir, y puede aprobarla o rechazarla (con motivo opcional).
-- Formulario de alta con los campos: nombre del negocio, domicilio (texto), referencias de domicilio (texto libre, opcional), nombre de contacto (opcional), teléfono de contacto, notas/observaciones (opcional), vendedor (seleccionado de la lista ya existente en la colección `vendedores`), y ubicación de Google Maps.
+- Formulario de alta con los campos: nombre del cliente, nombre del negocio, domicilio (texto), entre calles (opcional), referencias de domicilio (texto libre, opcional), nombre de contacto (opcional), teléfono de contacto, teléfono de referencia (opcional), correo (opcional), tipo de cliente (`credito` / `contado` / `pagoAnticipado`, requerido), notas/observaciones (opcional), vendedor (seleccionado de la lista ya existente en la colección `vendedores`), y ubicación de Google Maps. El formulario se agrupa visualmente en secciones (Datos del cliente / Domicilio / Contacto / Comercial / Ubicación) en vez de un solo bloque de campos apilados.
 - Ubicación de Google Maps capturada como texto libre, aceptando dos formatos: (a) un link largo de Google Maps que traiga las coordenadas en la URL (ej. `.../@19.4326,-99.1332,17z` o `?q=19.4326,-99.1332`), o (b) coordenadas sueltas pegadas directamente (`19.4326, -99.1332`). Se valida el rango de México igual que hoy hace `PanelClientes.tsx` (`validarCoordenadas`/`RANGO_MEXICO`).
 - En la bandeja del admin, un enlace/botón "Ver ubicación" que abre `https://www.google.com/maps?q=lat,lng` en pestaña nueva, usando las coordenadas ya parseadas.
-- Colección Firestore nueva `altasClientes`, separada de `clientes`, con reglas de seguridad: el vendedor solo puede crear y leer sus propias altas; el admin (correo hardcodeado `admin@ruterx.com`) puede leer/editar/aprobar/rechazar cualquiera.
+- Colección Firestore nueva `altasClientes`, separada de `clientes`, con reglas de seguridad: el vendedor puede crear y leer sus propias altas, y editarlas mientras su estatus no sea `aprobada`; el admin (correo hardcodeado `admin@ruterx.com`) puede leer/editar/aprobar/rechazar cualquiera, en cualquier estatus.
+- Notificación en vivo para el vendedor: mientras tenga la sección "Altas de Clientes" abierta, si el admin aprueba o rechaza una de sus altas, el estatus se actualiza solo (sin refrescar) y aparece un toast ("Tu alta de \[nombre del cliente\] fue aprobada/rechazada"), vía un listener de Firestore (`onSnapshot`) sobre sus propias altas — mismo patrón que ya usa `RuterMapas.tsx` para detectar la cuenta deshabilitada en vivo. No hay push notifications ni correo: si el vendedor no tiene la app abierta, no se entera hasta que vuelve a entrar y ve el estatus actualizado en la lista.
 
 **Fuera:**
 
@@ -45,11 +46,16 @@ Colección Firestore nueva: `altasClientes`. Cada documento:
 
 ```js
 {
+  nombreCliente: string,          // requerido
   nombreNegocio: string,          // requerido
   domicilio: string,              // requerido
+  entreCalles: string,            // opcional, "" si no se captura
   referenciasDomicilio: string,   // opcional, "" si no se captura
   nombreContacto: string,         // opcional, "" si no se captura
   telefonoContacto: string,       // requerido
+  telefonoReferencia: string,     // opcional, "" si no se captura
+  correo: string,                 // opcional, "" si no se captura
+  tipoCliente: "credito" | "contado" | "pagoAnticipado", // requerido
   notas: string,                  // opcional, "" si no se captura
   vendedorNombre: string,         // requerido, nombre elegido de la colección "vendedores"
   ubicacionTexto: string,         // requerido, el link o las coordenadas tal como las pegó el vendedor
@@ -62,25 +68,26 @@ Colección Firestore nueva: `altasClientes`. Cada documento:
 }
 ```
 
-`creadoPorEmail` es la cuenta de acceso (para saber de quién es el alta y filtrar "mis altas"); `vendedorNombre` es el nombre comercial elegido del directorio de `vendedores` (puede no coincidir 1 a 1 con `creadoPorEmail` — ver Riesgos). `posicion` se deriva de `ubicacionTexto` al guardar, con la misma forma `[lat, lng]` que ya usa `clientes.posicion`, para reutilizar el mismo criterio de "Ver ubicación" que ya existe en `DirectorioClientes.tsx`.
+`nombreCliente` es el nombre de la persona/cliente; `nombreNegocio` es el nombre comercial del negocio — son dos datos distintos. `entreCalles` es un dato de ubicación adicional a `referenciasDomicilio` (p. ej. "entre Av. Insurgentes y Calle Hidalgo"), en el mismo espíritu de un domicilio completo mexicano (ej. `Blvd. Tepic-Xalisco 111, Huertas de Matatipac, 63787 Xalisco, Nay.`) pero sin exigir ese formato exacto. `telefonoReferencia` es un segundo teléfono de respaldo, distinto del `telefonoContacto` principal. `creadoPorEmail` es la cuenta de acceso (para saber de quién es el alta y filtrar "mis altas"); `vendedorNombre` es el nombre comercial elegido del directorio de `vendedores` (puede no coincidir 1 a 1 con `creadoPorEmail` — ver Riesgos). `posicion` se deriva de `ubicacionTexto` al guardar, con la misma forma `[lat, lng]` que ya usa `clientes.posicion`, para reutilizar el mismo criterio de "Ver ubicación" que ya existe en `DirectorioClientes.tsx`.
 
 ## Plan de implementación
 
 1. En `src/utils/roles.ts`: agregar `"vendedor"` a `ROLES_VALIDOS` y exportar `esVendedor(email)`, siguiendo el mismo patrón de `esJefeReparto`/`esEmbarques` pero **sin** correo hardcodeado de respaldo (solo `rolDinamicoDe(email) === "vendedor"`).
 2. En `src/components/GestionUsuarios.tsx`: agregar `vendedor: "Vendedor"` a `ETIQUETA_ROL` para que el admin pueda crear/editar usuarios con ese rol.
-3. En `firestore.rules`: agregar una función `esVendedorDinamico()` que lea el rol desde `get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role == 'vendedor'` (primer uso de un lookup dinámico en las reglas; hasta hoy todas las funciones de rol son 100% por correo hardcodeado), y agregar el bloque `match /altasClientes/{docId}` con: `create` → `esVendedorDinamico()` y que `request.resource.data.creadoPorEmail == request.auth.token.email`; `read` → `esAdmin()` o (`esVendedorDinamico()` y `resource.data.creadoPorEmail == request.auth.token.email`); `update`/`delete` → solo `esAdmin()`. Publicar las reglas actualizadas.
-4. Crear `src/firebase/altasClientesService.ts` con `agregarAltaClienteFirebase`, `obtenerAltasClientesFirebase`, `actualizarAltaClienteFirebase` (edición de campos) y `actualizarEstatusAltaClienteFirebase(id, estatus, motivoRechazo?)`, siguiendo el mismo patrón try/catch/`{success}` de `clientesService.ts`.
+3. En `firestore.rules`: agregar una función `esVendedorDinamico()` que lea el rol desde `get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role == 'vendedor'` (primer uso de un lookup dinámico en las reglas; hasta hoy todas las funciones de rol son 100% por correo hardcodeado), y agregar el bloque `match /altasClientes/{docId}` con: `create` → `esVendedorDinamico()` y que `request.resource.data.creadoPorEmail == request.auth.token.email`; `read` → `esAdmin()` o (`esVendedorDinamico()` y `resource.data.creadoPorEmail == request.auth.token.email`); `update` → `esAdmin()` o (`esVendedorDinamico()`, `resource.data.creadoPorEmail == request.auth.token.email` y `resource.data.estatus != 'aprobada'`); `delete` → solo `esAdmin()`. Publicar las reglas actualizadas.
+4. Crear `src/firebase/altasClientesService.ts` con `agregarAltaClienteFirebase`, `obtenerAltasClientesFirebase`, `actualizarAltaClienteFirebase` (edición de campos) y `actualizarEstatusAltaClienteFirebase(id, estatus, motivoRechazo?)`, siguiendo el mismo patrón try/catch/`{success}` de `clientesService.ts`; el tipo `AltaClienteNueva` incluye los campos nuevos (`nombreCliente`, `nombreNegocio`, `entreCalles`, `telefonoReferencia`, `correo`, `tipoCliente`).
 5. Crear `src/utils/googleMapsUbicacion.ts` con una función `parseUbicacionGoogleMaps(texto)` que reconozca los formatos `@lat,lng`, `?q=lat,lng`/`&q=lat,lng` y coordenadas sueltas `lat,lng`, devolviendo `{ lat, lng } | null`, reutilizando la misma validación de rango de México que `PanelClientes.tsx` (`RANGO_MEXICO`).
-6. Crear `src/components/FormularioAltaCliente.tsx`: formulario controlado con los campos del modelo de datos, selector de vendedor poblado con `obtenerVendedoresFirebase`, y el campo de ubicación validado con el parser del paso 5 (mostrando un error claro si no se reconoce el texto).
-7. Crear `src/components/DirectorioAltasClientes.tsx`: lista/tabla de altas con dos modos según prop `esAdmin`: en modo vendedor, solo lectura de las altas cuyo `creadoPorEmail` sea el usuario actual, con badge de estatus; en modo admin, todas las altas, con acciones "Editar" (reutiliza el formulario del paso 6 en modo edición), "Aprobar", "Rechazar" (con motivo opcional) y "Ver ubicación" (abre `https://www.google.com/maps?q=lat,lng` en pestaña nueva).
+6. Crear `src/components/FormularioAltaCliente.tsx`: formulario controlado con los campos del modelo de datos, agrupado en secciones visuales (Datos del cliente / Domicilio / Contacto / Comercial / Ubicación), selector de vendedor poblado con `obtenerVendedoresFirebase`, selector de tipo de cliente (Crédito / Contado / Pago anticipado, obligatorio), y el campo de ubicación validado con el parser del paso 5 (mostrando un error claro si no se reconoce el texto).
+7. Crear `src/components/DirectorioAltasClientes.tsx`: lista/tabla de altas con dos modos según prop `esAdmin`: en modo vendedor, las altas cuyo `creadoPorEmail` sea el usuario actual, con badge de estatus, badge de tipo de cliente, "Ver ubicación", y acción "Editar" (reutiliza el formulario del paso 6 en modo edición) habilitada solo si el estatus es `pendiente` o `rechazada`; en modo admin, todas las altas, con acciones "Editar" (sin restricción de estatus), "Aprobar", "Rechazar" (con motivo opcional) y "Ver ubicación" (abre `https://www.google.com/maps?q=lat,lng` en pestaña nueva).
 8. Crear `src/components/AltasClientes.tsx`: contenedor con `useQuery(["altasClientes"], obtenerAltasClientesFirebase)` que arma `FormularioAltaCliente` + `DirectorioAltasClientes` (modo propio) cuando `esAdmin` es falso, o solo `DirectorioAltasClientes` (modo admin) cuando es verdadero.
-9. En `src/components/SidebarAdmin.tsx`: agregar `"altasClientes"` a `SubVistaAdmin`, agregar la prop `esVendedor`, agregar `permisos.altasClientes = esAdmin(usuarioEmail) || esVendedor` y el ítem correspondiente ("Altas de Clientes") al arreglo `items`.
-10. En `src/components/AdminPanel.tsx`: agregar el caso `menuActivo === "altasClientes"` renderizando `<AltasClientes esAdmin={esAdmin(usuarioEmail)} usuarioEmail={usuarioEmail} />`.
-11. En `src/RuterMapas.tsx`: calcular `esVendedorActual = checkEsVendedor(usuarioActual?.email)`, pasarlo a `SidebarAdmin`, incluirlo en el branching inicial de sesión (si es vendedor, `setVistaActual("admin")` y `menuActivo` por defecto `"altasClientes"`), y ampliar la condición que decide renderizar `AdminPanel` (`vistaActual === "admin" && (esPersonalAutorizado || esVendedorActual)`) para que el vendedor sí vea el panel en vez de caer al `MapaRutero`.
-12. Verificar con `npm run build` que no hay errores de tipos.
-13. Prueba manual: crear un usuario con rol "vendedor" desde "Gestión de Usuarios", iniciar sesión con él, confirmar que en el sidebar solo aparece "Altas de Clientes", capturar un alta con un link largo de Google Maps y otra con coordenadas sueltas, y confirmar que ambas se guardan y aparecen en su lista con estatus "pendiente".
-14. Prueba manual: iniciar sesión como admin, ver la bandeja con ambas altas, editar una, aprobarla, rechazar la otra con un motivo, y confirmar (volviendo a entrar como el vendedor) que los estatus se reflejan correctamente.
-15. Prueba manual: confirmar que un usuario chofer o embarques no ve "Altas de Clientes" en su sidebar.
+9. En `AltasClientes.tsx`, modo vendedor: agregar un listener `onSnapshot` (Firestore) sobre `query(collection(db, "altasClientes"), where("creadoPorEmail", "==", usuarioEmail))` que mantenga sincronizado el caché de TanStack Query (`queryClient.setQueryData`) y, al detectar que el `estatus` de una alta ya conocida cambió de `pendiente` a `aprobada`/`rechazada`, dispare un toast (`notificarExito`/`notificarAdvertencia`) con el nombre del cliente y (si aplica) el motivo de rechazo.
+10. En `src/components/SidebarAdmin.tsx`: agregar `"altasClientes"` a `SubVistaAdmin`, agregar la prop `esVendedor`, agregar `permisos.altasClientes = esAdmin(usuarioEmail) || esVendedor` y el ítem correspondiente ("Altas de Clientes") al arreglo `items`.
+11. En `src/components/AdminPanel.tsx`: agregar el caso `menuActivo === "altasClientes"` renderizando `<AltasClientes esAdmin={esAdmin(usuarioEmail)} usuarioEmail={usuarioEmail} />`.
+12. En `src/RuterMapas.tsx`: calcular `esVendedorActual = checkEsVendedor(usuarioActual?.email)`, pasarlo a `SidebarAdmin`, incluirlo en el branching inicial de sesión (si es vendedor, `setVistaActual("admin")` y `menuActivo` por defecto `"altasClientes"`), y ampliar la condición que decide renderizar `AdminPanel` (`vistaActual === "admin" && (esPersonalAutorizado || esVendedorActual)`) para que el vendedor sí vea el panel en vez de caer al `MapaRutero`.
+13. Verificar con `npm run build` que no hay errores de tipos.
+14. Prueba manual: crear un usuario con rol "vendedor" desde "Gestión de Usuarios", iniciar sesión con él, confirmar que en el sidebar solo aparece "Altas de Clientes", capturar un alta con todos los campos (incluido tipo de cliente) usando un link largo de Google Maps y otra con coordenadas sueltas, y confirmar que ambas se guardan y aparecen en su lista con estatus "pendiente".
+15. Prueba manual: iniciar sesión como admin, ver la bandeja con ambas altas, editar una, aprobarla, rechazar la otra con un motivo — con la pestaña del vendedor abierta en paralelo, confirmar que el estatus y el toast aparecen solos, sin refrescar.
+16. Prueba manual: confirmar que un usuario chofer o embarques no ve "Altas de Clientes" en su sidebar.
 
 Cada paso deja la app compilando y funcional.
 
@@ -89,7 +96,8 @@ Cada paso deja la app compilando y funcional.
 - [ ] Un usuario con rol `vendedor` ve en el sidebar únicamente "Altas de Clientes" (sin Dashboard, Monitor de Rutas ni acceso al Rutero).
 - [ ] Un usuario con rol `admin` ve "Altas de Clientes" además de sus demás secciones.
 - [ ] Un usuario chofer o embarques no ve "Altas de Clientes" en su sidebar.
-- [ ] El vendedor puede llenar y guardar el formulario con todos los campos del modelo de datos.
+- [ ] El vendedor puede llenar y guardar el formulario con todos los campos del modelo de datos, incluidos nombre del cliente, nombre del negocio, entre calles, teléfono de referencia, correo y tipo de cliente.
+- [ ] No se puede guardar el alta sin seleccionar un tipo de cliente (Crédito / Contado / Pago anticipado).
 - [ ] Guardar con una ubicación no reconocible (link corto sin coordenadas, texto sin coordenadas, o coordenadas fuera del rango de México) muestra un error y no guarda el alta.
 - [ ] Un link largo tipo `.../@19.4326,-99.1332,17z` guarda correctamente `posicion = [19.4326, -99.1332]`.
 - [ ] Coordenadas sueltas `19.4326, -99.1332` guardan correctamente la misma `posicion`.
@@ -97,12 +105,15 @@ Cada paso deja la app compilando y funcional.
 - [ ] Un vendedor no ve en su lista las altas capturadas por otro vendedor.
 - [ ] El admin ve en su bandeja las altas de todos los vendedores.
 - [ ] El admin puede editar los campos de una alta antes de aprobarla o rechazarla.
+- [ ] El vendedor puede editar los campos de una alta propia mientras su estatus sea "pendiente" o "rechazada".
+- [ ] Una vez que una alta está "aprobada", el vendedor ya no puede editarla (ni desde la UI ni a nivel de Firestore Rules); solo el admin puede.
 - [ ] Al aprobar una alta, su estatus cambia a "aprobada" y no se crea ni modifica ningún documento en la colección `clientes`.
 - [ ] Al rechazar una alta (con o sin motivo), su estatus cambia a "rechazada" y el documento no se borra.
 - [ ] El vendedor ve reflejado el nuevo estatus de sus altas al refrescar la lista.
+- [ ] Si el vendedor tiene la sección "Altas de Clientes" abierta cuando el admin aprueba o rechaza una de sus altas, el estatus se actualiza solo y aparece un toast, sin necesidad de refrescar la página.
 - [ ] Desde la bandeja del admin, "Ver ubicación" abre Google Maps en una pestaña nueva con las coordenadas correctas.
-- [ ] Un usuario con rol dinámico "vendedor" puede crear y leer sus propias altas en Firestore, pero no puede leer las de otro vendedor ni escribir en `clientes`/`rutas`/`vendedores`.
-- [ ] Solo el correo `admin@ruterx.com` puede aprobar, rechazar o editar altas a nivel de Firestore Rules.
+- [ ] Un usuario con rol dinámico "vendedor" puede crear, leer y editar (mientras no estén "aprobadas") sus propias altas en Firestore, pero no puede leer ni editar las de otro vendedor ni escribir en `clientes`/`rutas`/`vendedores`.
+- [ ] Solo el correo `admin@ruterx.com` puede aprobar, rechazar, eliminar, o editar una alta ya "aprobada", a nivel de Firestore Rules.
 - [ ] `npm run build` pasa sin errores de tipo.
 
 ## Decisiones tomadas
