@@ -18,6 +18,9 @@ service cloud.firestore {
     function esPersonalAutorizado() {
       return esAdmin() || esJefeReparto() || esEmbarques();
     }
+    function esVendedorDinamico() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role == 'vendedor';
+    }
 
     // Catálogos maestros: solo admin escribe
     match /clientes/{docId} {
@@ -69,6 +72,16 @@ service cloud.firestore {
     match /configuracion/{docId} {
       allow read: if esPersonalAutorizado();
       allow write: if esAdmin();
+    }
+
+    // Altas de clientes capturadas por vendedores en campo, pendientes de revisión
+    // del admin (ver specs/02-altas-clientes.md). El vendedor solo crea/lee las suyas.
+    match /altasClientes/{docId} {
+      allow create: if esVendedorDinamico()
+        && request.resource.data.creadoPorEmail == request.auth.token.email;
+      allow read: if esAdmin()
+        || (esVendedorDinamico() && resource.data.creadoPorEmail == request.auth.token.email);
+      allow update, delete: if esAdmin();
     }
 
     // Usuarios del sistema (roles asignados desde el panel de Gestión de Usuarios):
