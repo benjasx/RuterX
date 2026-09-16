@@ -1,17 +1,29 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { UserPlus, Loader2 } from "lucide-react";
+import { UserPlus, Loader2, X } from "lucide-react";
 import { obtenerVendedoresFirebase } from "../firebase/vendedoresService";
-import { agregarAltaClienteFirebase } from "../firebase/altasClientesService";
+import {
+  agregarAltaClienteFirebase,
+  actualizarAltaClienteFirebase,
+  type AltaClienteNueva,
+} from "../firebase/altasClientesService";
 import { parseUbicacionGoogleMaps } from "../utils/googleMapsUbicacion";
 import { notificarExito, notificarError, notificarAdvertencia } from "../utils/notificaciones";
 
+export type AltaClienteConId = AltaClienteNueva & { id: string };
+
 interface FormularioAltaClienteProps {
   usuarioEmail: string;
+  altaEditando?: AltaClienteConId | null;
+  onGuardado?: () => void;
+  onCancelarEdicion?: () => void;
 }
 
 export default function FormularioAltaCliente({
   usuarioEmail,
+  altaEditando = null,
+  onGuardado,
+  onCancelarEdicion,
 }: FormularioAltaClienteProps) {
   const queryClient = useQueryClient();
 
@@ -29,6 +41,19 @@ export default function FormularioAltaCliente({
   const [vendedorNombre, setVendedorNombre] = useState("");
   const [ubicacionTexto, setUbicacionTexto] = useState("");
   const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    if (altaEditando) {
+      setNombreNegocio(altaEditando.nombreNegocio);
+      setDomicilio(altaEditando.domicilio);
+      setReferenciasDomicilio(altaEditando.referenciasDomicilio);
+      setNombreContacto(altaEditando.nombreContacto);
+      setTelefonoContacto(altaEditando.telefonoContacto);
+      setNotas(altaEditando.notas);
+      setVendedorNombre(altaEditando.vendedorNombre);
+      setUbicacionTexto(altaEditando.ubicacionTexto);
+    }
+  }, [altaEditando]);
 
   const limpiarFormulario = () => {
     setNombreNegocio("");
@@ -52,25 +77,32 @@ export default function FormularioAltaCliente({
       return;
     }
 
+    const datosAlta: AltaClienteNueva = {
+      nombreNegocio,
+      domicilio,
+      referenciasDomicilio,
+      nombreContacto,
+      telefonoContacto,
+      notas,
+      vendedorNombre,
+      ubicacionTexto,
+      posicion: [ubicacion.lat, ubicacion.lng],
+      creadoPorEmail: altaEditando ? altaEditando.creadoPorEmail : usuarioEmail,
+    };
+
     setGuardando(true);
     try {
-      const res = await agregarAltaClienteFirebase({
-        nombreNegocio,
-        domicilio,
-        referenciasDomicilio,
-        nombreContacto,
-        telefonoContacto,
-        notas,
-        vendedorNombre,
-        ubicacionTexto,
-        posicion: [ubicacion.lat, ubicacion.lng],
-        creadoPorEmail: usuarioEmail,
-      });
+      const res = altaEditando
+        ? await actualizarAltaClienteFirebase(altaEditando.id, datosAlta)
+        : await agregarAltaClienteFirebase(datosAlta);
 
       if (res.success) {
         queryClient.invalidateQueries({ queryKey: ["altasClientes"] });
-        notificarExito("Alta de cliente guardada");
+        notificarExito(
+          altaEditando ? "Alta de cliente actualizada" : "Alta de cliente guardada",
+        );
         limpiarFormulario();
+        onGuardado?.();
       } else {
         notificarError("Ocurrió un error al guardar el alta.");
       }
@@ -83,11 +115,23 @@ export default function FormularioAltaCliente({
 
   return (
     <div className="w-full xl:w-100 shrink-0 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col">
-      <div className="flex items-center gap-2 mb-6">
-        <UserPlus className="text-blue-600 dark:text-blue-400" size={24} />
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-          Nueva Alta de Cliente
-        </h2>
+      <div className="flex items-center justify-between gap-2 mb-6">
+        <div className="flex items-center gap-2">
+          <UserPlus className="text-blue-600 dark:text-blue-400" size={24} />
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+            {altaEditando ? "Editar Alta de Cliente" : "Nueva Alta de Cliente"}
+          </h2>
+        </div>
+        {altaEditando && onCancelarEdicion && (
+          <button
+            type="button"
+            onClick={onCancelarEdicion}
+            className="text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+            title="Cancelar edición"
+          >
+            <X size={20} />
+          </button>
+        )}
       </div>
 
       <form onSubmit={handleGuardar} className="space-y-4">
@@ -211,6 +255,8 @@ export default function FormularioAltaCliente({
             <>
               <Loader2 size={18} className="animate-spin" /> Guardando...
             </>
+          ) : altaEditando ? (
+            "Actualizar Alta"
           ) : (
             "Guardar Alta"
           )}
