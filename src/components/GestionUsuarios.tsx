@@ -20,6 +20,7 @@ const ETIQUETA_ROL: Record<RolUsuario, string> = {
   admin: "Administrador",
   jefeReparto: "Jefe de Reparto",
   embarques: "Embarques",
+  vendedor: "Vendedor",
   chofer: "Chofer",
 };
 
