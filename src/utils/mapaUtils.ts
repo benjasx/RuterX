@@ -63,6 +63,7 @@ export const LISTA_RUTAS = [
   "CTE: Calleros",
   "San Pedro Lagunillas",
   "Ixtlan - San pedro",
+  "Tuxpan - Yago",
 ].sort();
 
 export const LISTA_UNIDADES = [

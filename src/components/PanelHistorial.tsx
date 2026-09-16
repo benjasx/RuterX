@@ -41,6 +41,10 @@ export default function PanelHistorial() {
   const [mostrarViaticos, setMostrarViaticos] = useState(true);
   const [mostrarComisiones, setMostrarComisiones] = useState(true);
 
+  const [ordenResumen, setOrdenResumen] = useState<
+    "alfabetico" | "choferes" | "auxiliares" | "montoAlto" | "montoBajo"
+  >("alfabetico");
+
   // 🚀 AHORA LEEMOS DE LA NUEVA FUENTE DE LA VERDAD
   const {
     data: datosCrudos = [],
@@ -183,6 +187,7 @@ export default function PanelHistorial() {
       fechaFin,
       mostrarViaticos,
       mostrarComisiones,
+      ordenResumen,
     );
     setIsGenerandoPDF(false);
   };
@@ -324,36 +329,38 @@ export default function PanelHistorial() {
       </div>
 
       {/* Filtros de fecha + acciones de reporte */}
-      <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm mb-6 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm mb-6">
+        {/* Fecha: encabezado de la tarjeta */}
         <div
-          className={`flex flex-col sm:flex-row items-center gap-3 p-2.5 rounded-lg border shadow-sm w-full xl:w-auto transition-colors ${colorBgMenu}`}
+          className={`flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 rounded-t-2xl border-b ${colorBgMenu}`}
         >
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2">
             <span className={`text-sm font-bold ${colorTextMenu}`}>Desde:</span>
             <input
               type="date"
               value={fechaInicio}
               onChange={(e) => setFechaInicio(e.target.value)}
-              className="px-2 py-1 rounded-md text-sm border-none shadow-sm text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 w-full sm:w-auto cursor-pointer focus:ring-2 outline-none"
+              className="px-2 py-1 rounded-md text-sm border-none shadow-sm text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 cursor-pointer focus:ring-2 outline-none"
             />
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2">
             <span className={`text-sm font-bold ${colorTextMenu}`}>Hasta:</span>
             <input
               type="date"
               value={fechaFin}
               onChange={(e) => setFechaFin(e.target.value)}
-              className="px-2 py-1 rounded-md text-sm border-none shadow-sm text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 w-full sm:w-auto cursor-pointer focus:ring-2 outline-none"
+              className="px-2 py-1 rounded-md text-sm border-none shadow-sm text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 cursor-pointer focus:ring-2 outline-none"
             />
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-3 w-full xl:w-auto">
-          <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
+        {/* Controles repartidos en el ancho disponible */}
+        <div className="p-4 flex flex-col gap-4">
+          <div className="flex flex-wrap gap-3">
             <select
               value={personalPDF}
               onChange={(e) => setPersonalPDF(e.target.value)}
-              className={`px-3 py-2.5 rounded-lg border text-sm outline-none text-slate-700 dark:text-slate-200 font-bold bg-white dark:bg-slate-800 shadow-sm w-full sm:w-auto cursor-pointer transition-colors ${colorSelectBorder}`}
+              className={`flex-1 min-w-[180px] px-3 py-2.5 rounded-lg border text-sm outline-none text-slate-700 dark:text-slate-200 font-bold bg-white dark:bg-slate-800 shadow-sm cursor-pointer transition-colors ${colorSelectBorder}`}
             >
               <option value="TODOS">Reporte General (Todos)</option>
               {[...datosMostrar]
@@ -368,22 +375,37 @@ export default function PanelHistorial() {
             <button
               onClick={handleDescargarPDF}
               disabled={isGenerandoPDF || cargando}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm w-full sm:w-auto ${isGenerandoPDF || cargando ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed" : `${colorBtnPDF} text-white`}`}
+              className={`flex-1 min-w-[160px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm ${isGenerandoPDF || cargando ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed" : `${colorBtnPDF} text-white`}`}
             >
               <FileDown size={18} /> Reporte{" "}
               {isChofer ? "Choferes" : "Auxiliares"}
             </button>
 
+            <select
+              value={ordenResumen}
+              onChange={(e) =>
+                setOrdenResumen(e.target.value as typeof ordenResumen)
+              }
+              title="Orden del Resumen Maestro"
+              className="flex-1 min-w-[180px] px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm outline-none text-slate-700 dark:text-slate-200 font-bold bg-white dark:bg-slate-800 shadow-sm cursor-pointer focus:ring-2 focus:ring-slate-500 transition-colors"
+            >
+              <option value="alfabetico">Orden: Alfabético</option>
+              <option value="choferes">Orden: Por choferes</option>
+              <option value="auxiliares">Orden: Por auxiliares</option>
+              <option value="montoAlto">Orden: Viático más alto</option>
+              <option value="montoBajo">Orden: Viático más bajo</option>
+            </select>
+
             <button
               onClick={handleDescargarResumenGeneral}
               disabled={isGenerandoPDF || cargando}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm w-full sm:w-auto ${isGenerandoPDF || cargando ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed" : "bg-slate-800 hover:bg-slate-900 text-white"}`}
+              className={`flex-1 min-w-[160px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm ${isGenerandoPDF || cargando ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed" : "bg-slate-800 hover:bg-slate-900 text-white"}`}
             >
               <FileText size={18} /> Resumen Maestro
             </button>
           </div>
 
-          <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center justify-end gap-4 bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
             <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
               <input
                 type="checkbox"

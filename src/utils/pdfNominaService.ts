@@ -24,6 +24,45 @@ const fNumero = (c: number) =>
     maximumFractionDigits: 2,
   }).format(c);
 
+// 🚀 Reparto de viáticos: viaticoRuta es la tarifa POR PERSONA de la ruta
+// (viaticosRutas en ajustesNominaService), no un total. El "bolsón" de una
+// tripulación completa es 3 × tarifa (chofer + 2 auxiliares); si faltan
+// auxiliares, ese bolsón se reparte entre quienes sí fueron.
+const RUTA_SIN_REPARTO_VIATICO = "SUC.VALLARTA (TRASPASO)";
+const NOMBRES_AUXILIAR_INVALIDOS = new Set(["-", "SIN AYUDANTE", "UNDEFINED"]);
+
+const esAuxiliarValido = (nombreRaw: string) => {
+  if (!nombreRaw) return false;
+  const nombre = nombreRaw.toUpperCase().trim();
+  return nombre !== "" && !NOMBRES_AUXILIAR_INVALIDOS.has(nombre);
+};
+
+// Reparte el bolsón de viáticos (3 × tarifa) entre chofer y auxiliares que
+// realmente hicieron la ruta. En Suc.Vallarta (Traspaso) el viático es
+// siempre íntegro para el chofer, sin bolsón ni reparto. En las demás rutas,
+// el residuo de centavos de la división se suma a la parte del chofer.
+const calcularViaticosViaje = (v: any) => {
+  const tarifa = Number(v.viaticoRuta) || 0;
+  const nombreRuta = (v.ruta || "").toUpperCase().trim();
+
+  if (nombreRuta === RUTA_SIN_REPARTO_VIATICO) {
+    return { chofer: tarifa, auxiliar: 0 };
+  }
+
+  const tieneAux1 = esAuxiliarValido(v.auxiliar1);
+  const tieneAux2 = esAuxiliarValido(v.auxiliar2);
+  const n = 1 + (tieneAux1 ? 1 : 0) + (tieneAux2 ? 1 : 0);
+
+  const bolsonCentavos = Math.round(tarifa * 100) * 3;
+  const shareCentavos = Math.floor(bolsonCentavos / n);
+  const residuoCentavos = bolsonCentavos - shareCentavos * n;
+
+  return {
+    chofer: (shareCentavos + residuoCentavos) / 100,
+    auxiliar: shareCentavos / 100,
+  };
+};
+
 // ============================================================================
 // PDF: REPORTE DE CHOFERES (VERTICAL / RETRATO) - ESTILO CORPORATIVO
 // ============================================================================
@@ -105,17 +144,18 @@ export const generarPDFNominaChoferes = async (
         const monto = Number(v.totalSumaDinero ?? v.totalMonto) || 0;
         const kg = Number(v.totalSumaKilos ?? v.kgTotal) || 0;
 
+        const viaticosViaje = calcularViaticosViaje(v);
         let viatico = 0;
         let comision = 0;
 
         if (rol === "CHOFER") {
-          viatico = Number(v.viaticoRuta) || 0;
+          viatico = viaticosViaje.chofer;
           comision = Number(v.comisionChofer) || 0;
           if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") {
             comision = comision > 0 ? comision : monto * 0.001;
           }
         } else {
-          viatico = Number(v.viaticoRuta) || 0;
+          viatico = viaticosViaje.auxiliar;
           comision = Number(v.comisionAyudante) || 0;
           if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") comision = 0;
         }
@@ -488,7 +528,7 @@ export const generarPDFNominaAyudantes = async (
         const monto = Number(v.totalSumaDinero ?? v.totalMonto) || 0;
         const kg = Number(v.totalSumaKilos ?? v.kgTotal) || 0;
 
-        const viatico = Number(v.viaticoRuta) || 0;
+        const viatico = calcularViaticosViaje(v).auxiliar;
         let comision = Number(v.comisionAyudante) || 0;
 
         if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") comision = 0;
@@ -786,12 +826,20 @@ export const generarPDFNominaAyudantes = async (
 // ============================================================================
 // PDF: RESUMEN GENERAL DE PAGOS (TODOS) - ESTILO CORPORATIVO
 // ============================================================================
+type OrdenResumenGeneral =
+  | "alfabetico"
+  | "choferes"
+  | "auxiliares"
+  | "montoAlto"
+  | "montoBajo";
+
 export const generarPDFResumenGeneral = async (
   viajes: any[],
   fechaInicio: string,
   fechaFin: string,
   mostrarViaticos: boolean = true,
   mostrarComisiones: boolean = true,
+  orden: OrdenResumenGeneral = "alfabetico",
 ) => {
   const pdfMake = (window as any).pdfMake;
   if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
@@ -816,11 +864,12 @@ export const generarPDFResumenGeneral = async (
 
     // 🚀 CORREGIDO: Leemos de totalSumaDinero y totalSumaKilos
     const monto = Number(v.totalSumaDinero ?? v.totalMonto) || 0;
+    const viaticosViaje = calcularViaticosViaje(v);
 
     if (c && c !== "-") {
       if (!totales[c])
         totales[c] = { rol: "CHOFER", viaticos: 0, comisiones: 0 };
-      totales[c].viaticos += Number(v.viaticoRuta) || 0;
+      totales[c].viaticos += viaticosViaje.chofer;
       let comision = Number(v.comisionChofer) || 0;
       if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") {
         comision = comision > 0 ? comision : monto * 0.001;
@@ -842,7 +891,7 @@ export const generarPDFResumenGeneral = async (
         let comision = Number(v.comisionAyudante) || 0;
         if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") comision = 0;
         totales[ay].comisiones += comision;
-        totales[ay].viaticos += Number(v.viaticoRuta) || 0;
+        totales[ay].viaticos += viaticosViaje.auxiliar;
       }
     };
 
@@ -866,11 +915,29 @@ export const generarPDFResumenGeneral = async (
     sumaComisiones = 0,
     sumaTotal = 0;
 
-  Object.keys(totales)
-    .sort()
-    .forEach((nombre, index) => {
-      const data = totales[nombre];
+  const personalOrdenado = Object.entries(totales)
+    // 🚀 Con "Incluir Viáticos" activo, ocultamos a quien no tiene nada que cobrar de viático.
+    .filter(([, data]) => (mostrarViaticos ? data.viaticos !== 0 : true))
+    .sort(([nombreA, a], [nombreB, b]) => {
+      switch (orden) {
+        case "choferes": {
+          const prioridad = (a.rol === "CHOFER" ? 0 : 1) - (b.rol === "CHOFER" ? 0 : 1);
+          return prioridad !== 0 ? prioridad : nombreA.localeCompare(nombreB);
+        }
+        case "auxiliares": {
+          const prioridad = (a.rol === "AUXILIAR" ? 0 : 1) - (b.rol === "AUXILIAR" ? 0 : 1);
+          return prioridad !== 0 ? prioridad : nombreA.localeCompare(nombreB);
+        }
+        case "montoAlto":
+          return b.viaticos - a.viaticos;
+        case "montoBajo":
+          return a.viaticos - b.viaticos;
+        default:
+          return nombreA < nombreB ? -1 : nombreA > nombreB ? 1 : 0;
+      }
+    });
 
+  personalOrdenado.forEach(([nombre, data], index) => {
       const viaticoCobrado = mostrarViaticos ? data.viaticos : 0;
       const comisionCobrada = mostrarComisiones ? data.comisiones : 0;
       const total = viaticoCobrado + comisionCobrada;
