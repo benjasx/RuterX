@@ -13,6 +13,7 @@ import MonitorRutas from "./MonitorRutas";
 import PanelDistribucion from "./PanelDistribucion";
 import PanelRespaldo from "./PanelRespaldo";
 import GestionUsuarios from "./GestionUsuarios";
+import AltasClientes from "./AltasClientes";
 
 // 🚀 Importamos el nuevo componente de Control de Asistencia
 import PanelAsistencia from "./PanelAsistencia";
@@ -20,6 +21,7 @@ import PanelAsistencia from "./PanelAsistencia";
 import { obtenerVendedoresFirebase } from "../firebase/vendedoresService";
 import { obtenerClientesFirebase } from "../firebase/clientesService";
 import { obtenerRutasFirebase } from "../firebase/rutasService";
+import { esAdmin } from "../utils/roles";
 
 interface AdminPanelProps {
   menuActivo: SubVistaAdmin;
@@ -61,6 +63,13 @@ export default function AdminPanel({
 
       {/* 🚀 Renderizamos el Control de Asistencia */}
       {menuActivo === "asistencias" && <PanelAsistencia />}
+
+      {menuActivo === "altasClientes" && (
+        <AltasClientes
+          esAdmin={esAdmin(usuarioEmail)}
+          usuarioEmail={usuarioEmail ?? ""}
+        />
+      )}
 
       {menuActivo === "clientes" && (
         <PanelClientes
