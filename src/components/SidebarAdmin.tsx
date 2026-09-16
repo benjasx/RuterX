@@ -12,6 +12,7 @@ import {
   CalendarCheck,
   DatabaseBackup,
   UserCog,
+  UserPlus,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -22,6 +23,7 @@ export type SubVistaAdmin =
   | "dashboard"
   | "monitorRutas"
   | "clientes"
+  | "altasClientes"
   | "distribucion"
   | "rutas"
   | "asistencias"
@@ -45,6 +47,7 @@ interface SidebarAdminProps {
   onLogout?: () => void;
   esPersonalAutorizado?: boolean;
   esJefeReparto?: boolean;
+  esVendedor?: boolean;
 }
 
 interface ItemMenu {
@@ -66,14 +69,16 @@ export default function SidebarAdmin({
   onLogout,
   esPersonalAutorizado = false,
   esJefeReparto: esJefeRepartoActual = false,
+  esVendedor = false,
 }: SidebarAdminProps) {
   // 🚀 PERMISOS RESTRINGIDOS SEGÚN ROL:
   const permisos = {
     dashboard: esAdmin(usuarioEmail),
-    monitorRutas: true,
-    distribucion: true,
+    monitorRutas: !esVendedor,
+    distribucion: !esVendedor,
     asistencias: esAdmin(usuarioEmail) || esJefeReparto(usuarioEmail),
     clientes: esAdmin(usuarioEmail),
+    altasClientes: esAdmin(usuarioEmail) || esVendedor,
     rutas: esAdmin(usuarioEmail),
     vendedores: esAdmin(usuarioEmail),
     historial: esAdmin(usuarioEmail),
@@ -91,6 +96,7 @@ export default function SidebarAdmin({
     { vista: "distribucion", label: "Distribución Diaria", icon: ClipboardList, visible: permisos.distribucion },
     { vista: "asistencias", label: "Asistencia/reparto", icon: CalendarCheck, visible: permisos.asistencias },
     { vista: "clientes", label: "Añadir Clientes", icon: Users, visible: permisos.clientes },
+    { vista: "altasClientes", label: "Altas de Clientes", icon: UserPlus, visible: permisos.altasClientes },
     { vista: "rutas", label: "Añadir Rutas", icon: MapIcon, visible: permisos.rutas },
     { vista: "vendedores", label: "Añadir Vendedores", icon: Briefcase, visible: permisos.vendedores },
     { vista: "historial", label: "Equidad Choferes", icon: History, visible: permisos.historial },
