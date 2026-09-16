@@ -15,6 +15,7 @@ import {
   esAdmin,
   esJefeReparto as checkEsJefeReparto,
   esPersonalAutorizado as checkEsPersonalAutorizado,
+  esVendedor as checkEsVendedor,
   setRolDinamico,
   type RolUsuario,
 } from "./utils/roles";
@@ -121,8 +122,12 @@ export default function RuterMapas() {
       setUsuarioActual(user);
 
       if (user && !esRefrescoDeSesion) {
-        if (esAdmin(user.email) || checkEsJefeReparto(user.email)) {
-          // 🚀 ADMIN Y JEFE DE REPARTO inician forzosamente en el Panel Administrativo
+        if (
+          esAdmin(user.email) ||
+          checkEsJefeReparto(user.email) ||
+          checkEsVendedor(user.email)
+        ) {
+          // 🚀 ADMIN, JEFE DE REPARTO Y VENDEDOR inician forzosamente en el Panel Administrativo
           setVistaActual("admin");
         } else {
           // 🚀 EMBARQUES Y CHOFERES inician en el Mapa (Rutero)
@@ -130,9 +135,16 @@ export default function RuterMapas() {
         }
 
         // Si no hay una sub-vista guardada de una sesión previa, entra al
-        // Dashboard (Admin) o al Monitor de Rutas (Jefe/Embarques).
+        // Dashboard (Admin), Altas de Clientes (Vendedor) o al Monitor de
+        // Rutas (Jefe/Embarques).
         if (!localStorage.getItem("menuActivoAdmin")) {
-          setMenuActivo(esAdmin(user.email) ? "dashboard" : "monitorRutas");
+          setMenuActivo(
+            esAdmin(user.email)
+              ? "dashboard"
+              : checkEsVendedor(user.email)
+                ? "altasClientes"
+                : "monitorRutas",
+          );
         }
       }
 
@@ -161,6 +173,7 @@ export default function RuterMapas() {
 
   const esJefeRepartoActual = checkEsJefeReparto(usuarioActual?.email);
   const esPersonalAutorizado = checkEsPersonalAutorizado(usuarioActual?.email);
+  const esVendedorActual = checkEsVendedor(usuarioActual?.email);
 
   const irASubVista = (vista: SubVistaAdmin) => {
     setMenuActivo(vista);
@@ -199,6 +212,7 @@ export default function RuterMapas() {
             onLogout={handleLogout}
             esPersonalAutorizado={esPersonalAutorizado}
             esJefeReparto={esJefeRepartoActual}
+            esVendedor={esVendedorActual}
           />
 
           {sidebarAbierto && (
@@ -218,7 +232,8 @@ export default function RuterMapas() {
             />
 
             <main className="flex-1 min-h-0 overflow-y-auto">
-              {vistaActual === "admin" && esPersonalAutorizado ? (
+              {vistaActual === "admin" &&
+              (esPersonalAutorizado || esVendedorActual) ? (
                 <AdminPanel
                   menuActivo={menuActivo}
                   usuarioEmail={usuarioActual.email}
