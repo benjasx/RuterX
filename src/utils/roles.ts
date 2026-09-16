@@ -11,7 +11,7 @@ export const CORREO_EMBARQUES_2 = "emb02@ruterx.com";
 // Firestore "usuarios"). Se resuelven una vez al iniciar sesión (ver RuterMapas.tsx)
 // y sirven como complemento de las constantes de arriba, no como reemplazo: los
 // correos hardcodeados siguen funcionando igual aunque nunca se les asigne un rol aquí.
-export const ROLES_VALIDOS = ["admin", "jefeReparto", "embarques", "chofer"] as const;
+export const ROLES_VALIDOS = ["admin", "jefeReparto", "embarques", "vendedor", "chofer"] as const;
 export type RolUsuario = (typeof ROLES_VALIDOS)[number];
 
 let rolDinamicoActual: { email: string; role: RolUsuario } | null = null;
@@ -36,6 +36,9 @@ export const esEmbarques = (email?: string | null) =>
   email === CORREO_EMBARQUES_1 ||
   email === CORREO_EMBARQUES_2 ||
   rolDinamicoDe(email) === "embarques";
+
+export const esVendedor = (email?: string | null) =>
+  rolDinamicoDe(email) === "vendedor";
 
 export const esPersonalAutorizado = (email?: string | null) =>
   esAdmin(email) || esJefeReparto(email) || esEmbarques(email);
