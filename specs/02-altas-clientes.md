@@ -1,6 +1,6 @@
 # 02 — Altas de Clientes (vendedor → revisión de admin)
 
-**Estado:** aprobado
+**Estado:** implementado
 **Depende de:** Ninguno
 **Fecha:** 2026-09-16
 
