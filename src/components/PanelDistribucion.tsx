@@ -505,6 +505,19 @@ export default function PanelDistribucion() {
     XLSX.writeFile(workbook, `RESUMEN_SALIDAS_${fechaSeleccionada}.xlsx`);
   };
 
+  const exportarPersonalBodegaExcel = () => {
+    const dataAExportar = personalDisponibleBodega.map((p) => ({
+      Nombre: p.nombre,
+      Puesto: p.puesto,
+      Teléfono: p.telefono || "-",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataAExportar);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Personal Bodega");
+    XLSX.writeFile(workbook, `PERSONAL_BODEGA_${fechaSeleccionada}.xlsx`);
+  };
+
   if (cargandoChoferes) {
     return (
       <div className="flex w-full h-125 items-center justify-center">
@@ -644,12 +657,22 @@ export default function PanelDistribucion() {
                   Choferes y auxiliares disponibles que no salen a ruta.
                 </p>
               </div>
-              <button
-                onClick={() => setMostrarBodega(false)}
-                className="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
-              >
-                <X size={16} /> Cerrar
-              </button>
+              <div className="flex items-center gap-2">
+                {personalDisponibleBodega.length > 0 && (
+                  <button
+                    onClick={exportarPersonalBodegaExcel}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors text-xs"
+                  >
+                    <Download size={16} /> Excel
+                  </button>
+                )}
+                <button
+                  onClick={() => setMostrarBodega(false)}
+                  className="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
+                >
+                  <X size={16} /> Cerrar
+                </button>
+              </div>
             </div>
 
             <div className="p-8 bg-white dark:bg-slate-800 overflow-x-auto rounded-b-2xl">
