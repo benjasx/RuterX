@@ -27,7 +27,11 @@ import {
 import { obtenerChoferesFirebase } from "../firebase/choferesService";
 import { obtenerVacacionesFirebase } from "../firebase/vacacionesService";
 import { estadoEfectivo } from "../utils/vacacionesUtils";
-import { esAdmin as checkEsAdmin, esEmbarques as checkEsEmbarques } from "../utils/roles";
+import {
+  esAdmin as checkEsAdmin,
+  esEmbarques as checkEsEmbarques,
+  esJefeReparto as checkEsJefeReparto,
+} from "../utils/roles";
 import {
   obtenerAjustesNomina,
   type AjustesNomina,
@@ -139,9 +143,13 @@ export default function PanelDistribucion() {
   const correoActual = auth.currentUser?.email;
   const esAdmin = checkEsAdmin(correoActual);
   const esEmbarques = checkEsEmbarques(correoActual);
+  const esJefeRepartoActual = checkEsJefeReparto(correoActual);
 
   // Agrupamos los permisos para que ambos (Admin y Embarques) puedan ver los botones
   const tienePermisosEspeciales = esAdmin || esEmbarques;
+  // "Personal en Bodega" también es visible para Jefe de Reparto, a diferencia
+  // de los demás botones avanzados (Vincular XLSX, Generar Resumen, Eliminar fila).
+  const puedeVerPersonalBodega = tienePermisosEspeciales || esJefeRepartoActual;
 
   const [fechaSeleccionada, setFechaSeleccionada] = useState(() => {
     return localStorage.getItem("distribucion_fecha_guardada") || hoyStr;
@@ -252,6 +260,28 @@ export default function PanelDistribucion() {
       auxiliaresUsados: auxiliares,
     };
   }, [filas]);
+
+  // Choferes/auxiliares de alta, sin ausencia ese día y no asignados a ninguna ruta:
+  // el personal que queda disponible en bodega el día de salida.
+  const personalDisponibleBodega = useMemo(() => {
+    const personal: { nombre: string; puesto: "Chofer" | "Auxiliar"; telefono: string }[] = [];
+
+    choferesData.forEach((c: any) => {
+      const nombre = (c.nombre || "").toUpperCase();
+      if (!nombre) return;
+      if (choferesUsados.has(nombre) || auxiliaresUsados.has(nombre)) return;
+      if (estadoPorNombre.has(nombre)) return;
+
+      const rol = (c.rol || c.puesto || c.tipo || "").toLowerCase();
+      const puesto = rol.includes("ayudante") || rol.includes("auxiliar")
+        ? "Auxiliar"
+        : "Chofer";
+
+      personal.push({ nombre, puesto, telefono: c.telefono || "" });
+    });
+
+    return personal.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [choferesData, choferesUsados, auxiliaresUsados, estadoPorNombre]);
 
   const filasResumen = filas.filter((f) => f.ruta || f.chofer || f.unidad);
   const sumaKgTotal = filasResumen.reduce(
