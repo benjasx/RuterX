@@ -337,6 +337,18 @@ export default function PanelDistribucion() {
     esFolioReal(f.embarqueContado),
   ).length;
 
+  const totalRutasDespachadas = filasResumen.length;
+  const totalChoferesEnRuta = filasResumen.filter(
+    (f) => f.chofer && f.chofer.trim() !== "",
+  ).length;
+  const totalAuxiliaresEnRuta = filasResumen.reduce(
+    (acc, f) =>
+      acc +
+      (f.auxiliar1 && f.auxiliar1.trim() !== "" ? 1 : 0) +
+      (f.auxiliar2 && f.auxiliar2.trim() !== "" ? 1 : 0),
+    0,
+  );
+
   const actualizarCelda = (index: number, campo: string, valor: string) => {
     const nuevasFilas = [...filas];
     nuevasFilas[index] = {
@@ -688,6 +700,33 @@ export default function PanelDistribucion() {
                       ))}
                   </tbody>
                 </table>
+
+                <div className="grid grid-cols-3 gap-4 mt-6">
+                  <div className="bg-slate-800 rounded-xl p-4 text-center">
+                    <p className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                      Rutas Despachadas
+                    </p>
+                    <p className="text-3xl font-black text-white mt-1">
+                      {totalRutasDespachadas}
+                    </p>
+                  </div>
+                  <div className="bg-blue-700 rounded-xl p-4 text-center">
+                    <p className="text-xs font-bold text-blue-100 uppercase tracking-wider">
+                      Choferes en Ruta
+                    </p>
+                    <p className="text-3xl font-black text-white mt-1">
+                      {totalChoferesEnRuta}
+                    </p>
+                  </div>
+                  <div className="bg-teal-700 rounded-xl p-4 text-center">
+                    <p className="text-xs font-bold text-teal-100 uppercase tracking-wider">
+                      Auxiliares en Ruta
+                    </p>
+                    <p className="text-3xl font-black text-white mt-1">
+                      {totalAuxiliaresEnRuta}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
