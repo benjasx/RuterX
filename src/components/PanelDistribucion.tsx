@@ -17,6 +17,7 @@ import {
   Layers,
   ClipboardList,
   Printer,
+  Users,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { getAuth } from "firebase/auth";
@@ -164,6 +165,7 @@ export default function PanelDistribucion() {
   const [mostrarResumen, setMostrarResumen] = useState(false);
 
   const [mostrarCaptura, setMostrarCaptura] = useState(false);
+  const [mostrarBodega, setMostrarBodega] = useState(false);
 
   const { data: choferesData = [], isLoading: cargandoChoferes } = useQuery({
     queryKey: ["choferes"],
@@ -688,6 +690,15 @@ export default function PanelDistribucion() {
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2 w-full xl:w-auto">
+          {puedeVerPersonalBodega && (
+            <button
+              onClick={() => setMostrarBodega(true)}
+              className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors shadow-md shadow-teal-600/20 text-xs"
+            >
+              <Users size={16} /> Personal en Bodega
+            </button>
+          )}
+
           <button
             onClick={() => setMostrarCaptura(true)}
             className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors shadow-md shadow-purple-600/20 text-xs"
