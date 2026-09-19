@@ -630,6 +630,81 @@ export default function PanelDistribucion() {
         </div>
       )}
 
+      {/* MODAL PERSONAL DISPONIBLE EN BODEGA */}
+      {mostrarBodega && (
+        <div className="fixed inset-0 z-99 bg-slate-900/90 flex items-start justify-center p-4 overflow-y-auto backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-[95vw] xl:max-w-175 w-full flex flex-col relative mb-10 mt-4">
+            <div className="bg-slate-100 dark:bg-slate-700 p-4 border-b border-slate-300 dark:border-slate-600 flex justify-between items-center rounded-t-2xl">
+              <div>
+                <h3 className="font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                  <Users className="text-teal-600 dark:text-teal-400" size={20} /> Personal
+                  en Bodega
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium normal-case mt-1">
+                  Choferes y auxiliares disponibles que no salen a ruta.
+                </p>
+              </div>
+              <button
+                onClick={() => setMostrarBodega(false)}
+                className="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
+              >
+                <X size={16} /> Cerrar
+              </button>
+            </div>
+
+            <div className="p-8 bg-white dark:bg-slate-800 overflow-x-auto rounded-b-2xl">
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+                  PERSONAL DISPONIBLE EN BODEGA
+                </h2>
+                <p className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mt-1">
+                  FECHA PROGRAMADA DE SALIDA:{" "}
+                  {formatearFechaLarga(fechaSeleccionada)}
+                </p>
+              </div>
+
+              {personalDisponibleBodega.length === 0 ? (
+                <p className="text-center text-slate-500 dark:text-slate-400 font-bold normal-case py-8">
+                  Todo el personal está asignado o no disponible.
+                </p>
+              ) : (
+                <table className="w-full text-left border-collapse border-2 border-slate-800">
+                  <thead>
+                    <tr className="bg-slate-800 text-white text-xs uppercase tracking-wider">
+                      <th className="p-3 border border-slate-700">Nombre</th>
+                      <th className="p-3 border border-slate-700 text-center w-32">
+                        Puesto
+                      </th>
+                      <th className="p-3 border border-slate-700 text-center w-40">
+                        Teléfono
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-[12px] font-bold text-slate-700 dark:text-slate-200">
+                    {personalDisponibleBodega.map((p, i) => (
+                      <tr
+                        key={p.nombre}
+                        className={i % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-900"}
+                      >
+                        <td className="p-3 border border-slate-300 dark:border-slate-600 uppercase whitespace-nowrap">
+                          {p.nombre}
+                        </td>
+                        <td className="p-3 border border-slate-300 dark:border-slate-600 text-center">
+                          {p.puesto}
+                        </td>
+                        <td className="p-3 border border-slate-300 dark:border-slate-600 text-center font-mono">
+                          {p.telefono || "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-4 border-b border-slate-100 dark:border-slate-700">
         <div>
           <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-3">
