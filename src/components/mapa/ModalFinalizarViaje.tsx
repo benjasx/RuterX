@@ -1,5 +1,5 @@
 import { Flag, X, Loader2 } from "lucide-react";
-import { LISTA_RUTAS, LISTA_UNIDADES } from "../../utils/mapaUtils";
+import { LISTA_RUTAS } from "../../utils/mapaUtils";
 
 export default function ModalFinalizarViaje({
   onClose,
@@ -7,6 +7,7 @@ export default function ModalFinalizarViaje({
   setRutaRealChofer,
   unidadChofer,
   setUnidadChofer,
+  unidadesDisponibles,
   motivoFinalizacion,
   setMotivoFinalizacion,
   foliosNoEmbarcados,
@@ -59,9 +60,17 @@ export default function ModalFinalizarViaje({
                 onChange={(e) => setUnidadChofer(e.target.value)}
                 className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 dark:text-slate-200 font-medium cursor-pointer text-sm"
               >
-                {LISTA_UNIDADES.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
+                {/* Si la unidad actual no está en el catálogo, se agrega igual como opción. */}
+                {(unidadChofer &&
+                !unidadesDisponibles.some((u: any) => u.numero === unidadChofer)
+                  ? [
+                      ...unidadesDisponibles,
+                      { id: `legacy-${unidadChofer}`, numero: unidadChofer },
+                    ]
+                  : unidadesDisponibles
+                ).map((u: any) => (
+                  <option key={u.id} value={u.numero}>
+                    {u.numero}
                   </option>
                 ))}
               </select>

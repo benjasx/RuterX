@@ -28,6 +28,9 @@ import {
 import { obtenerChoferesFirebase } from "../firebase/choferesService";
 import { obtenerVacacionesFirebase } from "../firebase/vacacionesService";
 import { estadoEfectivo } from "../utils/vacacionesUtils";
+import { obtenerUnidadesFirebase } from "../firebase/unidadesService";
+import { obtenerMantenimientosFirebase } from "../firebase/mantenimientosUnidadesService";
+import { disponibilidadEfectiva } from "../utils/unidadesUtils";
 import {
   esAdmin as checkEsAdmin,
   esEmbarques as checkEsEmbarques,
@@ -37,7 +40,7 @@ import {
   obtenerAjustesNomina,
   type AjustesNomina,
 } from "../firebase/ajustesNominaService";
-import { LISTA_UNIDADES, LISTA_RUTAS } from "../utils/mapaUtils";
+import { LISTA_RUTAS } from "../utils/mapaUtils";
 import {
   notificarExito,
   notificarError,
@@ -178,6 +181,16 @@ export default function PanelDistribucion() {
     queryFn: obtenerVacacionesFirebase,
   });
 
+  const { data: unidadesData = [] } = useQuery({
+    queryKey: ["unidades"],
+    queryFn: obtenerUnidadesFirebase,
+  });
+
+  const { data: mantenimientosData = [] } = useQuery({
+    queryKey: ["mantenimientosUnidades"],
+    queryFn: obtenerMantenimientosFirebase,
+  });
+
   const { data: reglasNomina } = useQuery({
     queryKey: ["ajustes_nomina"],
     queryFn: obtenerAjustesNomina,
@@ -211,6 +224,38 @@ export default function PanelDistribucion() {
     });
     return mapa;
   }, [choferesData, vacacionesData, fechaSeleccionada]);
+
+  // Unidades activas (no dadas de baja), ordenadas por número.
+  const unidadesActivas = useMemo(
+    () =>
+      unidadesData
+        .filter((u: any) => u.estado !== "Baja")
+        .sort((a: any, b: any) =>
+          (a.numero || "").localeCompare(b.numero || "", undefined, {
+            numeric: true,
+          }),
+        ),
+    [unidadesData],
+  );
+
+  // Disponibilidad (En mantenimiento/Fuera de servicio) de cada unidad en la fecha de salida seleccionada
+  const disponibilidadPorNumero = useMemo(() => {
+    const mapa = new Map<string, string>();
+    unidadesActivas.forEach((u: any) => {
+      const mantenimientosDeLaUnidad = mantenimientosData.filter(
+        (m: any) => m.unidad_id === u.id,
+      );
+      const disponibilidad = disponibilidadEfectiva(
+        u,
+        mantenimientosDeLaUnidad,
+        fechaSeleccionada,
+      );
+      if (disponibilidad !== "Disponible") {
+        mapa.set(u.numero, disponibilidad);
+      }
+    });
+    return mapa;
+  }, [unidadesActivas, mantenimientosData, fechaSeleccionada]);
 
   const { listaChoferes, listaAuxiliares } = useMemo(() => {
     const choferes: string[] = [];
@@ -1054,12 +1099,37 @@ export default function PanelDistribucion() {
                     className="w-full p-2 bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-600 dark:text-blue-400 cursor-pointer text-xs"
                   >
                     <option value="">-- UNID --</option>
-                    {LISTA_UNIDADES.map((u) => {
+                    {/* Si la fila ya trae un número guardado que no está en el catálogo
+                        de "unidades" (ej. datos previos a este módulo), se agrega igual
+                        como opción para no perder el valor ya asignado. */}
+                    {(fila.unidad &&
+                    !unidadesActivas.some((u: any) => u.numero === fila.unidad)
+                      ? [
+                          ...unidadesActivas,
+                          { id: `legacy-${fila.unidad}`, numero: fila.unidad },
+                        ]
+                      : unidadesActivas
+                    ).map((unidad: any) => {
+                      const u = unidad.numero;
                       const estaOcupada =
                         unidadesUsadas.has(u) && fila.unidad !== u;
+                      const motivoNoDisponible = disponibilidadPorNumero.get(u);
+                      const noDisponible =
+                        !!motivoNoDisponible && fila.unidad !== u;
+                      const etiqueta = estaOcupada
+                        ? "(OC)"
+                        : motivoNoDisponible === "En mantenimiento"
+                          ? "(MANTO)"
+                          : motivoNoDisponible === "Fuera de servicio"
+                            ? "(F. SERV.)"
+                            : "";
                       return (
-                        <option key={u} value={u} disabled={estaOcupada}>
-                          {u} {estaOcupada ? "(OC)" : ""}
+                        <option
+                          key={unidad.id}
+                          value={u}
+                          disabled={estaOcupada || noDisponible}
+                        >
+                          {u} {etiqueta}
                         </option>
                       );
                     })}

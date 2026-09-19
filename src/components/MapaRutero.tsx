@@ -15,7 +15,6 @@ import "leaflet/dist/leaflet.css";
 import {
   BASE_XALISCO,
   LISTA_RUTAS,
-  LISTA_UNIDADES,
   crearIconoCliente,
   baseIcon,
 } from "../utils/mapaUtils";
@@ -40,6 +39,7 @@ import ModalAsignarDespacho from "./mapa/ModalAsignarDespacho";
 import ModalFinalizarViaje from "./mapa/ModalFinalizarViaje";
 import ResumenJornadaChofer from "./mapa/ResumenJornadaChofer";
 import { obtenerChoferesFirebase } from "../firebase/choferesService";
+import { obtenerUnidadesFirebase } from "../firebase/unidadesService";
 import { obtenerClientesFirebase } from "../firebase/clientesService";
 import { obtenerRutasFirebase } from "../firebase/rutasService";
 import {
@@ -129,9 +129,7 @@ export default function MapaRutero({
   const [enviandoViaje, setEnviandoViaje] = useState(false);
 
   const [nombreRutaPersonalizado, setNombreRutaPersonalizado] = useState("");
-  const [unidadSeleccionadaAdmin, setUnidadSeleccionadaAdmin] = useState(
-    LISTA_UNIDADES[0],
-  );
+  const [unidadSeleccionadaAdmin, setUnidadSeleccionadaAdmin] = useState("");
   const [viajeEditandoId, setViajeEditandoId] = useState<string | null>(null);
 
   // ESTADOS CHOFER
@@ -143,7 +141,7 @@ export default function MapaRutero({
     "Término de recorrido",
   );
   const [rutaRealChofer, setRutaRealChofer] = useState(LISTA_RUTAS[0]);
-  const [unidadChofer, setUnidadChofer] = useState(LISTA_UNIDADES[0]);
+  const [unidadChofer, setUnidadChofer] = useState("");
   const [foliosNoEmbarcados, setFoliosNoEmbarcados] = useState("");
   const [finalizandoViaje, setFinalizandoViaje] = useState(false);
   const [iniciandoViaje, setIniciandoViaje] = useState(false);
@@ -157,6 +155,11 @@ export default function MapaRutero({
   const { data: choferesData = [] } = useQuery({
     queryKey: ["choferes"],
     queryFn: obtenerChoferesFirebase,
+    staleTime: 1000 * 60 * 10,
+  });
+  const { data: unidadesData = [] } = useQuery({
+    queryKey: ["unidades"],
+    queryFn: obtenerUnidadesFirebase,
     staleTime: 1000 * 60 * 10,
   });
   const { data: clientesData = [], isLoading: cargandoClientes } = useQuery({
@@ -179,6 +182,17 @@ export default function MapaRutero({
   });
 
   const choferesDisponibles = useMemo(() => [...choferesData], [choferesData]);
+  const unidadesDisponibles = useMemo(
+    () =>
+      (unidadesData as any[])
+        .filter((u) => u.estado !== "Baja")
+        .sort((a, b) =>
+          (a.numero || "").localeCompare(b.numero || "", undefined, {
+            numeric: true,
+          }),
+        ),
+    [unidadesData],
+  );
   const rutasDisponibles = useMemo(
     () =>
       [...(rutasData as any[])].sort((a, b) =>
@@ -212,6 +226,22 @@ export default function MapaRutero({
   }, [choferesDisponibles, choferSeleccionado, viajeEditandoId]);
 
   useEffect(() => {
+    if (
+      unidadesDisponibles.length > 0 &&
+      !unidadSeleccionadaAdmin &&
+      !viajeEditandoId
+    ) {
+      setUnidadSeleccionadaAdmin(unidadesDisponibles[0].numero);
+    }
+  }, [unidadesDisponibles, unidadSeleccionadaAdmin, viajeEditandoId]);
+
+  useEffect(() => {
+    if (unidadesDisponibles.length > 0 && !unidadChofer) {
+      setUnidadChofer(unidadesDisponibles[0].numero);
+    }
+  }, [unidadesDisponibles, unidadChofer]);
+
+  useEffect(() => {
     if (rutaSeleccionada && !viajeEditandoId) {
       setNombreRutaPersonalizado(rutaSeleccionada);
     }
@@ -237,7 +267,9 @@ export default function MapaRutero({
     setSelectedClienteIds(viaje.clientes.map((c: any) => c.id));
     setRutaOptima(viaje.clientes);
     setChoferSeleccionado(viaje.chofer_email);
-    setUnidadSeleccionadaAdmin(viaje.unidad_utilizada || LISTA_UNIDADES[0]);
+    setUnidadSeleccionadaAdmin(
+      viaje.unidad_utilizada || unidadesDisponibles[0]?.numero || "",
+    );
 
     if (viaje.ruta_carretera) {
       const lineaFormateada = viaje.ruta_carretera.map((coord: any) => [
@@ -585,6 +617,7 @@ export default function MapaRutero({
           setRutaRealChofer={setRutaRealChofer}
           unidadChofer={unidadChofer}
           setUnidadChofer={setUnidadChofer}
+          unidadesDisponibles={unidadesDisponibles}
           motivoFinalizacion={motivoFinalizacion}
           setMotivoFinalizacion={setMotivoFinalizacion}
           foliosNoEmbarcados={foliosNoEmbarcados}
@@ -606,6 +639,7 @@ export default function MapaRutero({
           setNombreRuta={setNombreRutaPersonalizado}
           unidad={unidadSeleccionadaAdmin}
           setUnidad={setUnidadSeleccionadaAdmin}
+          unidadesDisponibles={unidadesDisponibles}
           onConfirm={handleAsignarViaje}
           isPending={enviandoViaje}
           isEditing={!!viajeEditandoId}

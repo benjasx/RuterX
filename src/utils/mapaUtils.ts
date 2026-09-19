@@ -66,36 +66,6 @@ export const LISTA_RUTAS = [
   "Tuxpan - Yago",
 ].sort();
 
-export const LISTA_UNIDADES = [
-  "01",
-  "02",
-  "03",
-  "04",
-  "05",
-  "06",
-  "07",
-  "08",
-  "09",
-  "10",
-  "11",
-  "12",
-  "13",
-  "14",
-  "16",
-  "17",
-  "18",
-  "19",
-  "20",
-  "21",
-  "22",
-  "23",
-  "24",
-  "25",
-  "26",
-  "27",
-  "28",
-];
-
 // Fórmula Haversine para calcular distancias en línea recta
 export const calcularDistancia = (
   lat1: number,

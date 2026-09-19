@@ -1,5 +1,5 @@
 import { X, Loader2, Send, Save } from "lucide-react";
-import { LISTA_UNIDADES, LISTA_RUTAS } from "../../utils/mapaUtils";
+import { LISTA_RUTAS } from "../../utils/mapaUtils";
 
 interface Props {
   onClose: () => void;
@@ -12,6 +12,7 @@ interface Props {
   setNombreRuta: (val: string) => void;
   unidad: string;
   setUnidad: (val: string) => void;
+  unidadesDisponibles: any[];
   onConfirm: () => void;
   isPending: boolean;
   isEditing?: boolean;
@@ -28,6 +29,7 @@ export default function ModalAsignarDespacho({
   setNombreRuta,
   unidad,
   setUnidad,
+  unidadesDisponibles,
   onConfirm,
   isPending,
   isEditing = false,
@@ -116,9 +118,14 @@ export default function ModalAsignarDespacho({
                 onChange={(e) => setUnidad(e.target.value)}
                 className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 dark:text-slate-100 cursor-pointer font-semibold text-xs"
               >
-                {LISTA_UNIDADES.map((u, i) => (
-                  <option key={i} value={u}>
-                    {u}
+                {/* Si la unidad actual (ej. de un despacho ya guardado) no está en el
+                    catálogo de unidades, se agrega igual como opción. */}
+                {(unidad && !unidadesDisponibles.some((u: any) => u.numero === unidad)
+                  ? [...unidadesDisponibles, { id: `legacy-${unidad}`, numero: unidad }]
+                  : unidadesDisponibles
+                ).map((u: any) => (
+                  <option key={u.id} value={u.numero}>
+                    {u.numero}
                   </option>
                 ))}
               </select>
