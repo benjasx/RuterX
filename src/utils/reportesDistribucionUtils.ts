@@ -368,6 +368,89 @@ export const exportarPersonalBodegaPDF = async (
         text: `Para el día ${formatearFechaLargaBodega(fechaSeleccionada)}`,
         style: "sectionTitle",
       },
+
+      // Resumen: personal disponible vs. ausente
+      {
+        columns: [
+          {
+            table: {
+              widths: ["*"],
+              body: [
+                [
+                  {
+                    stack: [
+                      {
+                        text: "PERSONAL DISPONIBLE",
+                        fontSize: 8,
+                        bold: true,
+                        color: "#047857",
+                        alignment: "center",
+                      },
+                      {
+                        text: personal.length.toString(),
+                        fontSize: 20,
+                        bold: true,
+                        color: "#047857",
+                        alignment: "center",
+                        margin: [0, 2, 0, 0],
+                      },
+                    ],
+                  },
+                ],
+              ],
+            },
+            fillColor: "#ecfdf5",
+            layout: {
+              hLineWidth: () => 1,
+              vLineWidth: () => 1,
+              hLineColor: () => "#a7f3d0",
+              vLineColor: () => "#a7f3d0",
+              paddingTop: () => 8,
+              paddingBottom: () => 8,
+            },
+          },
+          {
+            table: {
+              widths: ["*"],
+              body: [
+                [
+                  {
+                    stack: [
+                      {
+                        text: "PERSONAL AUSENTE",
+                        fontSize: 8,
+                        bold: true,
+                        color: "#c2410c",
+                        alignment: "center",
+                      },
+                      {
+                        text: ausentes.length.toString(),
+                        fontSize: 20,
+                        bold: true,
+                        color: "#c2410c",
+                        alignment: "center",
+                        margin: [0, 2, 0, 0],
+                      },
+                    ],
+                  },
+                ],
+              ],
+            },
+            fillColor: "#fff7ed",
+            layout: {
+              hLineWidth: () => 1,
+              vLineWidth: () => 1,
+              hLineColor: () => "#fed7aa",
+              vLineColor: () => "#fed7aa",
+              paddingTop: () => 8,
+              paddingBottom: () => 8,
+            },
+          },
+        ],
+        columnGap: 15,
+        margin: [0, 0, 0, 20],
+      },
+
       personal.length === 0
         ? {
             text: "Todo el personal está asignado o no disponible.",
@@ -421,6 +504,24 @@ export const exportarPersonalBodegaPDF = async (
             layout: "lightHorizontalLines",
           },
     ],
+    footer: (currentPage: number, pageCount: number) => ({
+      columns: [
+        {
+          text: "RuterX · Reporte confidencial de uso interno",
+          fontSize: 7,
+          color: "#94a3b8",
+          margin: [30, 0, 0, 0],
+        },
+        {
+          text: `Página ${currentPage} de ${pageCount}`,
+          alignment: "right",
+          fontSize: 7,
+          color: "#94a3b8",
+          margin: [0, 0, 30, 0],
+        },
+      ],
+      margin: [0, 10, 0, 0],
+    }),
     styles: {
       sectionTitle: {
         fontSize: 11,

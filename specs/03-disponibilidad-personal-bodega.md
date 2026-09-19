@@ -29,11 +29,13 @@ No existía ninguna vista que mostrara el complemento de `choferesUsados`/`auxil
   - Si la lista resulta vacía, se muestra el mensaje "Todo el personal está asignado o no disponible" en vez de una tabla vacía.
 - **Tabla 2 — Personal Ausente:** tabla secundaria debajo de la anterior, dentro del mismo modal, con **Nombre**, **Puesto**, **Motivo** (el valor textual de `estadoPorNombre`, ej. "Vacaciones", "Incapacidad", "Permiso con goce") y **Teléfono**; mismo criterio de orden (por puesto y luego alfabético). Incluye a cualquier empleado con una ausencia vigente ese día, sin importar si además estaba asignado a una ruta. Si no hay nadie ausente, se muestra "No hay ausencias registradas para este día".
 - Clasificación de Puesto (en ambas tablas): mismo criterio que ya usa `listaChoferes`/`listaAuxiliares` (si `rol`/`puesto`/`tipo` incluye "ayudante" o "auxiliar" → "Auxiliar"; si no → "Chofer").
-- Cada una de las dos tablas vive en su propio contenedor con scroll vertical (`max-h-72 overflow-y-auto`, encabezado `sticky`) para que el modal no crezca sin límite con planteles grandes.
+- Ambas tablas se muestran **totalmente extendidas**, sin scroll interno ni límite de alto (si la lista es larga, el scroll lo maneja el overlay del modal completo, no cada tabla por separado).
 - Subtítulo de fecha en el modal: "Para el día {fecha extendida}" (ej. "Para el día lunes, 21 de septiembre de 2026"), usando `formatearFechaLarga`.
+- Debajo del título y el subtítulo de fecha, un **resumen en dos recuadros tipo header**, uno junto al otro: "Personal Disponible" (verde, con el conteo de la Tabla 1) y "Personal Ausente" (naranja, con el conteo de la Tabla 2). El mismo resumen se replica en el PDF, justo antes de las tablas.
 - Dentro del modal, dos botones de exportación —"Excel" y "PDF"— visibles si hay al menos una persona en cualquiera de las dos tablas, exportando **ambas** tablas juntas:
   - **Excel** (`exportarPersonalBodegaExcel`, patrón `exportarResumenExcel`/SheetJS): un solo archivo `.xlsx` con dos hojas, "Personal Bodega" y "Personal Ausente".
-  - **PDF** (`exportarPersonalBodegaPDF` en `reportesDistribucionUtils.ts`, patrón `exportarDistribucionPDF`): un solo PDF portrait con encabezado tipo membrete (logo + título único "PERSONAL DISPONIBLE EN BODEGA", sin la línea "RUTERX - REPORTE LOGÍSTICO"), subtítulo "Para el día {fecha extendida}", la tabla de disponibles y, debajo, una sección "PERSONAL AUSENTE" con su propia tabla.
+  - **PDF** (`exportarPersonalBodegaPDF` en `reportesDistribucionUtils.ts`, patrón `exportarDistribucionPDF`): un solo PDF portrait con encabezado tipo membrete (logo + título único "PERSONAL DISPONIBLE EN BODEGA", sin la línea "RUTERX - REPORTE LOGÍSTICO"), subtítulo "Para el día {fecha extendida}", el resumen de dos recuadros, la tabla de disponibles y, debajo, una sección "PERSONAL AUSENTE" con su propia tabla.
+  - El PDF incluye pie de página en todas las páginas (patrón ya usado en `pdfDashboardService.ts`): "RuterX · Reporte confidencial de uso interno" a la izquierda y "Página X de Y" a la derecha.
 - Nombres de archivo: `PERSONAL_BODEGA_${fechaSeleccionada}.xlsx` y `PERSONAL_BODEGA_${fechaSeleccionada}.pdf`.
 
 **Fuera:**
@@ -71,13 +73,13 @@ Ambas listas se ordenan con el mismo criterio: Choferes primero, Auxiliares desp
 2. En `PanelDistribucion.tsx`: agregar `useMemo` `personalDisponibleBodega` que recorra `choferesData`, excluya nombres presentes en `choferesUsados`/`auxiliaresUsados` o en `estadoPorNombre`, clasifique Puesto con el mismo criterio de `listaChoferes`/`listaAuxiliares`, y devuelva el arreglo `PersonaBodega[]` ordenado por puesto (Chofer primero) y luego por nombre.
 3. En `PanelDistribucion.tsx`: agregar `useMemo` `personalAusente` que recorra `choferesData` y conserve solo a quienes tengan una entrada en `estadoPorNombre`, devolviendo `PersonaAusente[]` (incluye `motivo`) con el mismo orden por puesto.
 4. En `PanelDistribucion.tsx`: agregar estado `mostrarBodega` (boolean, default `false`) y el botón "Personal en Bodega" (ícono `Users` de `lucide-react`) junto a "Vista WhatsApp", visible solo si `puedeVerPersonalBodega`.
-5. En `PanelDistribucion.tsx`: agregar el modal de "Personal en Bodega" (overlay tipo `mostrarCaptura`, sin logo), con el título, el subtítulo "Para el día {fecha extendida}", la Tabla 1 (disponibles) en un contenedor con scroll, y la Tabla 2 ("Personal Ausente", con columna Motivo) en su propio contenedor con scroll debajo, cada una con su mensaje de lista vacía.
+5. En `PanelDistribucion.tsx`: agregar el modal de "Personal en Bodega" (overlay tipo `mostrarCaptura`, sin logo), con el título, el subtítulo "Para el día {fecha extendida}", el resumen de dos recuadros (conteo de disponibles/ausentes), la Tabla 1 (disponibles) totalmente extendida, y la Tabla 2 ("Personal Ausente", con columna Motivo) también extendida debajo, cada una con su mensaje de lista vacía.
 6. En `PanelDistribucion.tsx`: agregar función `exportarPersonalBodegaExcel` (patrón `exportarResumenExcel`: `XLSX.utils.json_to_sheet` + `XLSX.writeFile`) que arme dos hojas ("Personal Bodega" y "Personal Ausente") en un mismo workbook, y su botón dentro del modal (habilitado si hay datos en cualquiera de las dos listas).
-7. En `src/utils/reportesDistribucionUtils.ts`: crear y exportar `exportarPersonalBodegaPDF(personal: PersonaBodega[], ausentes: PersonaAusente[], fechaSeleccionada: string)`, con encabezado tipo membrete (logo + título único "PERSONAL DISPONIBLE EN BODEGA"), subtítulo "Para el día {fecha extendida}" (helper local `formatearFechaLargaBodega`, misma fórmula que `formatearFechaLarga`), la tabla de disponibles y una segunda sección "PERSONAL AUSENTE" con su tabla; importarla y llamarla desde el botón "PDF" del modal en `PanelDistribucion.tsx`.
+7. En `src/utils/reportesDistribucionUtils.ts`: crear y exportar `exportarPersonalBodegaPDF(personal: PersonaBodega[], ausentes: PersonaAusente[], fechaSeleccionada: string)`, con encabezado tipo membrete (logo + título único "PERSONAL DISPONIBLE EN BODEGA"), subtítulo "Para el día {fecha extendida}" (helper local `formatearFechaLargaBodega`, misma fórmula que `formatearFechaLarga`), el resumen de dos recuadros, la tabla de disponibles, una segunda sección "PERSONAL AUSENTE" con su tabla, y pie de página ("RuterX · Reporte confidencial de uso interno" + "Página X de Y", patrón de `pdfDashboardService.ts`); importarla y llamarla desde el botón "PDF" del modal en `PanelDistribucion.tsx`.
 8. Verificar con `npm run build` que no hay errores de tipos.
-9. Prueba manual: con datos reales o de prueba, asignar algunas rutas para una fecha y marcar a alguien de vacaciones/incapacidad/permiso ese día; confirmar que "Personal Disponible en Bodega" excluye correctamente a los asignados y a los ausentes, y que "Personal Ausente" muestra exactamente a quienes tienen una ausencia vigente ese día con su motivo correcto, ambas ordenadas por puesto.
+9. Prueba manual: con datos reales o de prueba, asignar algunas rutas para una fecha y marcar a alguien de vacaciones/incapacidad/permiso ese día; confirmar que "Personal Disponible en Bodega" excluye correctamente a los asignados y a los ausentes, que "Personal Ausente" muestra exactamente a quienes tienen una ausencia vigente ese día con su motivo correcto (ambas ordenadas por puesto), y que los recuadros de resumen muestran los conteos correctos.
 10. Prueba manual: confirmar que el botón es visible para `admin`, `embarques` y `jefeReparto`, y que un usuario chofer normal no lo ve.
-11. Prueba manual: exportar Excel (dos hojas) y PDF (dos secciones) desde el modal y confirmar que el contenido de cada uno coincide exactamente con las dos tablas mostradas.
+11. Prueba manual: exportar Excel (dos hojas) y PDF (resumen, dos secciones y pie de página) desde el modal y confirmar que el contenido de cada uno coincide exactamente con las dos tablas mostradas.
 
 Cada paso deja la app compilando y funcional.
 
@@ -92,11 +94,12 @@ Cada paso deja la app compilando y funcional.
 - [ ] La columna "Teléfono" muestra el valor de `telefono` del documento de `choferesData`, o "-" si no existe, en ambas tablas.
 - [ ] Si no queda nadie disponible, se muestra "Todo el personal está asignado o no disponible" en la Tabla 1.
 - [ ] Si no hay nadie ausente, se muestra "No hay ausencias registradas para este día" en la Tabla 2.
-- [ ] Cada tabla tiene scroll propio (no se extiende sin límite) cuando la lista es larga.
+- [ ] Ninguna de las dos tablas tiene scroll interno propio: ambas se muestran totalmente extendidas dentro del modal.
 - [ ] El subtítulo del modal y del PDF muestra "Para el día" seguido de la fecha extendida (ej. "lunes, 21 de septiembre de 2026").
-- [ ] Cambiar la `fechaSeleccionada` recalcula ambas listas sin recargar la página.
+- [ ] El modal muestra dos recuadros de resumen ("Personal Disponible" y "Personal Ausente") con el conteo exacto de cada tabla, y se actualizan al cambiar la fecha.
+- [ ] Cambiar la `fechaSeleccionada` recalcula ambas listas (y sus conteos en los recuadros de resumen) sin recargar la página.
 - [ ] El botón "Excel" descarga `PERSONAL_BODEGA_<fecha>.xlsx` con dos hojas ("Personal Bodega" y "Personal Ausente") que coinciden con las tablas mostradas.
-- [ ] El botón "PDF" descarga `PERSONAL_BODEGA_<fecha>.pdf` con el encabezado tipo membrete, el subtítulo de fecha, la tabla de disponibles y la sección "PERSONAL AUSENTE", coincidiendo con lo mostrado en pantalla.
+- [ ] El botón "PDF" descarga `PERSONAL_BODEGA_<fecha>.pdf` con el encabezado tipo membrete, el subtítulo de fecha, los recuadros de resumen con los mismos conteos que el modal, la tabla de disponibles, la sección "PERSONAL AUSENTE" y el pie de página ("RuterX · Reporte confidencial de uso interno" + número de página) en todas las páginas.
 - [ ] Los botones "Excel"/"PDF" están visibles si hay datos en cualquiera de las dos tablas (no solo en la de disponibles).
 - [ ] `npm run build` pasa sin errores de tipo.
 
@@ -110,9 +113,12 @@ Cada paso deja la app compilando y funcional.
 - **Subtítulo "Para el día {fecha extendida}" en vez de "FECHA PROGRAMADA DE SALIDA":** pedido explícito del usuario, para diferenciar esta vista del lenguaje ya usado en el reporte de rutas.
 - **Encabezado del PDF tipo membrete (logo + un solo título), sin la línea "RUTERX - REPORTE LOGÍSTICO":** pedido explícito del usuario; se simplifica respecto al patrón de `exportarDistribucionPDF`.
 - **PDF en orientación portrait, no landscape:** las tablas son de pocas columnas (3 y 4), a diferencia de la tabla de rutas que sí necesita landscape.
-- **"Personal Ausente" como tabla secundaria en la misma vista, no como modal aparte:** el usuario pidió verlo "en la misma vista", con scroll independiente para no comprometer la usabilidad si el listado es largo.
+- **"Personal Ausente" como tabla secundaria en la misma vista, no como modal aparte:** el usuario pidió verlo "en la misma vista".
 - **"Personal Ausente" es independiente de `choferesUsados`/`auxiliaresUsados`:** un empleado ausente aparece ahí sin importar si quedó (indebidamente) asignado a una ruta; el filtro de asignación solo aplica a la tabla de disponibles.
 - **Excel con dos hojas en un mismo archivo, PDF con dos secciones en un mismo documento:** más simple de compartir que archivos separados para disponibles y ausentes.
+- **Tablas totalmente extendidas, sin scroll interno:** primera versión usaba un contenedor con `max-h-72 overflow-y-auto` por tabla; el usuario pidió quitarlo para ver toda la lista de una vez, dejando que el overlay del modal maneje el scroll de la página completa si hace falta.
+- **Resumen de conteos en dos recuadros (header), replicado en el PDF:** el usuario quería ver de un vistazo cuánta gente queda disponible vs. ausente, sin tener que contar filas; se mantiene igual en pantalla y en el PDF para que el reporte impreso tenga la misma información.
+- **Pie de página con el nombre de la app en el PDF:** reutiliza el patrón ya existente en `pdfDashboardService.ts` ("RuterX · Reporte confidencial de uso interno" + número de página) en vez de inventar uno nuevo.
 - **Sin columna de unidades disponibles:** el usuario pidió específicamente personal (choferes y auxiliares), no vehículos; queda fuera de este spec.
 
 ## Riesgos identificados

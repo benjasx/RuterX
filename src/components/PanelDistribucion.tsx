@@ -751,44 +751,61 @@ export default function PanelDistribucion() {
                 </p>
               </div>
 
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 text-center">
+                  <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                    Personal Disponible
+                  </p>
+                  <p className="text-3xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
+                    {personalDisponibleBodega.length}
+                  </p>
+                </div>
+                <div className="bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 rounded-xl p-4 text-center">
+                  <p className="text-xs font-bold text-orange-700 dark:text-orange-300 uppercase tracking-wider">
+                    Personal Ausente
+                  </p>
+                  <p className="text-3xl font-black text-orange-700 dark:text-orange-300 mt-1">
+                    {personalAusente.length}
+                  </p>
+                </div>
+              </div>
+
               {personalDisponibleBodega.length === 0 ? (
                 <p className="text-center text-slate-500 dark:text-slate-400 font-bold normal-case py-8">
                   Todo el personal está asignado o no disponible.
                 </p>
               ) : (
-                <div className="max-h-72 overflow-y-auto">
-                  <table className="w-full text-left border-collapse border-2 border-slate-800">
-                    <thead className="sticky top-0">
-                      <tr className="bg-slate-800 text-white text-xs uppercase tracking-wider">
-                        <th className="p-3 border border-slate-700">Nombre</th>
-                        <th className="p-3 border border-slate-700 text-center w-32">
-                          Puesto
-                        </th>
-                        <th className="p-3 border border-slate-700 text-center w-40">
-                          Teléfono
-                        </th>
+                <table className="w-full text-left border-collapse border-2 border-slate-800">
+                  <thead>
+                    <tr className="bg-slate-800 text-white text-xs uppercase tracking-wider">
+                      <th className="p-3 border border-slate-700">Nombre</th>
+                      <th className="p-3 border border-slate-700 text-center w-32">
+                        Puesto
+                      </th>
+                      <th className="p-3 border border-slate-700 text-center w-40">
+                        Teléfono
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-[12px] font-bold text-slate-700 dark:text-slate-200">
+                    {personalDisponibleBodega.map((p, i) => (
+                      <tr
+                        key={p.nombre}
+                        className={i % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-900"}
+                      >
+                        <td className="p-3 border border-slate-300 dark:border-slate-600 uppercase whitespace-nowrap">
+                          {p.nombre}
+                        </td>
+                        <td className="p-3 border border-slate-300 dark:border-slate-600 text-center">
+                          {p.puesto}
+                        </td>
+                        <td className="p-3 border border-slate-300 dark:border-slate-600 text-center font-mono">
+                          {p.telefono || "-"}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="text-[12px] font-bold text-slate-700 dark:text-slate-200">
-                      {personalDisponibleBodega.map((p, i) => (
-                        <tr
-                          key={p.nombre}
-                          className={i % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-900"}
-                        >
-                          <td className="p-3 border border-slate-300 dark:border-slate-600 uppercase whitespace-nowrap">
-                            {p.nombre}
-                          </td>
-                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center">
-                            {p.puesto}
-                          </td>
-                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center font-mono">
-                            {p.telefono || "-"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               )}
 
               <div className="mt-8">
@@ -800,45 +817,43 @@ export default function PanelDistribucion() {
                     No hay ausencias registradas para este día.
                   </p>
                 ) : (
-                  <div className="max-h-72 overflow-y-auto">
-                    <table className="w-full text-left border-collapse border-2 border-slate-800">
-                      <thead className="sticky top-0">
-                        <tr className="bg-slate-700 text-white text-xs uppercase tracking-wider">
-                          <th className="p-3 border border-slate-600">Nombre</th>
-                          <th className="p-3 border border-slate-600 text-center w-28">
-                            Puesto
-                          </th>
-                          <th className="p-3 border border-slate-600 text-center w-36">
-                            Motivo
-                          </th>
-                          <th className="p-3 border border-slate-600 text-center w-40">
-                            Teléfono
-                          </th>
+                  <table className="w-full text-left border-collapse border-2 border-slate-800">
+                    <thead>
+                      <tr className="bg-slate-700 text-white text-xs uppercase tracking-wider">
+                        <th className="p-3 border border-slate-600">Nombre</th>
+                        <th className="p-3 border border-slate-600 text-center w-28">
+                          Puesto
+                        </th>
+                        <th className="p-3 border border-slate-600 text-center w-36">
+                          Motivo
+                        </th>
+                        <th className="p-3 border border-slate-600 text-center w-40">
+                          Teléfono
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-[12px] font-bold text-slate-700 dark:text-slate-200">
+                      {personalAusente.map((p, i) => (
+                        <tr
+                          key={p.nombre}
+                          className={i % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-900"}
+                        >
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 uppercase whitespace-nowrap">
+                            {p.nombre}
+                          </td>
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center">
+                            {p.puesto}
+                          </td>
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center text-orange-600 dark:text-orange-400">
+                            {p.motivo}
+                          </td>
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center font-mono">
+                            {p.telefono || "-"}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="text-[12px] font-bold text-slate-700 dark:text-slate-200">
-                        {personalAusente.map((p, i) => (
-                          <tr
-                            key={p.nombre}
-                            className={i % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-900"}
-                          >
-                            <td className="p-3 border border-slate-300 dark:border-slate-600 uppercase whitespace-nowrap">
-                              {p.nombre}
-                            </td>
-                            <td className="p-3 border border-slate-300 dark:border-slate-600 text-center">
-                              {p.puesto}
-                            </td>
-                            <td className="p-3 border border-slate-300 dark:border-slate-600 text-center text-orange-600 dark:text-orange-400">
-                              {p.motivo}
-                            </td>
-                            <td className="p-3 border border-slate-300 dark:border-slate-600 text-center font-mono">
-                              {p.telefono || "-"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
             </div>
