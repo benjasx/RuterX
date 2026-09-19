@@ -68,6 +68,15 @@ service cloud.firestore {
       allow read, write: if esPersonalAutorizado();
     }
 
+    // Unidades y sus mantenimientos: todo el personal autorizado (ver
+    // specs/04-gestion-unidades.md)
+    match /unidades/{docId} {
+      allow read, write: if esPersonalAutorizado();
+    }
+    match /mantenimientosUnidades/{docId} {
+      allow read, write: if esPersonalAutorizado();
+    }
+
     // Ajustes de nómina: solo admin
     match /configuracion/{docId} {
       allow read: if esPersonalAutorizado();
