@@ -1,6 +1,6 @@
 # 03 — Disponibilidad de Personal en Bodega (Distribución Diaria)
 
-**Estado:** aprobado
+**Estado:** implementado
 **Depende de:** Ninguno
 **Fecha:** 2026-09-19
 
@@ -127,4 +127,4 @@ Cada paso deja la app compilando y funcional.
 | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Un empleado sin `rol`/`puesto`/`tipo` definido en Firestore se clasifica como "Chofer" por defecto.                       | Mismo comportamiento que ya tiene hoy `listaChoferes`/`listaAuxiliares`; no es un caso nuevo introducido por este spec. |
 | Un empleado sin `telefono` capturado en su documento de `choferesService` muestra "-" en la tabla/exportación.            | Se acepta como limitación conocida; el dato se corrige actualizando el directorio de choferes, fuera de este spec.      |
-| El texto de "Motivo" en la Tabla 2 depende literalmente del valor que devuelve `estadoEfectivo` (ej. "Permiso con goce"). | Es el mismo texto que ya se usa en el resto de la app (`vacacionesUtils.ts`); no se traduce ni se reformatea aparte.     |
+| El texto de "Motivo" en la Tabla 2 depende literalmente del valor que devuelve `estadoEfectivo` (ej. "Permiso con goce"). | Es el mismo texto que ya se usa en el resto de la app (`vacacionesUtils.ts`); no se traduce ni se reformatea aparte.    |
