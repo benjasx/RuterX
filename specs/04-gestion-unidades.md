@@ -1,6 +1,6 @@
 # 04 — Gestión de Unidades (Vehículos, Disponibilidad y Mantenimientos)
 
-**Estado:** Borrador
+**Estado:** Aprobado
 **Depende de:** Ninguno
 **Fecha:** 2026-09-19
 
@@ -49,10 +49,10 @@ No existe ninguna colección de Firestore para unidades. Este spec introduce esa
 // Colección "unidades"
 type Unidad = {
   id?: string;
-  numero: string;              // requerido, único, ej. "01" — reemplaza LISTA_UNIDADES
-  tipo: string;                // texto libre, ej. "Fotón", "Isuzu"
-  capacidad_kg: number;        // requerido
-  capacidad_m3: number;        // requerido
+  numero: string; // requerido, único, ej. "01" — reemplaza LISTA_UNIDADES
+  tipo: string; // texto libre, ej. "Fotón", "Isuzu"
+  capacidad_kg: number; // requerido
+  capacidad_m3: number; // requerido
   estado: "Disponible" | "Fuera de servicio" | "Baja"; // manual, default "Disponible"
   motivo_fuera_servicio?: string; // opcional, solo relevante si estado === "Fuera de servicio"
 };
@@ -61,13 +61,13 @@ type Unidad = {
 type MantenimientoUnidad = {
   id?: string;
   unidad_id: string;
-  unidad_numero: string;       // denormalizado, mismo patrón que chofer_nombre en "vacaciones"
+  unidad_numero: string; // denormalizado, mismo patrón que chofer_nombre en "vacaciones"
   tipo: "Preventivo" | "Correctivo";
   descripcion: string;
-  taller?: string;             // opcional
-  costo?: number;              // opcional
-  fecha_inicio: string;        // YYYY-MM-DD
-  fecha_fin: string;           // YYYY-MM-DD
+  taller?: string; // opcional
+  costo?: number; // opcional
+  fecha_inicio: string; // YYYY-MM-DD
+  fecha_fin: string; // YYYY-MM-DD
 };
 
 // disponibilidadEfectiva: patrón de estadoEfectivo (vacacionesUtils.ts:222)
@@ -135,11 +135,11 @@ Cada paso deja la app compilando y funcional.
 
 ## Riesgos identificados
 
-| Riesgo                                                                                                                          | Mitigación                                                                                                                          |
-| -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Dos personas dan de alta el mismo número de unidad casi al mismo tiempo, antes de que la validación de duplicados vea el nuevo documento. | Riesgo aceptado, de baja probabilidad dado el tamaño del equipo; se puede corregir dando de baja el duplicado desde el panel.       |
-| Se programan dos mantenimientos con fechas que se traslapan para la misma unidad.                                               | No se valida en esta versión; `disponibilidadEfectiva` simplemente considera "En mantenimiento" si cualquiera de los rangos cubre la fecha, sin romperse. |
-| Una unidad se marca "Fuera de servicio" y se le programa además un mantenimiento con fechas vigentes.                           | `disponibilidadEfectiva` da prioridad al estado manual ("Fuera de servicio") sobre el mantenimiento calculado, igual que `estadoEfectivo` prioriza el estado manual del chofer. |
+| Riesgo                                                                                                                                    | Mitigación                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dos personas dan de alta el mismo número de unidad casi al mismo tiempo, antes de que la validación de duplicados vea el nuevo documento. | Riesgo aceptado, de baja probabilidad dado el tamaño del equipo; se puede corregir dando de baja el duplicado desde el panel.                                                   |
+| Se programan dos mantenimientos con fechas que se traslapan para la misma unidad.                                                         | No se valida en esta versión; `disponibilidadEfectiva` simplemente considera "En mantenimiento" si cualquiera de los rangos cubre la fecha, sin romperse.                       |
+| Una unidad se marca "Fuera de servicio" y se le programa además un mantenimiento con fechas vigentes.                                     | `disponibilidadEfectiva` da prioridad al estado manual ("Fuera de servicio") sobre el mantenimiento calculado, igual que `estadoEfectivo` prioriza el estado manual del chofer. |
 
 ## Lo que **no** está en este spec
 
