@@ -13,10 +13,11 @@ import {
   DatabaseBackup,
   UserCog,
   UserPlus,
+  Car,
   X,
   type LucideIcon,
 } from "lucide-react";
-import { esAdmin, esJefeReparto } from "../utils/roles";
+import { esAdmin, esJefeReparto, esEmbarques } from "../utils/roles";
 import type { Vista } from "./Navbar";
 
 export type SubVistaAdmin =
@@ -32,6 +33,7 @@ export type SubVistaAdmin =
   | "historialCompleto"
   | "ajustesNomina"
   | "choferes"
+  | "unidades"
   | "respaldo"
   | "usuarios";
 
@@ -86,6 +88,10 @@ export default function SidebarAdmin({
     ajustesNomina: esAdmin(usuarioEmail),
     // 🚀 AHORA EL JEFE DE REPARTO TAMBIÉN PUEDE VER "AÑADIR CHOFERES"
     choferes: esAdmin(usuarioEmail) || esJefeReparto(usuarioEmail),
+    unidades:
+      esAdmin(usuarioEmail) ||
+      esJefeReparto(usuarioEmail) ||
+      esEmbarques(usuarioEmail),
     respaldo: esAdmin(usuarioEmail),
     usuarios: esAdmin(usuarioEmail),
   };
@@ -103,6 +109,7 @@ export default function SidebarAdmin({
     { vista: "historialCompleto", label: "Historial Rutas", icon: ClipboardList, visible: permisos.historialCompleto },
     { vista: "ajustesNomina", label: "Reglas de viaticos", icon: Settings, visible: permisos.ajustesNomina },
     { vista: "choferes", label: "Choferes/Auxiliares", icon: UserCheck, visible: permisos.choferes },
+    { vista: "unidades", label: "Unidades", icon: Car, visible: permisos.unidades },
     { vista: "respaldo", label: "Respaldo de Datos", icon: DatabaseBackup, visible: permisos.respaldo },
     { vista: "usuarios", label: "Gestión de Usuarios", icon: UserCog, visible: permisos.usuarios },
   ];

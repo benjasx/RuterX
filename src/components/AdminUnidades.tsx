@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase/config";
 import {
   obtenerUnidadesFirebase,
   agregarUnidadFirebase,
@@ -74,6 +76,27 @@ export default function AdminUnidades() {
     queryKey: ["mantenimientosUnidades"],
     queryFn: obtenerMantenimientosFirebase,
   });
+
+  // Escucha en vivo: si alguien más cambia una unidad o un mantenimiento
+  // mientras este panel está abierto, la caché se actualiza sola, sin toast
+  // (ver specs/04-gestion-unidades.md).
+  useEffect(() => {
+    const unsubUnidades = onSnapshot(collection(db, "unidades"), (snapshot) => {
+      const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      queryClient.setQueryData(["unidades"], docs);
+    });
+    const unsubMantenimientos = onSnapshot(
+      collection(db, "mantenimientosUnidades"),
+      (snapshot) => {
+        const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        queryClient.setQueryData(["mantenimientosUnidades"], docs);
+      },
+    );
+    return () => {
+      unsubUnidades();
+      unsubMantenimientos();
+    };
+  }, [queryClient]);
 
   const hoyStr = new Date().toLocaleDateString("sv-SE");
   const mantenimientosPorUnidad = (id: string) =>
