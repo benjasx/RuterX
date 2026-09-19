@@ -49,6 +49,7 @@ import {
   exportarHojaMesaninePDF,
   exportarBitacoraPDF,
   exportarPaqueteCompletoPDF,
+  exportarPersonalBodegaPDF,
 } from "../utils/reportesDistribucionUtils";
 
 const calcularFinanzas = (
@@ -659,12 +660,25 @@ export default function PanelDistribucion() {
               </div>
               <div className="flex items-center gap-2">
                 {personalDisponibleBodega.length > 0 && (
-                  <button
-                    onClick={exportarPersonalBodegaExcel}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors text-xs"
-                  >
-                    <Download size={16} /> Excel
-                  </button>
+                  <>
+                    <button
+                      onClick={exportarPersonalBodegaExcel}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors text-xs"
+                    >
+                      <Download size={16} /> Excel
+                    </button>
+                    <button
+                      onClick={() =>
+                        exportarPersonalBodegaPDF(
+                          personalDisponibleBodega,
+                          fechaSeleccionada,
+                        )
+                      }
+                      className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors text-xs"
+                    >
+                      <FileText size={16} /> PDF
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => setMostrarBodega(false)}

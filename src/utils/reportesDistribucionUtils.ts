@@ -279,6 +279,114 @@ export const exportarDistribucionPDF = async (
     .download(`Distribucion_Diaria_${fechaSeleccionada}.pdf`);
 };
 
+// 🚀 Personal (choferes/auxiliares) disponible en bodega: no asignado a
+// ninguna ruta ese día y sin ausencia vigente.
+export const exportarPersonalBodegaPDF = async (
+  personal: { nombre: string; puesto: "Chofer" | "Auxiliar"; telefono: string }[],
+  fechaSeleccionada: string,
+) => {
+  const pdfMake = (window as any).pdfMake;
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
+
+  const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
+
+  const bodyData = personal.map((p, index) => {
+    const esPar = index % 2 === 0;
+    const bgFila = esPar ? "#ffffff" : "#f8fafc";
+
+    return [
+      { text: p.nombre || "-", style: "td", fillColor: bgFila },
+      { text: p.puesto || "-", style: "tdCenter", fillColor: bgFila },
+      { text: p.telefono || "-", style: "tdCenter", fillColor: bgFila },
+    ];
+  });
+
+  const documentDefinition = {
+    pageOrientation: "portrait",
+    pageMargins: [30, 30, 30, 30],
+    content: [
+      {
+        columns: [
+          logoBase64
+            ? { image: logoBase64, width: 80 }
+            : { text: "CIR", bold: true, fontSize: 16 },
+          {
+            stack: [
+              {
+                text: "RUTERX - REPORTE LOGÍSTICO",
+                fontSize: 14,
+                bold: true,
+                color: "#0f172a",
+              },
+              {
+                text: "PERSONAL DISPONIBLE EN BODEGA",
+                fontSize: 11,
+                bold: true,
+                color: "#0d9488",
+                margin: [0, 2, 0, 2],
+              },
+            ],
+            alignment: "right",
+          },
+        ],
+        margin: [0, 0, 0, 15],
+      },
+      {
+        text: `FECHA PROGRAMADA DE SALIDA: ${fechaSeleccionada}`.toUpperCase(),
+        style: "sectionTitle",
+      },
+      personal.length === 0
+        ? {
+            text: "Todo el personal está asignado o no disponible.",
+            italics: true,
+            color: "#64748b",
+            margin: [0, 10, 0, 0],
+          }
+        : {
+            table: {
+              headerRows: 1,
+              widths: ["*", 80, 90],
+              body: [
+                [
+                  { text: "Nombre", style: "th" },
+                  { text: "Puesto", style: "th", alignment: "center" },
+                  { text: "Teléfono", style: "th", alignment: "center" },
+                ],
+                ...bodyData,
+              ],
+            },
+            layout: "lightHorizontalLines",
+          },
+    ],
+    styles: {
+      sectionTitle: {
+        fontSize: 11,
+        bold: true,
+        color: "#0f172a",
+        margin: [0, 0, 0, 6],
+      },
+      th: {
+        bold: true,
+        fontSize: 8.5,
+        fillColor: "#0f172a",
+        color: "#ffffff",
+        margin: [4, 4],
+      },
+      td: { fontSize: 8.5, color: "#334155", margin: [4, 4] },
+      tdCenter: {
+        fontSize: 8.5,
+        color: "#334155",
+        alignment: "center",
+        margin: [4, 4],
+      },
+    },
+  };
+
+  pdfMake
+    .createPdf(documentDefinition)
+    .download(`PERSONAL_BODEGA_${fechaSeleccionada}.pdf`);
+};
+
 const esFolioValido = (val: string) => {
   if (!val) return false;
   const str = val.toUpperCase().trim();
