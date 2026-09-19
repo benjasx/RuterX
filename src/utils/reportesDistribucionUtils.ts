@@ -279,10 +279,39 @@ export const exportarDistribucionPDF = async (
     .download(`Distribucion_Diaria_${fechaSeleccionada}.pdf`);
 };
 
+// Misma fórmula que formatearFechaLarga en PanelDistribucion.tsx (fecha
+// "YYYY-MM-DD" -> "lunes, 21 de septiembre de 2026").
+const formatearFechaLargaBodega = (fechaStr: string) => {
+  if (!fechaStr) return "";
+  const [y, m, d] = fechaStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString("es-MX", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+};
+
+const ordenarPorPuesto = <T extends { puesto: "Chofer" | "Auxiliar"; nombre: string }>(
+  lista: T[],
+) =>
+  [...lista].sort((a, b) => {
+    if (a.puesto !== b.puesto) return a.puesto === "Chofer" ? -1 : 1;
+    return a.nombre.localeCompare(b.nombre);
+  });
+
 // 🚀 Personal (choferes/auxiliares) disponible en bodega: no asignado a
-// ninguna ruta ese día y sin ausencia vigente.
+// ninguna ruta ese día y sin ausencia vigente. `ausentes` son quienes tienen
+// vacaciones/incapacidad/permiso/descanso/falta/inactivo ese mismo día.
 export const exportarPersonalBodegaPDF = async (
   personal: { nombre: string; puesto: "Chofer" | "Auxiliar"; telefono: string }[],
+  ausentes: {
+    nombre: string;
+    puesto: "Chofer" | "Auxiliar";
+    telefono: string;
+    motivo: string;
+  }[],
   fechaSeleccionada: string,
 ) => {
   const pdfMake = (window as any).pdfMake;
@@ -290,13 +319,28 @@ export const exportarPersonalBodegaPDF = async (
 
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
 
-  const bodyData = personal.map((p, index) => {
+  const personalOrdenado = ordenarPorPuesto(personal);
+  const ausentesOrdenados = ordenarPorPuesto(ausentes);
+
+  const bodyDataDisponibles = personalOrdenado.map((p, index) => {
     const esPar = index % 2 === 0;
     const bgFila = esPar ? "#ffffff" : "#f8fafc";
 
     return [
       { text: p.nombre || "-", style: "td", fillColor: bgFila },
       { text: p.puesto || "-", style: "tdCenter", fillColor: bgFila },
+      { text: p.telefono || "-", style: "tdCenter", fillColor: bgFila },
+    ];
+  });
+
+  const bodyDataAusentes = ausentesOrdenados.map((p, index) => {
+    const esPar = index % 2 === 0;
+    const bgFila = esPar ? "#ffffff" : "#f8fafc";
+
+    return [
+      { text: p.nombre || "-", style: "td", fillColor: bgFila },
+      { text: p.puesto || "-", style: "tdCenter", fillColor: bgFila },
+      { text: p.motivo || "-", style: "tdCenter", fillColor: bgFila },
       { text: p.telefono || "-", style: "tdCenter", fillColor: bgFila },
     ];
   });
@@ -311,28 +355,17 @@ export const exportarPersonalBodegaPDF = async (
             ? { image: logoBase64, width: 80 }
             : { text: "CIR", bold: true, fontSize: 16 },
           {
-            stack: [
-              {
-                text: "RUTERX - REPORTE LOGÍSTICO",
-                fontSize: 14,
-                bold: true,
-                color: "#0f172a",
-              },
-              {
-                text: "PERSONAL DISPONIBLE EN BODEGA",
-                fontSize: 11,
-                bold: true,
-                color: "#0d9488",
-                margin: [0, 2, 0, 2],
-              },
-            ],
+            text: "PERSONAL DISPONIBLE EN BODEGA",
+            fontSize: 16,
+            bold: true,
+            color: "#0f172a",
             alignment: "right",
           },
         ],
         margin: [0, 0, 0, 15],
       },
       {
-        text: `FECHA PROGRAMADA DE SALIDA: ${fechaSeleccionada}`.toUpperCase(),
+        text: `Para el día ${formatearFechaLargaBodega(fechaSeleccionada)}`,
         style: "sectionTitle",
       },
       personal.length === 0
@@ -352,7 +385,37 @@ export const exportarPersonalBodegaPDF = async (
                   { text: "Puesto", style: "th", alignment: "center" },
                   { text: "Teléfono", style: "th", alignment: "center" },
                 ],
-                ...bodyData,
+                ...bodyDataDisponibles,
+              ],
+            },
+            layout: "lightHorizontalLines",
+            margin: [0, 0, 0, 20],
+          },
+
+      // Sección de ausencias (vacaciones/incapacidad/permiso/etc.)
+      {
+        text: "PERSONAL AUSENTE",
+        style: "sectionTitle",
+      },
+      ausentes.length === 0
+        ? {
+            text: "No hay ausencias registradas para este día.",
+            italics: true,
+            color: "#64748b",
+            margin: [0, 10, 0, 0],
+          }
+        : {
+            table: {
+              headerRows: 1,
+              widths: ["*", 70, 80, 90],
+              body: [
+                [
+                  { text: "Nombre", style: "th" },
+                  { text: "Puesto", style: "th", alignment: "center" },
+                  { text: "Motivo", style: "th", alignment: "center" },
+                  { text: "Teléfono", style: "th", alignment: "center" },
+                ],
+                ...bodyDataAusentes,
               ],
             },
             layout: "lightHorizontalLines",

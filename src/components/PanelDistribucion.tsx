@@ -283,8 +283,43 @@ export default function PanelDistribucion() {
       personal.push({ nombre, puesto, telefono: c.telefono || "" });
     });
 
-    return personal.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    // Choferes primero, auxiliares después; alfabético dentro de cada grupo.
+    return personal.sort((a, b) => {
+      if (a.puesto !== b.puesto) return a.puesto === "Chofer" ? -1 : 1;
+      return a.nombre.localeCompare(b.nombre);
+    });
   }, [choferesData, choferesUsados, auxiliaresUsados, estadoPorNombre]);
+
+  // Choferes/auxiliares con ausencia vigente ese día (vacaciones, incapacidad,
+  // permiso, descanso, falta injustificada o inactivo), sin importar si estaban asignados a una ruta.
+  const personalAusente = useMemo(() => {
+    const personal: {
+      nombre: string;
+      puesto: "Chofer" | "Auxiliar";
+      telefono: string;
+      motivo: string;
+    }[] = [];
+
+    choferesData.forEach((c: any) => {
+      const nombre = (c.nombre || "").toUpperCase();
+      if (!nombre) return;
+      const motivo = estadoPorNombre.get(nombre);
+      if (!motivo) return;
+
+      const rol = (c.rol || c.puesto || c.tipo || "").toLowerCase();
+      const puesto = rol.includes("ayudante") || rol.includes("auxiliar")
+        ? "Auxiliar"
+        : "Chofer";
+
+      personal.push({ nombre, puesto, telefono: c.telefono || "", motivo });
+    });
+
+    // Choferes primero, auxiliares después; alfabético dentro de cada grupo.
+    return personal.sort((a, b) => {
+      if (a.puesto !== b.puesto) return a.puesto === "Chofer" ? -1 : 1;
+      return a.nombre.localeCompare(b.nombre);
+    });
+  }, [choferesData, estadoPorNombre]);
 
   const filasResumen = filas.filter((f) => f.ruta || f.chofer || f.unidad);
   const sumaKgTotal = filasResumen.reduce(
@@ -507,15 +542,30 @@ export default function PanelDistribucion() {
   };
 
   const exportarPersonalBodegaExcel = () => {
-    const dataAExportar = personalDisponibleBodega.map((p) => ({
+    const dataDisponibles = personalDisponibleBodega.map((p) => ({
       Nombre: p.nombre,
       Puesto: p.puesto,
       Teléfono: p.telefono || "-",
     }));
 
-    const worksheet = XLSX.utils.json_to_sheet(dataAExportar);
+    const dataAusentes = personalAusente.map((p) => ({
+      Nombre: p.nombre,
+      Puesto: p.puesto,
+      Motivo: p.motivo,
+      Teléfono: p.telefono || "-",
+    }));
+
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Personal Bodega");
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(dataDisponibles),
+      "Personal Bodega",
+    );
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(dataAusentes),
+      "Personal Ausente",
+    );
     XLSX.writeFile(workbook, `PERSONAL_BODEGA_${fechaSeleccionada}.xlsx`);
   };
 
@@ -659,7 +709,8 @@ export default function PanelDistribucion() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {personalDisponibleBodega.length > 0 && (
+                {(personalDisponibleBodega.length > 0 ||
+                  personalAusente.length > 0) && (
                   <>
                     <button
                       onClick={exportarPersonalBodegaExcel}
@@ -671,6 +722,7 @@ export default function PanelDistribucion() {
                       onClick={() =>
                         exportarPersonalBodegaPDF(
                           personalDisponibleBodega,
+                          personalAusente,
                           fechaSeleccionada,
                         )
                       }
@@ -695,8 +747,7 @@ export default function PanelDistribucion() {
                   PERSONAL DISPONIBLE EN BODEGA
                 </h2>
                 <p className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mt-1">
-                  FECHA PROGRAMADA DE SALIDA:{" "}
-                  {formatearFechaLarga(fechaSeleccionada)}
+                  Para el día {formatearFechaLarga(fechaSeleccionada)}
                 </p>
               </div>
 
@@ -705,38 +756,91 @@ export default function PanelDistribucion() {
                   Todo el personal está asignado o no disponible.
                 </p>
               ) : (
-                <table className="w-full text-left border-collapse border-2 border-slate-800">
-                  <thead>
-                    <tr className="bg-slate-800 text-white text-xs uppercase tracking-wider">
-                      <th className="p-3 border border-slate-700">Nombre</th>
-                      <th className="p-3 border border-slate-700 text-center w-32">
-                        Puesto
-                      </th>
-                      <th className="p-3 border border-slate-700 text-center w-40">
-                        Teléfono
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-[12px] font-bold text-slate-700 dark:text-slate-200">
-                    {personalDisponibleBodega.map((p, i) => (
-                      <tr
-                        key={p.nombre}
-                        className={i % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-900"}
-                      >
-                        <td className="p-3 border border-slate-300 dark:border-slate-600 uppercase whitespace-nowrap">
-                          {p.nombre}
-                        </td>
-                        <td className="p-3 border border-slate-300 dark:border-slate-600 text-center">
-                          {p.puesto}
-                        </td>
-                        <td className="p-3 border border-slate-300 dark:border-slate-600 text-center font-mono">
-                          {p.telefono || "-"}
-                        </td>
+                <div className="max-h-72 overflow-y-auto">
+                  <table className="w-full text-left border-collapse border-2 border-slate-800">
+                    <thead className="sticky top-0">
+                      <tr className="bg-slate-800 text-white text-xs uppercase tracking-wider">
+                        <th className="p-3 border border-slate-700">Nombre</th>
+                        <th className="p-3 border border-slate-700 text-center w-32">
+                          Puesto
+                        </th>
+                        <th className="p-3 border border-slate-700 text-center w-40">
+                          Teléfono
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="text-[12px] font-bold text-slate-700 dark:text-slate-200">
+                      {personalDisponibleBodega.map((p, i) => (
+                        <tr
+                          key={p.nombre}
+                          className={i % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-900"}
+                        >
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 uppercase whitespace-nowrap">
+                            {p.nombre}
+                          </td>
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center">
+                            {p.puesto}
+                          </td>
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center font-mono">
+                            {p.telefono || "-"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
+
+              <div className="mt-8">
+                <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-3">
+                  Personal Ausente
+                </h3>
+                {personalAusente.length === 0 ? (
+                  <p className="text-center text-slate-500 dark:text-slate-400 font-bold normal-case py-4">
+                    No hay ausencias registradas para este día.
+                  </p>
+                ) : (
+                  <div className="max-h-72 overflow-y-auto">
+                    <table className="w-full text-left border-collapse border-2 border-slate-800">
+                      <thead className="sticky top-0">
+                        <tr className="bg-slate-700 text-white text-xs uppercase tracking-wider">
+                          <th className="p-3 border border-slate-600">Nombre</th>
+                          <th className="p-3 border border-slate-600 text-center w-28">
+                            Puesto
+                          </th>
+                          <th className="p-3 border border-slate-600 text-center w-36">
+                            Motivo
+                          </th>
+                          <th className="p-3 border border-slate-600 text-center w-40">
+                            Teléfono
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-[12px] font-bold text-slate-700 dark:text-slate-200">
+                        {personalAusente.map((p, i) => (
+                          <tr
+                            key={p.nombre}
+                            className={i % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-900"}
+                          >
+                            <td className="p-3 border border-slate-300 dark:border-slate-600 uppercase whitespace-nowrap">
+                              {p.nombre}
+                            </td>
+                            <td className="p-3 border border-slate-300 dark:border-slate-600 text-center">
+                              {p.puesto}
+                            </td>
+                            <td className="p-3 border border-slate-300 dark:border-slate-600 text-center text-orange-600 dark:text-orange-400">
+                              {p.motivo}
+                            </td>
+                            <td className="p-3 border border-slate-300 dark:border-slate-600 text-center font-mono">
+                              {p.telefono || "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
