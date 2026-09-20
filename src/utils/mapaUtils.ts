@@ -32,7 +32,7 @@ export const LISTA_RUTAS = [
   "Compostela JBC",
   "Las Varas - Chacala",
   "Acaponeta",
-  "Ixtlan - Parra",
+  "Ixtlan - Ahuacatlan",
   "Ixtlan - Joel Perez",
   "Local - JBC - El Surtidor",
   "Suc.Vallarta (Traspaso)",

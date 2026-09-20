@@ -42,8 +42,10 @@ export const exportarProgramacionEntregasPDF = async (
           { text: f.ruta_nombre.toUpperCase(), style: "tdRuta" },
           { text: fMoneda(f.monto_minimo), style: "tdMonto" },
         ],
+        alignment: "center",
         margin: [0, 0, 0, 10],
       })),
+      alignment: "center",
     };
   });
 
@@ -60,8 +62,11 @@ export const exportarProgramacionEntregasPDF = async (
         margin: [0, 0, 0, 10],
       },
       {
-        text: "PROGRAMACIÓN DE ENTREGAS",
-        style: "mainTitle",
+        stack: [
+          { text: "ABARROTERA CIR", style: "mainTitle" },
+          { text: "PROGRAMACIÓN DE ENTREGAS DIARIAS", style: "mainTitle" },
+          { text: "CEDIS XALISCO", style: "mainTitle" },
+        ],
         alignment: "center",
         margin: [0, 0, 0, 20],
       },
