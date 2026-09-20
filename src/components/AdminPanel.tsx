@@ -10,6 +10,7 @@ import PanelAjustesNomina from "./PanelAjustesNomina";
 import Dashboard from "./Dashboard";
 import AdminChoferes from "./AdminChoferes";
 import AdminUnidades from "./AdminUnidades";
+import PanelRentabilidad from "./PanelRentabilidad";
 import MonitorRutas from "./MonitorRutas";
 import PanelDistribucion from "./PanelDistribucion";
 import PanelRespaldo from "./PanelRespaldo";
@@ -105,6 +106,8 @@ export default function AdminPanel({
       {menuActivo === "choferes" && <AdminChoferes />}
 
       {menuActivo === "unidades" && <AdminUnidades />}
+
+      {menuActivo === "rentabilidad" && <PanelRentabilidad />}
 
       {menuActivo === "respaldo" && (
         <PanelRespaldo usuarioEmail={usuarioEmail} />

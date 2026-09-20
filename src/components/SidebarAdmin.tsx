@@ -14,6 +14,7 @@ import {
   UserCog,
   UserPlus,
   Car,
+  TrendingUp,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -34,6 +35,7 @@ export type SubVistaAdmin =
   | "ajustesNomina"
   | "choferes"
   | "unidades"
+  | "rentabilidad"
   | "respaldo"
   | "usuarios";
 
@@ -92,6 +94,10 @@ export default function SidebarAdmin({
       esAdmin(usuarioEmail) ||
       esJefeReparto(usuarioEmail) ||
       esEmbarques(usuarioEmail),
+    rentabilidad:
+      esAdmin(usuarioEmail) ||
+      esJefeReparto(usuarioEmail) ||
+      esEmbarques(usuarioEmail),
     respaldo: esAdmin(usuarioEmail),
     usuarios: esAdmin(usuarioEmail),
   };
@@ -110,6 +116,7 @@ export default function SidebarAdmin({
     { vista: "ajustesNomina", label: "Reglas de viaticos", icon: Settings, visible: permisos.ajustesNomina },
     { vista: "choferes", label: "Choferes/Auxiliares", icon: UserCheck, visible: permisos.choferes },
     { vista: "unidades", label: "Unidades", icon: Car, visible: permisos.unidades },
+    { vista: "rentabilidad", label: "Rentabilidad de Rutas", icon: TrendingUp, visible: permisos.rentabilidad },
     { vista: "respaldo", label: "Respaldo de Datos", icon: DatabaseBackup, visible: permisos.respaldo },
     { vista: "usuarios", label: "Gestión de Usuarios", icon: UserCog, visible: permisos.usuarios },
   ];

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query"; // 🚀 1. IMPORTAMOS TANSTACK
-import { Plus, Trash2, Map } from "lucide-react";
+import { Plus, Trash2, Map, Save } from "lucide-react";
 import {
   agregarRutaFirebase,
   eliminarRutaFirebase,
+  actualizarRutaFirebase,
   type Ruta,
 } from "../firebase/rutasService";
 import { notificarError, confirmar } from "../utils/notificaciones";
@@ -18,6 +19,8 @@ export default function GestionRutas({ listaRutas, setListaRutas }: Props) {
 
   const [nuevaRuta, setNuevaRuta] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [kmEditado, setKmEditado] = useState<Record<string, string>>({});
+  const [guardandoKm, setGuardandoKm] = useState<string | null>(null);
 
   const handleAgregar = async () => {
     if (!nuevaRuta.trim()) return;
@@ -44,6 +47,25 @@ export default function GestionRutas({ listaRutas, setListaRutas }: Props) {
       notificarError("Error al guardar la ruta");
     }
     setCargando(false);
+  };
+
+  const handleGuardarKm = async (ruta: Ruta) => {
+    const valor = kmEditado[ruta.id];
+    if (valor === undefined || !valor.trim()) return;
+    const kilometraje = Number(valor);
+    if (Number.isNaN(kilometraje)) return;
+
+    setGuardandoKm(ruta.id);
+    const resultado = await actualizarRutaFirebase(ruta.id, { kilometraje });
+    if (resultado.success) {
+      setListaRutas(
+        listaRutas.map((r) => (r.id === ruta.id ? { ...r, kilometraje } : r)),
+      );
+      queryClient.invalidateQueries({ queryKey: ["rutas"] });
+    } else {
+      notificarError("Error al guardar el kilometraje");
+    }
+    setGuardandoKm(null);
   };
 
   const handleEliminar = async (id: string) => {
@@ -98,16 +120,41 @@ export default function GestionRutas({ listaRutas, setListaRutas }: Props) {
         {rutasOrdenadas.map((ruta) => (
           <div
             key={ruta.id}
-            className="flex items-center justify-between p-3 border rounded-lg bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            className="flex items-center justify-between gap-2 p-3 border rounded-lg bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
           >
-            <span className="font-medium text-slate-700 dark:text-slate-200">{ruta.nombre}</span>
-            <button
-              onClick={() => handleEliminar(ruta.id)}
-              className="text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-              title="Eliminar Ruta"
-            >
-              <Trash2 size={16} />
-            </button>
+            <span className="font-medium text-slate-700 dark:text-slate-200 truncate">{ruta.nombre}</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <input
+                type="number"
+                placeholder="Km"
+                value={
+                  kmEditado[ruta.id] ??
+                  (ruta.kilometraje != null ? String(ruta.kilometraje) : "")
+                }
+                onChange={(e) =>
+                  setKmEditado((prev) => ({
+                    ...prev,
+                    [ruta.id]: e.target.value,
+                  }))
+                }
+                className="w-20 border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1 text-sm text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={() => handleGuardarKm(ruta)}
+                disabled={guardandoKm === ruta.id}
+                className="text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors disabled:opacity-50"
+                title="Guardar kilometraje"
+              >
+                <Save size={16} />
+              </button>
+              <button
+                onClick={() => handleEliminar(ruta.id)}
+                className="text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                title="Eliminar Ruta"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
           </div>
         ))}
       </div>

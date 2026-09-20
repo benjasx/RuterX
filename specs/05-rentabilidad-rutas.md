@@ -1,148 +1,224 @@
 # 05 — Rentabilidad de Rutas
 
-**Estado:** Aprobado
+**Estado:** aprobado
 **Depende de:** Ninguno
 **Fecha:** 2026-09-20
 
-**Objetivo:** Agregar un panel "Rentabilidad de Rutas" que, por cada viaje ya despachado, calcule qué porcentaje de la venta se fue en gasto operativo (viático + comisiones) y qué porcentaje quedó como rentabilidad, marcando el viaje como "Óptimo" cuando el gasto operativo no supera una meta configurable (por defecto 40% / 60%).
+**Objetivo:** Construir una calculadora de rentabilidad por ruta, réplica del modelo de la hoja de cálculo del usuario (`calculo de rentabilidad.pdf`), que al elegir una ruta autocompleta sus parámetros conocidos (viático por rol y kilometraje) y, con los demás campos editables (venta programada, precio del diésel), calcula el gasto operativo total, la contribución y si la ruta es "Óptima" según una meta configurable (por defecto 40% gasto / 60% rentabilidad, medida sobre la contribución, no sobre la venta).
+
+## Revisión de este spec (2026-09-20)
+
+Esta es una reestructuración completa de la versión anterior de este mismo spec. La primera versión interpretó el pedido del usuario como un **reporte** sobre viajes ya despachados en `distribucion_diaria`, usando solo `viaticoRuta + comisionChofer + comisionAyudante` como "gasto operativo" y comparándolo contra la venta total. Tras revisar con el usuario una captura de la hoja de cálculo original, quedó claro que el pedido es una **calculadora/simulador** (como el Excel: seleccionas una ruta, ajustas un puñado de celdas y obtienes el desglose completo), que replica todas las líneas de gasto del documento (salarios, viáticos, comisiones, combustible, gasto legal, mantenimiento) y dos razones financieras (% de contribución, % al costo sin impuesto) que no se habían considerado antes. Esta versión reemplaza por completo el enfoque y el modelo de datos de la anterior; lo ya codificado en la rama `spec-05-rentabilidad-rutas` para la versión previa se reescribe siguiendo el plan de abajo.
 
 ## Contexto
 
-El usuario adjuntó una hoja de cálculo (`calculo de rentabilidad.pdf`) que modela el costo operativo diario de la ruta más larga: salario de chofer y 2 ayudantes, viáticos, comisiones, combustible (según km recorrido, rendimiento km/l y precio del diésel), gasto legal (tenencia/placas/póliza) y mantenimiento promedio por unidad — sumando ahí un "Gasto Total Ruta" que en el documento resulta ser ~42.91% de la venta programada, dejando ~57.09% de contribución. De ahí surge la meta simplificada que pidió el usuario: 40% gasto operativo / 60% rentabilidad.
+La hoja de cálculo del usuario modela el costo diario de operar una ruta y su contribución, con esta estructura (columna "Semanal", "x Día", "Gasto Calculado x Día"):
 
-Hoy, en Firestore (colección `distribucion_diaria`, cada documento con `fecha` y un arreglo `filas`), cada fila de viaje ya tiene `totalSumaDinero` (venta), `viaticoRuta`, `comisionChofer` y `comisionAyudante` (calculados en `PanelDistribucion.tsx:58-104` vía `calcularFinanzas`, usando las reglas de `ajustesNominaService.ts`). No existen en ningún lado de la app: salario por persona, kilómetros recorridos por viaje, rendimiento del vehículo, precio del diésel, ni gasto legal o de mantenimiento asociado a un viaje puntual (el `costo` que ya existe en `mantenimientosUnidades` — spec 04 — es del mantenimiento programado de la unidad, no un gasto diario prorrateado). Replicar la hoja completa exigiría capturar todos esos datos nuevos por viaje o por unidad, lo cual queda fuera de este spec.
+- **Salarios** (semanal, dividido entre 7 para el día): Chofer $2,500.00, Ayudante 1 y Ayudante 2 $1,951.60 cada uno.
+- **Viáticos** (por rol, celda editable/amarilla): Chofer, Ayudante 1, Ayudante 2 — en el ejemplo $180.00 cada uno, pero esto es exactamente la "tarifa por persona" que ya existe en `ajustesNominaService.viaticosRutas` (spec 01), donde Mazatlán = $300. Al elegir una ruta, los tres campos deben autocompletarse con esa tarifa.
+- **Comisiones**: Chofer (`comisionChofer` sobre la venta) y Ayudante 1 (`comisionAyudante` sobre la venta) — mismos porcentajes ya configurados en `ajustesNominaService.ts`; el Excel no cobra comisión de Ayudante 2, igual que ya hace `calcularFinanzas` en `PanelDistribucion.tsx` hoy (un solo campo `comisionAyudante`, no se duplica).
+- **Combustible**: `kilometraje de la ruta × precio del diésel ÷ rendimiento (km/l)`. El kilometraje por ruta no existe hoy en ningún lado de la app — es un dato nuevo que el usuario va a capturar por ruta (ej. Mazatlán = 587 km), y debe vivir en la colección `rutas` (`src/firebase/rutasService.ts`), la misma que alimenta el panel "Añadir Rutas" (`GestionRutas.tsx`).
+- **Gasto legal promedio** (Tenencia, Placas, Póliza, Tarjeta Fed.) y **Gasto de mantenimiento promedio por unidad**: promedios diarios que el usuario ya tiene calculados por fuera (no se derivan de `mantenimientosUnidades` de la spec 04); son parámetros globales que cambian rara vez.
+- **Gasto Total Ruta** = suma de todo lo anterior.
+- **Cantidad de entrega programada $** (venta): celda editable/amarilla, capturada a mano en cada simulación.
+- **Cantidad de entrega programada Al Costo/Sin Impuestos** = `Venta × (1 − % Promedio al Costo S/Impuesto)`.
+- **Contribución Promedio Real** = `Al Costo × % Promedio de Contribución`.
+- El "Gasto Total Ruta" se expresa como % de la venta al costo (3.17% en el ejemplo) y, más relevante para la meta del usuario, como % de la **Contribución Promedio Real** (42.91% en el ejemplo — de ahí sale la meta simplificada de "40%").
+- **Contribución real después de Gastos de Reparto** = `Contribución Promedio Real − Gasto Total Ruta`, expresada igual en % de la venta al costo (4.23%) y en % de la Contribución Promedio Real (57.09% — de ahí el "60%" de la meta del usuario).
 
-Este módulo usa lo que ya existe (`totalSumaDinero`, `viaticoRuta`, `comisionChofer`, `comisionAyudante`) como el "gasto operativo" de cada viaje, y compara el porcentaje resultante contra una meta configurable, siguiendo el patrón de reporte por rango de fechas ya usado en `PanelHistorial.tsx` (`obtenerDistribucionPorRango`, estado `fechaInicio`/`fechaFin`).
+La meta 40%/60% que pidió el usuario se aplica entonces sobre `Gasto Total Ruta ÷ Contribución Promedio Real`, no sobre `Gasto Total Ruta ÷ Venta` (que en el ejemplo del Excel es apenas 2.75%, un número que no tiene relación con 40/60). Esta es la corrección de fondo respecto a la primera versión del spec.
 
 ## Alcance
 
 **Dentro:**
 
-- Nuevo campo `metaGastoOperativoPct` en `AjustesNomina` (`ajustesNominaService.ts`), número entero que representa un porcentaje (default `40`, es decir 40%). La meta de rentabilidad se deriva como `100 - metaGastoOperativoPct` (no es un campo aparte).
-- Nuevo input "Meta de Gasto Operativo (%)" en `PanelAjustesNomina.tsx`, junto a los campos de comisión ya existentes, con el mismo botón "Guardar Toda la Configuración".
-- Nuevo `src/utils/rentabilidadUtils.ts` con la función `calcularRentabilidad(fila, metaGastoOperativoPct)` que, para una fila con `totalSumaDinero > 0`, devuelve:
-  - `venta`, `gastoOperativo` (`viaticoRuta + comisionChofer + comisionAyudante`), `rentabilidad` (`venta - gastoOperativo`).
-  - `pctGasto` (`gastoOperativo / venta * 100`), `pctRentabilidad` (`100 - pctGasto`).
-  - `esOptima` (`pctGasto <= metaGastoOperativoPct`).
-- Nuevo panel "Rentabilidad de Rutas" (`PanelRentabilidad.tsx`), sub-vista `"rentabilidad"` en el sidebar, visible para `admin`, `jefeReparto` y `embarques` (permiso nuevo `permisos.rentabilidad`), mismo criterio de roles que "Unidades" (spec 04).
-- Dentro del panel: selector de rango de fechas (`fechaInicio`/`fechaFin`, mismo patrón que `PanelHistorial.tsx`) que dispara un `useQuery` sobre `obtenerDistribucionPorRango`.
-- Tabla con una fila por viaje (recorriendo `registro.filas` de cada documento del rango), columnas: Fecha, Ruta, Chofer, Unidad, Venta, Gasto Operativo, % Gasto, Rentabilidad, % Rentabilidad, Estado (badge "Óptima" verde / "No óptima" rojo).
-- Se incluyen solo las filas con chofer asignado (mismo filtro que `calcularKpisPeriodo` en `Dashboard.tsx`: `chofer` no vacío y distinto de `"-"`) y `totalSumaDinero > 0` (sin venta no se puede calcular el porcentaje).
-- Ordenado por fecha descendente y, dentro de la misma fecha, por ruta alfabético.
-- Resumen en 4 recuadros tipo header, arriba de la tabla: "Venta Total" (azul), "Gasto Operativo Total" (ámbar, con el % promedio del rango), "Rentabilidad Total" (verde, con el % promedio del rango) y "Rutas Óptimas" (conteo `X de Y`, verde si `X === Y`, ámbar si no).
-- Si no hay viajes en el rango (tras el filtro), mensaje "No hay viajes con venta registrada en este rango de fechas" en vez de tabla vacía.
-- Botones "Excel" y "PDF", visibles si hay al menos una fila en la tabla:
-  - **Excel** (`exportarRentabilidadExcel` dentro de `PanelRentabilidad.tsx`, patrón `exportarResumenExcel`/SheetJS): una hoja con las mismas columnas de la tabla.
-  - **PDF** (`exportarRentabilidadPDF` en nuevo `src/utils/reportesRentabilidadUtils.ts`, patrón `exportarDistribucionPDF`): landscape (9 columnas), con encabezado tipo membrete, subtítulo del rango de fechas, el resumen de 4 recuadros y la tabla completa, más pie de página (patrón `pdfDashboardService.ts`).
-  - Nombres de archivo: `Rentabilidad_Rutas_<fechaInicio>_a_<fechaFin>.xlsx` / `.pdf`.
+- **Kilometraje por ruta**: agregar `kilometraje?: number` a la interfaz `Ruta` (`src/firebase/rutasService.ts`) y una función nueva `actualizarRutaFirebase(id, datos)`. En `GestionRutas.tsx` (panel "Añadir Rutas"), cada tarjeta de ruta gana un campo numérico editable "Km" con botón para guardarlo, usando esa función nueva.
+- **Nuevo panel "Ajustes de Rentabilidad"** (`PanelAjustesRentabilidad.tsx`, sub-vista `"ajustesRentabilidad"`, **solo admin**), con un nuevo servicio `src/firebase/ajustesRentabilidadService.ts` (mismo patrón que `ajustesNominaService.ts`, documento `configuracion/ajustes_rentabilidad`) que guarda los parámetros que casi no cambian:
+  - `salarioSemanalChofer` (default `2500`), `salarioSemanalAyudante` (default `1951.60`, aplica igual a Ayudante 1 y Ayudante 2).
+  - `rendimientoKmPorLitro` (default `4.21`).
+  - `gastoLegalDiario` (default `160.53`).
+  - `gastoMantenimientoDiario` (default `415.88`).
+  - `pctPromedioContribucion` (default `7.40`, en porcentaje entero/decimal, ej. `7.4`).
+  - `pctPromedioCostoSinImpuesto` (default `13.22`).
+  - `precioDieselDefault` (default `28.43`) — valor de partida editable en cada simulación, no fijo.
+  - `metaGastoOperativoPct` (default `40`) — se mueve aquí desde `AjustesNomina` (donde se había agregado en la primera versión de este spec); ya no vive en "Reglas de viáticos".
+- **Reversión de la primera versión**: quitar `metaGastoOperativoPct` de la interfaz `AjustesNomina` (`ajustesNominaService.ts`) y del input agregado en `PanelAjustesNomina.tsx`.
+- **Reescritura de `src/utils/rentabilidadUtils.ts`**: función `calcularSimulacionRentabilidad(input, ajustesRentabilidad, ajustesNomina)` que implementa todas las fórmulas de la sección "Contexto" (ver "Datos" abajo para las interfaces exactas).
+- **Reescritura de `PanelRentabilidad.tsx`** (sub-vista `"rentabilidad"`, ya existente, visible para `admin`, `jefeReparto` y `embarques`) como calculadora:
+  - Selector de ruta (`obtenerRutasFirebase`). Al elegirla, autocompleta: los tres campos de viático (Chofer/Ayudante 1/Ayudante 2) con la tarifa de `ajustesNomina.viaticosRutas` que corresponda a esa ruta (mismo matching normalizado que ya usa `calcularFinanzas` en `PanelDistribucion.tsx`), y el kilometraje con `ruta.kilometraje` (vacío/0 si la ruta todavía no lo tiene capturado).
+  - Dos checkboxes "Ayudante 1 va" / "Ayudante 2 va" (default marcados); al desmarcar uno, su salario y su viático se calculan en $0 (tripulación fija de 3 roles, con la opción de excluir a alguno).
+  - Campos editables ("amarillos", igual que en el Excel): Viático Chofer, Viático Ayudante 1, Viático Ayudante 2, Kilometraje, Venta Programada, Precio del Diésel (precargado con `precioDieselDefault`, pero editable).
+  - El resto de los valores (salarios, comisiones, gasto legal, gasto mantenimiento, rendimiento, % de contribución, % al costo, meta) se muestran de solo lectura, tomados de "Ajustes de Rentabilidad"/"Reglas de viáticos".
+  - Resultado calculado en vivo (sin botón "Calcular" — se recalcula en cada cambio), mostrando exactamente las líneas del Excel: Salario Chofer/Ayudante 1/Ayudante 2 (día), Viático Chofer/Ayudante 1/Ayudante 2, Comisión Chofer, Comisión Ayudante, Gasto Combustible, Gasto Legal, Gasto Mantenimiento, **Gasto Total Ruta** (monto y $/km), Venta Programada, Al Costo/Sin Impuestos, **Contribución Promedio Real**, **Contribución Real Después de Gastos de Reparto**, con sus porcentajes (vs. Al Costo y vs. Contribución Promedio Real), y un badge final **"Óptima"/"No óptima"** según `Gasto Total Ruta ÷ Contribución Promedio Real` comparado contra `metaGastoOperativoPct`.
+  - Si `Venta Programada` es `0` o está vacía, los porcentajes y el badge muestran "—" (no se puede dividir entre cero) en vez de `NaN`/`Infinity`.
+  - Sin selector de rango de fechas ni tabla de viajes históricos (eso desaparece de este panel; ver "Fuera de alcance").
+  - Botón "Exportar PDF" que descarga una ficha de una sola página con el desglose completo de la simulación actual (`Rentabilidad_<Ruta>_<fecha del día>.pdf`), reemplazando el reporte tabular de la versión anterior.
+- **Reescritura de `src/utils/reportesRentabilidadUtils.ts`**: `exportarSimulacionRentabilidadPDF(input, resultado, ruta, fecha)`, portrait, patrón de encabezado tipo membrete ya usado en el resto de la app, con el mismo desglose que la pantalla.
+- **Sidebar**: nueva sub-vista `"ajustesRentabilidad"` (ícono `SlidersHorizontal`, solo admin) además de la ya existente `"rentabilidad"` (sin cambios de permisos: admin/jefeReparto/embarques).
 
 **Fuera de alcance (para otro spec si hace falta):**
 
-- No se agregan salario por persona, kilómetros recorridos, rendimiento del vehículo, precio del diésel, gasto legal ni gasto de mantenimiento prorrateado como parte del gasto operativo de un viaje; el cálculo usa únicamente `viaticoRuta + comisionChofer + comisionAyudante`, ya existentes.
-- No se calcula rentabilidad agregada por ruta (promedio histórico de una ruta en particular); solo se lista viaje por viaje dentro del rango de fechas elegido. Un resumen agregado por ruta queda para otro spec si se necesita.
-- No se agrega ninguna columna ni cálculo de rentabilidad dentro de `PanelDistribucion.tsx` (tabla de asignación diaria); vive únicamente en el panel nuevo.
-- No se modifica `calcularFinanzas` ni cómo se guardan `viaticoRuta`/`comisionChofer`/`comisionAyudante` en `distribucion_diaria`; este módulo solo lee esos campos, no los recalcula ni los persiste.
-- No se relaciona esta rentabilidad con el costo o capacidad de las unidades (spec 04).
-- No hay alertas automáticas (ej. notificación) cuando una ruta cae por debajo de la meta; solo se refleja en el panel y sus reportes.
-- Filas sin chofer asignado o con `totalSumaDinero <= 0` no aparecen en la tabla ni afectan los totales del resumen.
+- No se guarda historial de simulaciones; es una calculadora en pantalla, igual que el Excel — cada simulación se recalcula, no se persiste en Firestore.
+- No vuelve a existir el reporte por rango de fechas sobre viajes ya despachados de la primera versión de este spec; si se necesita ese reporte histórico además de esta calculadora, es un spec aparte.
+- El gasto de mantenimiento y el gasto legal siguen siendo promedios globales capturados a mano en "Ajustes de Rentabilidad"; no se derivan de `mantenimientosUnidades` (spec 04) ni varían por unidad específica.
+- El kilometraje es un solo número por ruta (el recorrido total de ida, tal como lo indicó el usuario para Mazatlán = 587 km); no se modela la fórmula de prorrateo semanal/diario que aparecía en la celda "promedio km recorrido rutas más larga (566 km) → 317.60" del Excel original — se simplifica a un solo valor por ruta usado directo en el cálculo de combustible.
+- La comisión de Ayudante 2 sigue sin existir (igual que hoy en `calcularFinanzas`); solo hay comisión de Chofer y de un Ayudante.
+- No se valida que `pctPromedioContribucion` + `pctPromedioCostoSinImpuesto` o cualquier combinación de parámetros de "Ajustes de Rentabilidad" tenga sentido financiero; se confía en los valores que capture el admin.
+- No se relaciona el kilometraje de la ruta con el mapa/Leaflet ni con la distancia real calculada por `calcularRutaOptimaYCarretera`; es un campo capturado a mano por el usuario.
+- No se agrega edición de kilometraje al mapa ni a ningún otro panel más que "Añadir Rutas".
 
 ## Datos
 
 ```ts
-// Ajuste a la interfaz existente en ajustesNominaService.ts
-export interface AjustesNomina {
-  comisionChofer: number;
-  comisionAyudante: number;
-  comisionTLMK?: number;
-  viaticosRutas: Record<string, number>;
-  metaGastoOperativoPct: number; // NUEVO — entero, ej. 40 (=40%). Default 40.
+// Ajuste a rutasService.ts
+export interface Ruta {
+  id: string;
+  nombre: string;
+  kilometraje?: number; // NUEVO — km del recorrido de esa ruta, capturado a mano
+}
+// Nueva función: actualizarRutaFirebase(id: string, datos: Partial<Pick<Ruta, "nombre" | "kilometraje">>)
+
+// Nuevo: src/firebase/ajustesRentabilidadService.ts
+export interface AjustesRentabilidad {
+  salarioSemanalChofer: number; // default 2500
+  salarioSemanalAyudante: number; // default 1951.60 (aplica a Ayudante 1 y 2)
+  rendimientoKmPorLitro: number; // default 4.21
+  gastoLegalDiario: number; // default 160.53
+  gastoMantenimientoDiario: number; // default 415.88
+  pctPromedioContribucion: number; // default 7.40
+  pctPromedioCostoSinImpuesto: number; // default 13.22
+  precioDieselDefault: number; // default 28.43
+  metaGastoOperativoPct: number; // default 40
 }
 
-// src/utils/rentabilidadUtils.ts — derivado en memoria, sin colección nueva.
-type RentabilidadViaje = {
-  fecha: string;
+// Reversión en ajustesNominaService.ts: se quita metaGastoOperativoPct
+// de AjustesNomina (vuelve a solo comisionChofer/comisionAyudante/
+// comisionTLMK/viaticosRutas, igual que antes de la primera versión de
+// este spec).
+
+// Reescritura de src/utils/rentabilidadUtils.ts
+export interface SimulacionRentabilidadInput {
   ruta: string;
-  chofer: string;
-  unidad: string;
-  venta: number; // totalSumaDinero
-  gastoOperativo: number; // viaticoRuta + comisionChofer + comisionAyudante
-  rentabilidad: number; // venta - gastoOperativo
-  pctGasto: number; // gastoOperativo / venta * 100
-  pctRentabilidad: number; // 100 - pctGasto
-  esOptima: boolean; // pctGasto <= metaGastoOperativoPct
-};
+  kilometraje: number;
+  viaticoChofer: number;
+  viaticoAyudante1: number;
+  viaticoAyudante2: number;
+  ayudante1Va: boolean;
+  ayudante2Va: boolean;
+  ventaProgramada: number;
+  precioDiesel: number;
+}
+
+export interface SimulacionRentabilidadResultado {
+  salarioChofer: number; // salarioSemanalChofer / 7
+  salarioAyudante1: number; // ayudante1Va ? salarioSemanalAyudante / 7 : 0
+  salarioAyudante2: number; // ayudante2Va ? salarioSemanalAyudante / 7 : 0
+  viaticoChofer: number;
+  viaticoAyudante1: number; // 0 si !ayudante1Va
+  viaticoAyudante2: number; // 0 si !ayudante2Va
+  comisionChofer: number; // ventaProgramada * ajustesNomina.comisionChofer
+  comisionAyudante: number; // ayudante1Va ? ventaProgramada * ajustesNomina.comisionAyudante : 0
+  gastoCombustible: number; // kilometraje * precioDiesel / rendimientoKmPorLitro
+  gastoLegal: number; // ajustesRentabilidad.gastoLegalDiario
+  gastoMantenimiento: number; // ajustesRentabilidad.gastoMantenimientoDiario
+  gastoTotalRuta: number; // suma de las 11 líneas anteriores
+  pesosPorKm: number | null; // gastoTotalRuta / kilometraje, null si kilometraje <= 0
+  ventaProgramada: number;
+  cantidadAlCosto: number; // ventaProgramada * (1 - pctPromedioCostoSinImpuesto / 100)
+  contribucionPromedioReal: number; // cantidadAlCosto * (pctPromedioContribucion / 100)
+  contribucionRealDespuesGastos: number; // contribucionPromedioReal - gastoTotalRuta
+  pctGastoVsAlCosto: number | null; // null si ventaProgramada <= 0
+  pctGastoVsContribucion: number | null; // null si contribucionPromedioReal <= 0
+  pctContribucionRealVsAlCosto: number | null;
+  pctContribucionRealVsContribucion: number | null;
+  esOptima: boolean | null; // pctGastoVsContribucion <= metaGastoOperativoPct, null si no se puede calcular
+}
 ```
 
-No se crea ninguna colección de Firestore nueva; todo se deriva en memoria a partir de `distribucion_diaria` ya existente, más el nuevo campo `metaGastoOperativoPct` dentro del documento `configuracion/ajustes_nomina` que ya existe.
+No se crea ninguna colección de Firestore nueva más allá del documento único `configuracion/ajustes_rentabilidad` (mismo patrón que `configuracion/ajustes_nomina`) y el campo nuevo `kilometraje` en los documentos ya existentes de `rutas`.
 
 ## Plan de implementación
 
-1. En `src/firebase/ajustesNominaService.ts`: agregar `metaGastoOperativoPct: number` a la interfaz `AjustesNomina`, con default `40` en los dos `return` de `obtenerAjustesNomina` (documento inexistente y catch).
-2. En `src/components/PanelAjustesNomina.tsx`: agregar el input "Meta de Gasto Operativo (%)" (`type="number"`, `step="1"`, `min`/`max` 0-100) junto a los campos de comisión, ligado a `ajustes.metaGastoOperativoPct`, guardado con el mismo botón existente.
+1. En `src/firebase/rutasService.ts`: agregar `kilometraje?: number` a `Ruta` y la función `actualizarRutaFirebase(id, datos)` (patrón `updateDoc`, try/catch igual que `agregarRutaFirebase`).
+2. En `src/components/GestionRutas.tsx`: agregar, en cada tarjeta de ruta, un input numérico "Km" (valor `ruta.kilometraje ?? ""`) con un botón para guardar que llame a `actualizarRutaFirebase` y actualice `listaRutas` + invalide la caché `["rutas"]`.
 3. Verificar con `npm run build` que no hay errores de tipos.
-4. Crear `src/utils/rentabilidadUtils.ts` con la función `calcularRentabilidad(fila, metaGastoOperativoPct)` descrita arriba, devolviendo `null` si `totalSumaDinero <= 0`.
-5. Crear `src/components/PanelRentabilidad.tsx`: estado `fechaInicio`/`fechaFin` (mismo default que `PanelHistorial.tsx`), `useQuery` con `obtenerDistribucionPorRango`, `useQuery` de `obtenerAjustesNomina`; `useMemo` que aplane `registro.filas` de todos los documentos del rango, filtre por chofer asignado y venta > 0, aplique `calcularRentabilidad` y ordene por fecha descendente y ruta.
-6. En `PanelRentabilidad.tsx`: tabla con las columnas indicadas, badge de Estado, mensaje de lista vacía, y los 4 recuadros de resumen (sumas y promedios calculados con otro `useMemo` sobre la lista ya filtrada).
-7. En `PanelRentabilidad.tsx`: función `exportarRentabilidadExcel` (patrón `exportarResumenExcel`) y su botón, habilitado si hay filas.
-8. Crear `src/utils/reportesRentabilidadUtils.ts` con `exportarRentabilidadPDF(viajes: RentabilidadViaje[], resumen, fechaInicio, fechaFin)`, landscape, encabezado tipo membrete, resumen de 4 recuadros, tabla completa y pie de página (patrón `pdfDashboardService.ts`); importarla y llamarla desde el botón "PDF".
+4. En `src/firebase/ajustesNominaService.ts`: quitar `metaGastoOperativoPct` de la interfaz `AjustesNomina` y de los dos `return` por defecto (revertir la primera versión de este spec).
+5. En `src/components/PanelAjustesNomina.tsx`: quitar el input "Meta de Gasto Operativo (%)" agregado en la primera versión.
+6. Verificar con `npm run build` que no hay errores de tipos.
+7. Crear `src/firebase/ajustesRentabilidadService.ts` con `AjustesRentabilidad`, `obtenerAjustesRentabilidad`/`guardarAjustesRentabilidad`, documento `configuracion/ajustes_rentabilidad`, defaults como en "Datos".
+8. Crear `src/components/PanelAjustesRentabilidad.tsx` (mismo patrón visual que `PanelAjustesNomina.tsx`): `useQuery`/`useState` de `AjustesRentabilidad`, un input por cada uno de los 9 campos, botón "Guardar".
 9. Verificar con `npm run build` que no hay errores de tipos.
-10. En `src/components/SidebarAdmin.tsx`: agregar `"rentabilidad"` a `SubVistaAdmin`, `permisos.rentabilidad = esAdmin(usuarioEmail) || esJefeReparto(usuarioEmail) || esEmbarques(usuarioEmail)`, e ítem "Rentabilidad de Rutas" (ícono `TrendingUp` de `lucide-react`).
-11. En `src/components/AdminPanel.tsx`: importar `PanelRentabilidad` y agregar `{menuActivo === "rentabilidad" && <PanelRentabilidad />}`.
+10. Reescribir `src/utils/rentabilidadUtils.ts` con `SimulacionRentabilidadInput`, `SimulacionRentabilidadResultado` y `calcularSimulacionRentabilidad(input, ajustesRentabilidad, ajustesNomina)` implementando las fórmulas de "Contexto"/"Datos" (con las guardas de `null` cuando `ventaProgramada`/`kilometraje`/`contribucionPromedioReal` sean `0`).
+11. Reescribir `src/components/PanelRentabilidad.tsx` como calculadora: `useQuery` de `obtenerRutasFirebase`, `obtenerAjustesRentabilidad`, `obtenerAjustesNomina`; estado del formulario (ruta seleccionada, los 6 campos amarillos, los 2 checkboxes de ayudantes); autocompletado al cambiar de ruta (viáticos desde `viaticosRutas`, kilometraje desde `ruta.kilometraje`); `useMemo` que llama a `calcularSimulacionRentabilidad`; tabla/desglose de resultado con badge Óptima/No óptima.
 12. Verificar con `npm run build` que no hay errores de tipos.
-13. Prueba manual: cambiar "Meta de Gasto Operativo (%)" en Ajustes de Nómina a un valor distinto de 40, guardar, y confirmar que el panel "Rentabilidad de Rutas" usa el nuevo valor para clasificar Óptima/No óptima.
-14. Prueba manual: con datos reales de un rango de fechas, confirmar que Venta, Gasto Operativo, % Gasto, Rentabilidad y % Rentabilidad de cada fila coinciden con `totalSumaDinero`, `viaticoRuta`, `comisionChofer` y `comisionAyudante` guardados en `distribucion_diaria`, y que el Estado (Óptima/No óptima) corresponde a la meta configurada.
-15. Prueba manual: confirmar que un viaje sin chofer asignado o con venta $0 no aparece en la tabla ni en los totales del resumen.
-16. Prueba manual: confirmar que "Rentabilidad de Rutas" es visible en el sidebar para `admin`, `jefeReparto` y `embarques`, y que un chofer o vendedor no lo ven.
-17. Prueba manual: exportar Excel y PDF, y confirmar que ambos coinciden exactamente con la tabla y el resumen mostrados en pantalla para el rango seleccionado.
+13. Reescribir `src/utils/reportesRentabilidadUtils.ts` con `exportarSimulacionRentabilidadPDF(input, resultado, ruta, fecha)`, portrait, encabezado tipo membrete, desglose completo, pie de página (mismo patrón que el resto de reportes de la app); enlazar el botón "Exportar PDF" del panel.
+14. Verificar con `npm run build` que no hay errores de tipos.
+15. En `src/components/SidebarAdmin.tsx`: agregar `"ajustesRentabilidad"` a `SubVistaAdmin`, `permisos.ajustesRentabilidad = esAdmin(usuarioEmail)`, e ítem "Ajustes de Rentabilidad" (ícono `SlidersHorizontal`).
+16. En `src/components/AdminPanel.tsx`: importar `PanelAjustesRentabilidad` y renderizarlo en `menuActivo === "ajustesRentabilidad"`.
+17. Verificar con `npm run build` que no hay errores de tipos.
+18. Prueba manual: en "Añadir Rutas", capturar kilometraje para al menos 2 rutas (ej. Mazatlán = 587) y confirmar que se guarda y persiste al recargar.
+19. Prueba manual: en "Ajustes de Rentabilidad" (visible solo para admin), capturar los valores de ejemplo del Excel y guardarlos; confirmar que un chofer/vendedor no ve esta sub-vista en el sidebar.
+20. Prueba manual: en "Rentabilidad de Rutas", seleccionar Mazatlán y confirmar que los 3 campos de viático autocompletan a la tarifa configurada en "Reglas de viáticos" para esa ruta, y que el kilometraje autocompleta al capturado en el paso 18.
+21. Prueba manual: con una venta programada de prueba, confirmar que Gasto Combustible, Gasto Total Ruta, $/km, Al Costo, Contribución Promedio Real, Contribución Real Después de Gastos y sus porcentajes coinciden con las fórmulas del spec (verificar a mano con calculadora al menos un caso).
+22. Prueba manual: desmarcar "Ayudante 2 va" y confirmar que su salario y viático bajan a $0 y el Gasto Total Ruta se recalcula de inmediato.
+23. Prueba manual: cambiar `metaGastoOperativoPct` en "Ajustes de Rentabilidad" y confirmar que el badge Óptima/No óptima de la simulación actual cambia según corresponda.
+24. Prueba manual: con Venta Programada en `0`, confirmar que los porcentajes y el badge muestran "—" en vez de un error o `NaN`.
+25. Prueba manual: exportar el PDF de una simulación y confirmar que su contenido coincide exactamente con el desglose mostrado en pantalla.
 
 Cada paso deja la app compilando y funcional.
 
 ## Criterios de aceptación
 
-- [ ] `AjustesNomina` tiene el campo `metaGastoOperativoPct`, editable desde "Reglas de viáticos" (`PanelAjustesNomina.tsx`), con default `40` cuando no existe configuración previa.
-- [ ] "Rentabilidad de Rutas" es visible en el sidebar para `admin`, `jefeReparto` y `embarques`, y no para un chofer o un vendedor.
-- [ ] El panel permite elegir un rango de fechas y muestra, por cada viaje de ese rango con chofer asignado y venta mayor a $0: Fecha, Ruta, Chofer, Unidad, Venta, Gasto Operativo, % Gasto, Rentabilidad, % Rentabilidad y Estado.
-- [ ] `Gasto Operativo` de cada fila es exactamente `viaticoRuta + comisionChofer + comisionAyudante`; `Rentabilidad` es `Venta - Gasto Operativo`.
-- [ ] `% Gasto` es `Gasto Operativo / Venta * 100`; `% Rentabilidad` es `100 - % Gasto`.
-- [ ] Un viaje con `% Gasto` menor o igual a `metaGastoOperativoPct` se marca "Óptima"; si es mayor, "No óptima".
-- [ ] Cambiar `metaGastoOperativoPct` en Ajustes de Nómina cambia, sin más cambios de código, qué viajes se marcan "Óptima" en este panel.
-- [ ] Un viaje sin chofer asignado, o con venta $0, no aparece en la tabla ni se cuenta en el resumen.
-- [ ] El resumen muestra 4 recuadros: Venta Total, Gasto Operativo Total (con % promedio), Rentabilidad Total (con % promedio) y Rutas Óptimas (conteo `X de Y`), recalculados al cambiar el rango de fechas.
-- [ ] Si no hay viajes válidos en el rango, se muestra el mensaje "No hay viajes con venta registrada en este rango de fechas".
-- [ ] La tabla está ordenada por fecha descendente y, dentro de la misma fecha, por ruta alfabético.
-- [ ] El botón "Excel" descarga `Rentabilidad_Rutas_<fechaInicio>_a_<fechaFin>.xlsx` con las mismas columnas y filas que la tabla en pantalla.
-- [ ] El botón "PDF" descarga `Rentabilidad_Rutas_<fechaInicio>_a_<fechaFin>.pdf` en landscape, con encabezado tipo membrete, el resumen de 4 recuadros, la tabla completa y pie de página en todas las páginas.
+- [ ] Cada ruta de la colección `rutas` puede tener un `kilometraje` capturado y editado desde "Añadir Rutas", y ese valor persiste en Firestore.
+- [ ] "Ajustes de Rentabilidad" es visible solo para `admin`; un `jefeReparto`, `embarques`, chofer o vendedor no lo ven en el sidebar.
+- [ ] "Rentabilidad de Rutas" sigue siendo visible para `admin`, `jefeReparto` y `embarques`.
+- [ ] Los 9 parámetros de "Ajustes de Rentabilidad" (salarios, rendimiento, gasto legal, gasto mantenimiento, % contribución, % al costo, precio diésel por defecto, meta de gasto operativo) se guardan y persisten.
+- [ ] `AjustesNomina` ya no tiene el campo `metaGastoOperativoPct`; ese campo y su input en "Reglas de viáticos" quedaron revertidos.
+- [ ] Al seleccionar una ruta en la calculadora, los campos Viático Chofer/Ayudante 1/Ayudante 2 se autocompletan con la tarifa de esa ruta en `viaticosRutas`, y el campo Kilometraje se autocompleta con el `kilometraje` guardado en esa ruta; los tres viáticos y el kilometraje siguen siendo editables después de autocompletarse.
+- [ ] Desmarcar "Ayudante 1 va" o "Ayudante 2 va" pone en $0 el salario, el viático y (solo para Ayudante 1) la comisión de ese rol, y el Gasto Total Ruta se recalcula de inmediato.
+- [ ] `Gasto Combustible` = `Kilometraje × Precio del Diésel ÷ Rendimiento km/l` configurado.
+- [ ] `Gasto Total Ruta` = suma de salarios (día) de los roles activos + viáticos de los roles activos + comisión Chofer + comisión Ayudante (solo si Ayudante 1 va) + Gasto Combustible + Gasto Legal + Gasto Mantenimiento.
+- [ ] `Al Costo/Sin Impuestos` = `Venta Programada × (1 − % Promedio al Costo S/Impuesto ÷ 100)`.
+- [ ] `Contribución Promedio Real` = `Al Costo × (% Promedio de Contribución ÷ 100)`.
+- [ ] `Contribución Real Después de Gastos de Reparto` = `Contribución Promedio Real − Gasto Total Ruta`.
+- [ ] La ruta se marca **"Óptima"** cuando `Gasto Total Ruta ÷ Contribución Promedio Real × 100` es menor o igual a `metaGastoOperativoPct`; si no, **"No óptima"**.
+- [ ] Cambiar `metaGastoOperativoPct` en "Ajustes de Rentabilidad" cambia, sin tocar código, qué simulaciones se marcan "Óptima".
+- [ ] Con `Venta Programada` en `0` o vacía, los porcentajes y el badge de estado muestran "—" en vez de un valor inválido.
+- [ ] El resultado se recalcula en vivo al cambiar cualquier campo editable, sin necesidad de un botón "Calcular".
+- [ ] El botón "Exportar PDF" descarga una ficha de una sola página con el mismo desglose mostrado en pantalla para la simulación actual.
 - [ ] `npm run build` pasa sin errores de tipo.
 
 ## Decisiones tomadas
 
-- **Gasto operativo = `viaticoRuta + comisionChofer + comisionAyudante` únicamente, sin salario/combustible/legal/mantenimiento:** decisión explícita del usuario tras señalar que esos otros datos no existen hoy en la app; replicar la hoja completa exigiría capturar varios parámetros nuevos (km por viaje, rendimiento, precio de diésel, gasto legal) fuera del alcance pedido.
-- **Cálculo por viaje individual, no agregado por ruta:** decisión explícita del usuario; permite detectar qué viaje puntual no es rentable, a diferencia de un promedio histórico por ruta.
-- **Panel nuevo dedicado ("Rentabilidad de Rutas"), no una columna en Distribución Diaria:** decisión explícita del usuario; separa el análisis financiero del flujo operativo de armar la distribución del día.
-- **Meta configurable en Ajustes de Nómina (`metaGastoOperativoPct`), no fija en código:** decisión explícita del usuario; permite ajustar la meta 40/60 sin tocar código si cambian las condiciones del negocio, mismo patrón que las comisiones.
-- **Un solo campo de meta (`metaGastoOperativoPct`), sin un campo aparte para la meta de rentabilidad:** matemáticamente `% Rentabilidad = 100 - % Gasto` siempre (rentabilidad = venta - gasto operativo), así que una meta de gasto de 40% ya implica una meta de rentabilidad de 60%; un segundo campo sería redundante y podría desincronizarse.
-- **Meta almacenada como entero de 0-100 (ej. `40`), no como fracción 0-1:** el usuario habló en términos de "un 40" y "el 60"; se evita la ambigüedad de otros campos de la misma interfaz (`comisionChofer` sí es fracción, ej. `0.00075`, pero representa un porcentaje muy pequeño y ya está establecido así en la app).
-- **Umbral simple (`pctGasto <= meta` → Óptima), sin banda de tolerancia:** decisión explícita del usuario; más fácil de entender que un rango con dos límites.
-- **Roles con acceso: admin, jefeReparto y embarques:** mismo criterio ya usado para "Unidades" (spec 04) y "Distribución Diaria"; son los tres roles con acceso operativo/financiero pleno.
-- **Filtro por rango de fechas únicamente, sin filtro de ruta o chofer en esta primera versión:** decisión explícita del usuario; simplifica la primera versión del panel, consistente con el patrón ya usado en el `Dashboard`.
-- **Se excluyen viajes sin chofer o con venta $0:** mismo criterio de "viaje real" que ya usa `calcularKpisPeriodo` en `Dashboard.tsx`; sin venta no hay porcentaje que calcular (división entre cero), y una fila sin chofer suele ser una fila de planeación incompleta, no un viaje realizado.
-- **Exportación Excel y PDF desde el día uno, en landscape:** decisión explícita del usuario; landscape porque la tabla tiene 9 columnas (más ancha que las de personal/unidades, que usan portrait).
-- **Archivo nuevo `reportesRentabilidadUtils.ts`, en vez de ampliar `reportesDistribucionUtils.ts`:** sigue la convención del proyecto de un archivo de reportes por dominio (`pdfNominaService.ts`, `reportesDistribucionUtils.ts`); rentabilidad es un dominio distinto al de distribución/personal/unidades.
-- **No se toca `calcularFinanzas` ni la persistencia de `viaticoRuta`/comisiones:** este módulo es de solo lectura sobre datos ya calculados y guardados; evita introducir un segundo lugar donde esos montos podrían calcularse distinto.
+- **Se reemplaza por completo el enfoque de "reporte sobre viajes ya despachados" de la primera versión de este spec, por una calculadora/simulador:** decisión explícita del usuario tras compartir la captura del Excel — el propósito real es decidir la rentabilidad de una ruta **antes** de despacharla, no auditarla después.
+- **Meta 40/60 aplicada sobre `Gasto Total Ruta ÷ Contribución Promedio Real`, no sobre la venta total:** es la relación que realmente da ~42.91%/57.09% en el ejemplo del usuario; aplicar la meta sobre la venta bruta (que en el ejemplo da ~2.75%) no tendría relación con el 40/60 que pidió.
+- **Kilometraje como campo nuevo en la colección `rutas`, capturado a mano por el usuario:** decisión explícita del usuario ("te voy a tener que pasar yo el kilometraje... se lo vamos a agregar a las rutas registradas"); no se deriva del mapa/Leaflet.
+- **Kilometraje simplificado a un solo valor por ruta (sin el prorrateo semanal/diario "566 km → 317.60" del Excel original):** el usuario dio el ejemplo de Mazatlán = 587 km como un solo número a autocompletar; replicar el prorrateo original añadiría una conversión no solicitada y sin una regla clara para generalizarla a otras rutas.
+- **Viáticos por rol autocompletados desde `ajustesNomina.viaticosRutas` (la tarifa por persona que ya existe, spec 01), no desde un catálogo nuevo:** el usuario dio como ejemplo Mazatlán = $300 para los tres roles, que es exactamente la tarifa ya configurada; reutilizar esa fuente evita mantener dos catálogos de viáticos por ruta.
+- **Tripulación fija en 3 roles con checkboxes "va"/"no va", en vez de tripulación variable:** decisión explícita del usuario (recomendación aceptada); es la forma más simple de replicar el Excel (que siempre muestra Chofer + 2 Ayudantes) permitiendo excluir a alguno sin rehacer la fórmula.
+- **Comisión de Ayudante 2 no existe, igual que en el Excel y en `calcularFinanzas` hoy:** el documento original solo tiene una fila "Comisión Ayudante 1"; no se introduce una comisión nueva para el segundo ayudante.
+- **Sin persistencia de simulaciones (no se guarda historial en Firestore):** decisión explícita del usuario; es una calculadora en pantalla, igual que el Excel, más simple de implementar y suficiente para el caso de uso.
+- **"Ajustes de Rentabilidad" como panel nuevo y separado de "Reglas de viáticos", solo para admin:** decisión explícita del usuario; evita mezclar comisiones/viáticos por ruta (que ya tienen su panel y hoy son editables por admin) con costos operativos estructurales (salarios, combustible, legal, mantenimiento) que son un tipo de dato distinto.
+- **Precio del diésel con un valor por defecto configurable, pero editable en cada simulación:** decisión explícita del usuario; el precio cambia seguido, así que un default evita capturarlo desde cero cada vez, sin impedir ajustarlo el día que cambie.
+- **Gasto legal y gasto de mantenimiento como promedios globales capturados a mano, no derivados de `mantenimientosUnidades` (spec 04):** mantiene la decisión de la primera versión de este spec de no mezclar esta calculadora con los datos de costo real de unidades; el usuario no pidió esa integración y el Excel tampoco la usa (son promedios calculados aparte por el propio usuario).
+- **`metaGastoOperativoPct` se mueve de `AjustesNomina` a `AjustesRentabilidad`:** en la primera versión de este spec se agregó a "Reglas de viáticos" porque en ese momento la meta se aplicaba sobre datos de nómina (viático + comisiones); ahora que la meta se aplica sobre el modelo completo de rentabilidad, pertenece al panel nuevo dedicado a ese modelo.
+- **Exportación PDF de una sola simulación (ficha de una página), en vez del reporte tabular multi-viaje de la primera versión:** consistente con el cambio de "reporte histórico" a "calculadora de un solo escenario a la vez".
 
 ## Riesgos identificados
 
-| Riesgo                                                                                                                                              | Mitigación                                                                                                                                                                                        |
-| --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| El gasto operativo real de una ruta es mayor al reflejado aquí (no incluye salario, combustible, legal ni mantenimiento).                           | Riesgo aceptado explícitamente por el usuario en esta primera versión; el panel deja claro en su encabezado/tooltip que el % es solo viático + comisiones, no el costo total de operar la unidad. |
-| Cambiar `metaGastoOperativoPct` reclasifica retroactivamente viajes ya exportados en reportes anteriores (el PDF/Excel viejo no se actualiza solo). | Comportamiento esperado de un dato de solo lectura calculado al vuelo; si se necesita un histórico congelado de la meta usada en cada reporte, queda fuera de este spec.                          |
+| Riesgo                                                                                                                                     | Mitigación                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Una ruta sin `kilometraje` capturado da `Gasto Combustible = 0` y `$/km` indefinido, subestimando el gasto operativo.                      | El campo se muestra vacío/0 al autocompletar y sigue siendo editable; se documenta como dato pendiente de captura por el usuario, no como error de la app.  |
+| Los parámetros de "Ajustes de Rentabilidad" (gasto legal, mantenimiento, % contribución, % al costo) quedan desactualizados con el tiempo. | Son responsabilidad del admin mantenerlos al día, igual que ya pasa con las comisiones y viáticos en "Reglas de viáticos"; no hay validación automática.    |
+| Cambiar `metaGastoOperativoPct` reclasifica retroactivamente cualquier PDF ya exportado (el archivo viejo no se actualiza solo).           | Comportamiento esperado de una calculadora de solo lectura sobre parámetros configurables; si se necesita un histórico congelado, queda fuera de este spec. |
 
 ## Lo que **no** está en este spec
 
-- Salario, combustible, gasto legal o mantenimiento prorrateado como parte del gasto operativo por viaje.
-- Rentabilidad agregada/histórica por ruta (fuera del rango de fechas elegido en pantalla).
-- Cambios a `PanelDistribucion.tsx` o a `calcularFinanzas`.
-- Alertas o notificaciones automáticas por rutas no óptimas.
-- Filtro por ruta o chofer específico dentro del panel.
+- Historial de simulaciones guardado en Firestore.
+- Reporte agregado o histórico sobre viajes ya despachados (la versión anterior de este mismo spec).
+- Relación entre gasto legal/mantenimiento y los datos reales de `mantenimientosUnidades` (spec 04).
+- Prorrateo semanal/diario del kilometraje (se simplifica a un solo valor por ruta).
+- Comisión para un segundo ayudante.
+- Edición de kilometraje desde el mapa o desde cualquier panel distinto de "Añadir Rutas".
 
 Cada uno de estos, si se necesita, va en un spec aparte.

@@ -5,12 +5,14 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "./config";
 
 export interface Ruta {
   id: string;
   nombre: string;
+  kilometraje?: number;
 }
 
 // Obtener todas las rutas
@@ -19,6 +21,7 @@ export const obtenerRutasFirebase = async (): Promise<Ruta[]> => {
   return snapshot.docs.map((doc) => ({
     id: doc.id,
     nombre: doc.data().nombre as string,
+    kilometraje: doc.data().kilometraje as number | undefined,
   }));
 };
 
@@ -29,6 +32,20 @@ export const agregarRutaFirebase = async (nombre: string) => {
     return { success: true, id: docRef.id };
   } catch (error) {
     console.error("Error al agregar ruta:", error);
+    return { success: false, error };
+  }
+};
+
+// Actualizar datos de una ruta (ej. kilometraje)
+export const actualizarRutaFirebase = async (
+  id: string,
+  datos: Partial<Pick<Ruta, "nombre" | "kilometraje">>,
+) => {
+  try {
+    await updateDoc(doc(db, "rutas", id), datos);
+    return { success: true };
+  } catch (error) {
+    console.error("Error al actualizar ruta:", error);
     return { success: false, error };
   }
 };
