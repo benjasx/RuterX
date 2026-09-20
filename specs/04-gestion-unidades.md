@@ -1,6 +1,6 @@
 # 04 — Gestión de Unidades (Vehículos, Disponibilidad y Mantenimientos)
 
-**Estado:** Aprobado
+**Estado:** Implementado
 **Depende de:** Spec 03 (amplía el modal "Personal en Bodega")
 **Fecha:** 2026-09-19
 
