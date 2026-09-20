@@ -12,6 +12,7 @@ import {
   type FilaProgramacionEntrega,
 } from "../firebase/programacionEntregasService";
 import { obtenerRutasFirebase } from "../firebase/rutasService";
+import { exportarProgramacionEntregasPDF } from "../utils/reportesProgramacionEntregasUtils";
 import {
   notificarExito,
   notificarError,
@@ -28,6 +29,7 @@ import {
   ArrowUp,
   ArrowDown,
   Pencil,
+  FileText,
 } from "lucide-react";
 
 const fMoneda = (n: number) =>
@@ -190,6 +192,14 @@ export default function PanelProgramacionEntregas() {
     actualizarMutation.mutate({ id: vecino.id!, data: { orden: fila.orden } });
   };
 
+  const handleExportarPDF = () => {
+    const filasAgrupadas = Object.fromEntries(
+      DIAS_PROGRAMACION.map((dia) => [dia, filasPorDia(dia)]),
+    ) as Record<DiaProgramacion, FilaProgramacionEntrega[]>;
+    const fecha = new Date().toLocaleDateString("sv-SE");
+    exportarProgramacionEntregasPDF(filasAgrupadas, fecha);
+  };
+
   return (
     <div className="w-full bg-slate-50/50 dark:bg-slate-900/50 p-6 rounded-xl flex flex-col h-full overflow-y-auto custom-scrollbar">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6 pb-4 border-b border-slate-200 dark:border-slate-700">
@@ -206,6 +216,13 @@ export default function PanelProgramacionEntregas() {
             por día de la semana.
           </p>
         </div>
+
+        <button
+          onClick={handleExportarPDF}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors"
+        >
+          <FileText size={16} /> Exportar PDF
+        </button>
       </div>
 
       {isLoading ? (
