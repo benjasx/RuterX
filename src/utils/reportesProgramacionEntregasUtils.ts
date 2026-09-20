@@ -39,7 +39,7 @@ export const exportarProgramacionEntregasPDF = async (
     return {
       stack: filas.map((f) => ({
         stack: [
-          { text: f.ruta_nombre, style: "tdRuta" },
+          { text: f.ruta_nombre.toUpperCase(), style: "tdRuta" },
           { text: fMoneda(f.monto_minimo), style: "tdMonto" },
         ],
         margin: [0, 0, 0, 10],
@@ -56,26 +56,14 @@ export const exportarProgramacionEntregasPDF = async (
           logoBase64
             ? { image: logoBase64, width: 70 }
             : { text: "CIR", bold: true, fontSize: 16 },
-          {
-            stack: [
-              {
-                text: "RUTERX - REPORTE LOGÍSTICO",
-                fontSize: 13,
-                bold: true,
-                color: "#0f172a",
-              },
-              {
-                text: `PROGRAMACIÓN DE ENTREGAS  ·  ${fecha}`,
-                fontSize: 10,
-                bold: true,
-                color: "#2563eb",
-                margin: [0, 2, 0, 2],
-              },
-            ],
-            alignment: "right",
-          },
         ],
-        margin: [0, 0, 0, 15],
+        margin: [0, 0, 0, 10],
+      },
+      {
+        text: "PROGRAMACIÓN DE ENTREGAS",
+        style: "mainTitle",
+        alignment: "center",
+        margin: [0, 0, 0, 20],
       },
       {
         table: {
@@ -98,7 +86,7 @@ export const exportarProgramacionEntregasPDF = async (
     footer: (currentPage: number, pageCount: number) => ({
       columns: [
         {
-          text: "RuterX · Reporte confidencial de uso interno",
+          text: `RuterX  ·  Generado el ${fecha}`,
           fontSize: 7,
           color: "#94a3b8",
           margin: [24, 0, 0, 0],
@@ -114,6 +102,7 @@ export const exportarProgramacionEntregasPDF = async (
       margin: [0, 10, 0, 0],
     }),
     styles: {
+      mainTitle: { fontSize: 16, bold: true, color: "#0f172a" },
       th: {
         bold: true,
         fontSize: 9.5,

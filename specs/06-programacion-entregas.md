@@ -8,16 +8,18 @@
 
 ## Contexto
 
-El usuario tiene hoy una tabla física ("ABARROTERA CIR — PROGRAMACIÓN DE ENTREGAS DE... CEDIS XALISCO") con 6 columnas, una por día (Sábado, Lunes, Martes, Miércoles, Jueves, Viernes), y en cada columna una lista de rutas con su monto mínimo de venta requerido para despachar ese día (ej. Sábado → "SAN BLAS $220,000.00", "18 DE MARZO $230,000.00"...; Martes → "IXTLAN PARRA $200,000.00", "IXTLAN JOEL $200,000.00"...). La misma ruta puede aparecer en más de un día con montos distintos (ej. "MAZATLAN" aparece en Lunes, Martes y Jueves con montos diferentes). Este spec digitaliza esa tabla: un panel donde se arma la lista por día seleccionando rutas ya existentes en la colección `rutas` (`src/firebase/rutasService.ts`, ya usada por "Añadir Rutas" y por "Rentabilidad de Rutas"), capturando el monto mínimo de cada una, y se exporta a PDF con el mismo layout de matriz por columnas que la tabla original.
+El usuario tiene hoy una tabla física ("ABARROTERA CIR — PROGRAMACIÓN DE ENTREGAS DE... CEDIS XALISCO") con 6 columnas, una por día (Sábado, Lunes, Martes, Miércoles, Jueves, Viernes), y en cada columna una lista de rutas con su monto mínimo de venta requerido para despachar ese día (ej. Sábado → "SAN BLAS $220,000.00", "18 DE MARZO $230,000.00"...; Martes → "IXTLAN PARRA $200,000.00", "IXTLAN JOEL $200,000.00"...). La misma ruta puede aparecer en más de un día con montos distintos (ej. "MAZATLAN" aparece en Lunes, Martes y Jueves con montos diferentes). Este spec digitaliza esa tabla: un panel donde se arma la lista por día seleccionando rutas del catálogo estático `LISTA_RUTAS` (`src/utils/mapaUtils.ts`, ya usado por el mapa/Rutero), capturando el monto mínimo de cada una, y se exporta a PDF con el mismo layout de matriz por columnas que la tabla original.
+
+**Corrección tras la primera implementación:** la versión inicial de este spec seleccionaba la ruta desde la colección Firestore `rutas` (`src/firebase/rutasService.ts`, la que alimenta "Añadir Rutas"/"Rentabilidad de Rutas"). El usuario pidió explícitamente usar en su lugar el catálogo estático `LISTA_RUTAS`, que ya existe en `mapaUtils.ts` y es el que se usa en el mapa/Rutero — un catálogo distinto y más amplio que el de la colección `rutas`. Por ser solo un arreglo de strings (sin `id` de documento), el campo `ruta_id` desaparece del modelo de datos: cada fila solo guarda el nombre de la ruta (`ruta_nombre`), tomado directo de `LISTA_RUTAS`.
 
 ## Alcance
 
 **Dentro:**
 
-- Colección Firestore nueva `programacionEntregas`: cada documento es una fila de la tabla (un día + una ruta + su monto mínimo), con `dia` (uno de `"Sábado" | "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes"`), `ruta_id` (referencia a un documento de `rutas`), `ruta_nombre` (denormalizado, mismo patrón que `unidad_numero` en `mantenimientosUnidades`), `monto_minimo` (número) y `orden` (número, controla la posición dentro de su día).
+- Colección Firestore nueva `programacionEntregas`: cada documento es una fila de la tabla (un día + una ruta + su monto mínimo), con `dia` (uno de `"Sábado" | "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes"`), `ruta_nombre` (string tomado de `LISTA_RUTAS`), `monto_minimo` (número) y `orden` (número, controla la posición dentro de su día).
 - Panel nuevo `PanelProgramacionEntregas.tsx`, sub-vista `"programacionEntregas"` en el sidebar, visible para `admin`, `jefeReparto` y `embarques` (permiso nuevo `permisos.programacionEntregas = esPersonalAutorizado(usuarioEmail)`), con las mismas acciones disponibles para los tres roles.
 - Dentro del panel: 6 columnas visuales, una por día (mismo orden que la tabla original: Sábado, Lunes, Martes, Miércoles, Jueves, Viernes), cada una con su lista de filas (ruta + monto mínimo) ordenada por `orden`.
-- Agregar fila: selector de ruta (`obtenerRutasFirebase`, mismo componente/patrón que usa `PanelRentabilidad.tsx`) + campo numérico de monto mínimo, dentro de la columna del día correspondiente. Al guardar, la fila nueva se agrega al final de su día (`orden` = máximo actual + 1).
+- Agregar fila: selector de ruta (opciones = `LISTA_RUTAS`, `src/utils/mapaUtils.ts`) + campo numérico de monto mínimo, dentro de la columna del día correspondiente. Al guardar, la fila nueva se agrega al final de su día (`orden` = máximo actual + 1).
 - Editar fila: el monto mínimo de una fila ya guardada es editable in-place (campo numérico + botón guardar); la ruta de una fila ya guardada no se reasigna — para cambiar la ruta se elimina la fila y se agrega una nueva.
 - Eliminar fila: botón de eliminar por fila, con confirmación (`confirmar`, mismo patrón que el resto de la app).
 - Reordenar: cada fila tiene flechas "subir"/"bajar" que intercambian su `orden` con el de la fila adyacente dentro del mismo día (mismo espíritu que otros paneles con listas ordenables de la app).
@@ -32,7 +34,7 @@ El usuario tiene hoy una tabla física ("ABARROTERA CIR — PROGRAMACIÓN DE ENT
 - No se manejan varios centros de distribución (CEDIS/bodegas); es una sola tabla global, aunque la foto original diga "CEDIS XALISCO". Si en el futuro se necesitan varias tablas independientes por CEDIS, es un spec aparte.
 - No se valida que una ruta no se repita en el mismo día o en días distintos; el usuario decidió que repetirse con montos distintos es un caso válido (igual que en la tabla original).
 - No se relaciona `monto_minimo` con la venta real de un viaje despachado (`distribucion_diaria`/`viajes`) para alertar automáticamente si no se alcanzó el mínimo; es solo una tabla de referencia editable, no una validación activa en el flujo de despacho.
-- No se permite capturar el nombre de la ruta como texto libre: siempre se selecciona de la colección `rutas` ya existente (si una ruta no existe ahí, se da de alta primero en "Añadir Rutas").
+- No se permite capturar el nombre de la ruta como texto libre: siempre se selecciona del catálogo estático `LISTA_RUTAS` (si una ruta no existe ahí, se agrega primero a esa constante en `mapaUtils.ts`).
 - No se lleva historial de cambios (quién cambió qué monto y cuándo); solo el valor actual.
 - No hay exportación a Excel de esta tabla, solo PDF.
 - No se agrega un botón para "vaciar todo un día" de un solo clic; cada fila se elimina individualmente.
@@ -62,20 +64,19 @@ export const DIAS_PROGRAMACION: DiaProgramacion[] = [
 export interface FilaProgramacionEntrega {
   id?: string;
   dia: DiaProgramacion;
-  ruta_id: string;
-  ruta_nombre: string; // denormalizado, mismo patrón que unidad_numero en mantenimientosUnidades
+  ruta_nombre: string; // tomado directo de LISTA_RUTAS (mapaUtils.ts), sin id de documento
   monto_minimo: number;
   orden: number; // posición dentro de su día, ascendente
 }
 ```
 
-No se agrega ningún campo nuevo a la colección `rutas`; solo se referencia su `id`/`nombre` ya existentes.
+No se agrega ninguna colección ni campo nuevo relacionado con rutas: `ruta_nombre` se captura tal cual aparece en `LISTA_RUTAS` (`src/utils/mapaUtils.ts`), sin relación con la colección Firestore `rutas`.
 
 ## Plan de implementación
 
 1. Crear `src/firebase/programacionEntregasService.ts` con `DiaProgramacion`, `DIAS_PROGRAMACION`, `FilaProgramacionEntrega`, `agregarFilaProgramacionFirebase`, `obtenerProgramacionFirebase`, `actualizarFilaProgramacionFirebase` (monto y/u orden), `eliminarFilaProgramacionFirebase`, siguiendo el patrón try/catch de `unidadesService.ts`.
 2. En `firestore.rules`: agregar `match /programacionEntregas/{docId} { allow read, write: if esPersonalAutorizado(); }`. Publicar las reglas actualizadas.
-3. Crear `src/components/PanelProgramacionEntregas.tsx`: `useQuery` de `programacionEntregas` y de `rutas`; agrupar filas por `dia` en el orden de `DIAS_PROGRAMACION`, ordenadas por `orden`; renderizar las 6 columnas con su formulario de alta (selector de ruta + monto), lista de filas editables (monto in-place, flechas subir/bajar, eliminar con confirmación), siguiendo el patrón visual de `AdminUnidades.tsx`.
+3. Crear `src/components/PanelProgramacionEntregas.tsx`: `useQuery` de `programacionEntregas`; selector de ruta con las opciones de `LISTA_RUTAS` (`src/utils/mapaUtils.ts`); agrupar filas por `dia` en el orden de `DIAS_PROGRAMACION`, ordenadas por `orden`; renderizar las 6 columnas con su formulario de alta (selector de ruta + monto), lista de filas editables (monto in-place, flechas subir/bajar, eliminar con confirmación), siguiendo el patrón visual de `AdminUnidades.tsx`.
 4. En `PanelProgramacionEntregas.tsx`: agregar el listener `onSnapshot` sobre `programacionEntregas` que sincroniza `queryClient.setQueryData(["programacionEntregas"], ...)`, mismo patrón sin toast que `AdminUnidades.tsx`.
 5. Verificar con `npm run build` que no hay errores de tipos.
 6. Crear `src/utils/reportesProgramacionEntregasUtils.ts` con `exportarProgramacionEntregasPDF(filasPorDia)`, landscape, encabezado tipo membrete, 6 columnas (una por día de `DIAS_PROGRAMACION`) con sus filas (ruta + monto formateado) apiladas debajo, siguiendo el patrón de armado de tablas ya usado en `src/utils/pdf*.ts`/`reportes*Utils.ts`; enlazar el botón "Exportar PDF" del panel.
@@ -98,7 +99,7 @@ Cada paso deja la app compilando y funcional.
 - [ ] El ítem "Programación de Entregas" es visible en el sidebar para `admin`, `jefeReparto` y `embarques`, y no visible para chofer ni vendedor.
 - [ ] Los tres roles con acceso pueden agregar, editar el monto, reordenar y eliminar filas, sin diferencias de permisos entre ellos.
 - [ ] El panel muestra 6 columnas en el orden Sábado, Lunes, Martes, Miércoles, Jueves, Viernes (sin Domingo).
-- [ ] Se puede agregar una fila a un día eligiendo una ruta de la colección `rutas` existente y capturando su monto mínimo.
+- [ ] Se puede agregar una fila a un día eligiendo una ruta del catálogo `LISTA_RUTAS` y capturando su monto mínimo.
 - [ ] La misma ruta puede agregarse más de una vez (mismo día o días distintos) con montos mínimos distintos, sin bloquearse por duplicado.
 - [ ] El monto mínimo de una fila ya guardada se puede editar y el cambio persiste en Firestore.
 - [ ] Las flechas subir/bajar cambian el `orden` de una fila dentro de su día, sin afectar el orden de las filas de otro día.
@@ -111,8 +112,8 @@ Cada paso deja la app compilando y funcional.
 ## Decisiones tomadas
 
 - **Colección plana `programacionEntregas` (una fila = un documento) en vez de un documento por día con un arreglo embebido:** permite reordenar/editar/eliminar filas individuales sin reescribir el documento completo del día, y sigue el mismo patrón ya usado en `unidades`/`mantenimientosUnidades`.
-- **Ruta seleccionada de la colección `rutas` existente, no texto libre:** decisión explícita del usuario; evita nombres duplicados o mal escritos y reutiliza el catálogo que ya alimenta "Rentabilidad de Rutas" y el resto de la app.
-- **`ruta_nombre` denormalizado en cada fila:** mismo patrón que `unidad_numero` en `mantenimientosUnidades`; evita un join contra `rutas` solo para mostrar el nombre en pantalla/PDF.
+- **Ruta seleccionada del catálogo estático `LISTA_RUTAS` (`mapaUtils.ts`), no de la colección Firestore `rutas` ni texto libre:** decisión explícita del usuario, corrigiendo la primera versión de este spec (que usaba la colección `rutas`); `LISTA_RUTAS` es el catálogo que ya usa el mapa/Rutero y cubre más rutas que la colección `rutas`. Evita nombres duplicados o mal escritos sin depender de un catálogo distinto al que el usuario tenía en mente.
+- **`ruta_nombre` como único dato de la ruta, sin `ruta_id`:** al venir de un arreglo de strings (no de documentos de Firestore), no existe un id que referenciar; se guarda directamente el nombre tal como aparece en `LISTA_RUTAS`.
 - **Una sola tabla global, sin distinguir por CEDIS:** decisión explícita del usuario; aunque la foto dice "CEDIS XALISCO", la app no maneja hoy el concepto de centro de distribución y no se quiere introducir esa dimensión en este spec.
 - **La misma ruta puede repetirse en el mismo día o en días distintos, sin validación de duplicados:** decisión explícita del usuario; la tabla original ya tiene este patrón (ej. "MAZATLAN" en Lunes, Martes y Jueves con montos distintos).
 - **Permisos admin + jefeReparto + embarques, igual que "Unidades" y "Rentabilidad de Rutas":** decisión explícita del usuario; son los mismos tres roles operativos que ya comparten acceso pleno a paneles similares.
@@ -124,15 +125,15 @@ Cada paso deja la app compilando y funcional.
 
 ## Riesgos identificados
 
-| Riesgo                                                                                                                       | Mitigación                                                                                                                                                                         |
-| ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Una ruta se elimina de la colección `rutas` (panel "Añadir Rutas") mientras tiene filas asociadas en `programacionEntregas`. | Las filas ya guardadas conservan `ruta_nombre` denormalizado y siguen mostrándose correctamente; no se valida ni se bloquea la eliminación de la ruta origen (fuera de este spec). |
-| Dos personas reordenan filas del mismo día casi al mismo tiempo, generando `orden` inconsistente.                            | Riesgo aceptado, de baja probabilidad dado el tamaño del equipo; se corrige manualmente reordenando de nuevo con las flechas.                                                      |
+| Riesgo                                                                                                     | Mitigación                                                                                                                                                                          |
+| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Una ruta se quita de `LISTA_RUTAS` (`mapaUtils.ts`) mientras tiene filas asociadas en `programacionEntregas`. | Las filas ya guardadas conservan `ruta_nombre` como string plano y siguen mostrándose correctamente; no se valida ni se bloquea la edición de esa constante (fuera de este spec). |
+| Dos personas reordenan filas del mismo día casi al mismo tiempo, generando `orden` inconsistente.            | Riesgo aceptado, de baja probabilidad dado el tamaño del equipo; se corrige manualmente reordenando de nuevo con las flechas.                                                      |
 
 ## Lo que **no** está en este spec
 
 - Varias tablas por CEDIS/bodega.
-- Texto libre para el nombre de ruta (siempre se selecciona de `rutas`).
+- Texto libre para el nombre de ruta (siempre se selecciona de `LISTA_RUTAS`).
 - Validación de rutas duplicadas en el mismo día o en días distintos.
 - Relación automática entre `monto_minimo` y la venta real de un viaje despachado.
 - Historial de cambios de montos.

@@ -11,7 +11,7 @@ import {
   type DiaProgramacion,
   type FilaProgramacionEntrega,
 } from "../firebase/programacionEntregasService";
-import { obtenerRutasFirebase } from "../firebase/rutasService";
+import { LISTA_RUTAS } from "../utils/mapaUtils";
 import { exportarProgramacionEntregasPDF } from "../utils/reportesProgramacionEntregasUtils";
 import {
   notificarExito,
@@ -39,7 +39,7 @@ const fMoneda = (n: number) =>
   }).format(n);
 
 interface FormularioDia {
-  rutaId: string;
+  ruta: string;
   monto: string;
 }
 
@@ -49,11 +49,6 @@ export default function PanelProgramacionEntregas() {
   const { data: filas = [], isLoading } = useQuery({
     queryKey: ["programacionEntregas"],
     queryFn: obtenerProgramacionFirebase,
-  });
-
-  const { data: rutas = [] } = useQuery({
-    queryKey: ["rutas"],
-    queryFn: obtenerRutasFirebase,
   });
 
   // Escucha en vivo: si alguien más agrega/edita/elimina una fila mientras
@@ -73,15 +68,11 @@ export default function PanelProgramacionEntregas() {
     return () => unsub();
   }, [queryClient]);
 
-  const rutasOrdenadas = [...rutas].sort((a, b) =>
-    a.nombre.localeCompare(b.nombre),
-  );
-
   const [formularios, setFormularios] = useState<
     Record<string, FormularioDia>
   >({});
   const getFormulario = (dia: string): FormularioDia =>
-    formularios[dia] || { rutaId: "", monto: "" };
+    formularios[dia] || { ruta: "", monto: "" };
   const setFormulario = (dia: string, datos: Partial<FormularioDia>) =>
     setFormularios((prev) => ({
       ...prev,
@@ -128,13 +119,10 @@ export default function PanelProgramacionEntregas() {
 
   const handleAgregar = (dia: DiaProgramacion) => {
     const form = getFormulario(dia);
-    if (!form.rutaId) return notificarAdvertencia("Selecciona una ruta.");
+    if (!form.ruta) return notificarAdvertencia("Selecciona una ruta.");
     const monto = Number(form.monto);
     if (form.monto.trim() === "" || Number.isNaN(monto) || monto < 0)
       return notificarAdvertencia("Captura un monto mínimo válido.");
-
-    const ruta = rutas.find((r) => r.id === form.rutaId);
-    if (!ruta) return;
 
     const filasDelDia = filasPorDia(dia);
     const ordenMax =
@@ -144,12 +132,11 @@ export default function PanelProgramacionEntregas() {
 
     agregarMutation.mutate({
       dia,
-      ruta_id: ruta.id,
-      ruta_nombre: ruta.nombre,
+      ruta_nombre: form.ruta.toUpperCase(),
       monto_minimo: monto,
       orden: ordenMax + 1,
     });
-    setFormulario(dia, { rutaId: "", monto: "" });
+    setFormulario(dia, { ruta: "", monto: "" });
   };
 
   const handleEditarMonto = (fila: FilaProgramacionEntrega) => {
@@ -330,16 +317,16 @@ export default function PanelProgramacionEntregas() {
 
                 <div className="p-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/50 space-y-2">
                   <select
-                    value={form.rutaId}
+                    value={form.ruta}
                     onChange={(e) =>
-                      setFormulario(dia, { rutaId: e.target.value })
+                      setFormulario(dia, { ruta: e.target.value })
                     }
                     className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-800 dark:text-slate-100"
                   >
                     <option value="">Selecciona una ruta...</option>
-                    {rutasOrdenadas.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.nombre}
+                    {LISTA_RUTAS.map((nombreRuta) => (
+                      <option key={nombreRuta} value={nombreRuta}>
+                        {nombreRuta.toUpperCase()}
                       </option>
                     ))}
                   </select>

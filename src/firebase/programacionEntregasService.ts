@@ -29,7 +29,6 @@ export const DIAS_PROGRAMACION: DiaProgramacion[] = [
 export interface FilaProgramacionEntrega {
   id?: string;
   dia: DiaProgramacion;
-  ruta_id: string;
   ruta_nombre: string;
   monto_minimo: number;
   orden: number;
@@ -38,7 +37,6 @@ export interface FilaProgramacionEntrega {
 // 1. Agregar una fila (ruta + monto mínimo) a un día
 export const agregarFilaProgramacionFirebase = async (datosFila: {
   dia: DiaProgramacion;
-  ruta_id: string;
   ruta_nombre: string;
   monto_minimo: number;
   orden: number;
@@ -46,7 +44,6 @@ export const agregarFilaProgramacionFirebase = async (datosFila: {
   try {
     const docRef = await addDoc(collection(db, "programacionEntregas"), {
       dia: datosFila.dia,
-      ruta_id: datosFila.ruta_id,
       ruta_nombre: datosFila.ruta_nombre,
       monto_minimo: datosFila.monto_minimo,
       orden: datosFila.orden,
