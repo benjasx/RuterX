@@ -7,6 +7,7 @@ export interface AjustesNomina {
   comisionAyudante: number;
   comisionTLMK?: number; // 🚀 AQUÍ ESTÁ EL CAMPO NUEVO
   viaticosRutas: Record<string, number>; // Ej: { "MAZATLAN": 300, "VALLARTA": 190 }
+  metaGastoOperativoPct: number; // Meta de gasto operativo, ej. 40 (=40%)
 }
 
 const DOCUMENTO_REF = doc(db, "configuracion", "ajustes_nomina");
@@ -23,6 +24,7 @@ export const obtenerAjustesNomina = async (): Promise<AjustesNomina> => {
         comisionAyudante: 0.00035,
         comisionTLMK: 0.001, // 🚀 Valor por defecto
         viaticosRutas: {},
+        metaGastoOperativoPct: 40,
       };
     }
   } catch (error) {
@@ -32,6 +34,7 @@ export const obtenerAjustesNomina = async (): Promise<AjustesNomina> => {
       comisionAyudante: 0.00035,
       comisionTLMK: 0.001, // 🚀 Valor por defecto en caso de error
       viaticosRutas: {},
+      metaGastoOperativoPct: 40,
     };
   }
 };
