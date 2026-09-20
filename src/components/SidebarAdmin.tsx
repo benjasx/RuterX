@@ -16,6 +16,7 @@ import {
   Car,
   TrendingUp,
   SlidersHorizontal,
+  CalendarClock,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -38,6 +39,7 @@ export type SubVistaAdmin =
   | "unidades"
   | "rentabilidad"
   | "ajustesRentabilidad"
+  | "programacionEntregas"
   | "respaldo"
   | "usuarios";
 
@@ -101,6 +103,10 @@ export default function SidebarAdmin({
       esJefeReparto(usuarioEmail) ||
       esEmbarques(usuarioEmail),
     ajustesRentabilidad: esAdmin(usuarioEmail),
+    programacionEntregas:
+      esAdmin(usuarioEmail) ||
+      esJefeReparto(usuarioEmail) ||
+      esEmbarques(usuarioEmail),
     respaldo: esAdmin(usuarioEmail),
     usuarios: esAdmin(usuarioEmail),
   };
@@ -121,6 +127,7 @@ export default function SidebarAdmin({
     { vista: "unidades", label: "Unidades", icon: Car, visible: permisos.unidades },
     { vista: "rentabilidad", label: "Rentabilidad de Rutas", icon: TrendingUp, visible: permisos.rentabilidad },
     { vista: "ajustesRentabilidad", label: "Ajustes de Rentabilidad", icon: SlidersHorizontal, visible: permisos.ajustesRentabilidad },
+    { vista: "programacionEntregas", label: "Programación de Entregas", icon: CalendarClock, visible: permisos.programacionEntregas },
     { vista: "respaldo", label: "Respaldo de Datos", icon: DatabaseBackup, visible: permisos.respaldo },
     { vista: "usuarios", label: "Gestión de Usuarios", icon: UserCog, visible: permisos.usuarios },
   ];
