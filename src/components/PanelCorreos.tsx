@@ -8,7 +8,24 @@ import {
   type PlantillaCorreo,
 } from "../firebase/plantillasCorreoService";
 import { notificarExito, notificarAdvertencia, notificarError, confirmar } from "../utils/notificaciones";
-import { Mail, PlusCircle, Loader2, Trash2, Pencil, Save, X } from "lucide-react";
+import { auth } from "../firebase/config";
+import { Mail, PlusCircle, Loader2, Trash2, Pencil, Save, X, Send } from "lucide-react";
+
+const REGEX_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const listaDeCorreos = (valor: string) =>
+  valor
+    .split(",")
+    .map((correo) => correo.trim())
+    .filter(Boolean);
+
+interface FormularioEnvio {
+  asunto: string;
+  cuerpo: string;
+  destinatarios: string;
+  copia: string;
+  folios: string;
+}
 
 interface FormularioPlantilla {
   nombre: string;
@@ -40,6 +57,11 @@ export default function PanelCorreos() {
   const [plantillaEditando, setPlantillaEditando] =
     useState<PlantillaCorreo | null>(null);
   const [form, setForm] = useState<FormularioPlantilla>(FORMULARIO_VACIO);
+
+  const [plantillaEnviando, setPlantillaEnviando] =
+    useState<PlantillaCorreo | null>(null);
+  const [envioForm, setEnvioForm] = useState<FormularioEnvio | null>(null);
+  const [enviando, setEnviando] = useState(false);
 
   const agregarMutation = useMutation({
     mutationFn: agregarPlantillaCorreoFirebase,
@@ -121,6 +143,87 @@ export default function PanelCorreos() {
       peligroso: true,
     });
     if (ok) eliminarMutation.mutate(plantilla.id!);
+  };
+
+  const abrirEnvio = (plantilla: PlantillaCorreo) => {
+    setPlantillaEnviando(plantilla);
+    setEnvioForm({
+      asunto: plantilla.asunto,
+      cuerpo: plantilla.cuerpo,
+      destinatarios: plantilla.destinatariosDefault,
+      copia: plantilla.copiaDefault,
+      folios: "",
+    });
+  };
+
+  const cerrarEnvio = () => {
+    setPlantillaEnviando(null);
+    setEnvioForm(null);
+  };
+
+  const handleEnviar = async () => {
+    if (!plantillaEnviando || !envioForm) return;
+
+    const destinatarios = listaDeCorreos(envioForm.destinatarios);
+    const copia = listaDeCorreos(envioForm.copia);
+
+    if (destinatarios.length === 0)
+      return notificarError("Captura al menos un destinatario.");
+    const correoInvalido = [...destinatarios, ...copia].find(
+      (correo) => !REGEX_CORREO.test(correo),
+    );
+    if (correoInvalido)
+      return notificarError(
+        `El correo "${correoInvalido}" no tiene un formato válido.`,
+      );
+
+    const cuerpoFinal = envioForm.cuerpo.replaceAll(
+      "{{folios}}",
+      envioForm.folios,
+    );
+
+    const ok = await confirmar({
+      mensaje: `Destinatarios: ${destinatarios.join(", ")}. Copia: ${
+        copia.length > 0 ? copia.join(", ") : "—"
+      }. Asunto: ${envioForm.asunto}. Folios: ${envioForm.folios || "—"}.`,
+      titulo: "¿Enviar este correo?",
+      textoConfirmar: "Enviar",
+    });
+    if (!ok) return;
+
+    const usuarioActual = auth.currentUser;
+    if (!usuarioActual) return notificarError("No hay sesión activa.");
+
+    setEnviando(true);
+    try {
+      const idToken = await usuarioActual.getIdToken();
+      const respuesta = await fetch(
+        import.meta.env.VITE_ENVIAR_CORREO_URL as string,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            idToken,
+            remitente: plantillaEnviando.remitente,
+            destinatarios: destinatarios.join(","),
+            copia: copia.join(","),
+            asunto: envioForm.asunto,
+            cuerpo: cuerpoFinal,
+          }),
+        },
+      );
+      const resultado = await respuesta.json();
+      if (!respuesta.ok) {
+        notificarError(resultado.error || "Error al enviar el correo.");
+      } else {
+        notificarExito("Correo enviado.");
+        cerrarEnvio();
+      }
+    } catch {
+      notificarError("Error de red al intentar enviar el correo.");
+    } finally {
+      setEnviando(false);
+    }
   };
 
   const guardando = agregarMutation.isPending || actualizarMutation.isPending;
@@ -259,6 +362,110 @@ export default function PanelCorreos() {
         </div>
       )}
 
+      {plantillaEnviando && envioForm && (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 mb-6 max-w-2xl">
+          <h2 className="text-sm font-black text-slate-800 dark:text-slate-100 mb-4">
+            Enviar — {plantillaEnviando.nombre}
+          </h2>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
+                Asunto
+              </label>
+              <input
+                type="text"
+                value={envioForm.asunto}
+                onChange={(e) =>
+                  setEnvioForm({ ...envioForm, asunto: e.target.value })
+                }
+                className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-700 dark:text-slate-200 font-medium focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
+                Cuerpo del correo
+              </label>
+              <textarea
+                value={envioForm.cuerpo}
+                onChange={(e) =>
+                  setEnvioForm({ ...envioForm, cuerpo: e.target.value })
+                }
+                rows={5}
+                className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-700 dark:text-slate-200 font-medium focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
+                Folios (separados por coma) — reemplazan{" "}
+                <code>{"{{folios}}"}</code> en el cuerpo
+              </label>
+              <input
+                type="text"
+                value={envioForm.folios}
+                onChange={(e) =>
+                  setEnvioForm({ ...envioForm, folios: e.target.value })
+                }
+                placeholder="1023, 1024, 1050"
+                className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-700 dark:text-slate-200 font-medium focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-900"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
+                  Destinatarios
+                </label>
+                <input
+                  type="text"
+                  value={envioForm.destinatarios}
+                  onChange={(e) =>
+                    setEnvioForm({
+                      ...envioForm,
+                      destinatarios: e.target.value,
+                    })
+                  }
+                  className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-700 dark:text-slate-200 font-medium focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-900"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
+                  Copia (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={envioForm.copia}
+                  onChange={(e) =>
+                    setEnvioForm({ ...envioForm, copia: e.target.value })
+                  }
+                  className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-700 dark:text-slate-200 font-medium focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-900"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 mt-4">
+            <button
+              onClick={handleEnviar}
+              disabled={enviando}
+              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
+            >
+              <Send size={16} />
+              {enviando ? "Enviando..." : "Enviar correo"}
+            </button>
+            <button
+              onClick={cerrarEnvio}
+              className="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 font-bold px-4 py-2.5 rounded-xl transition-colors"
+            >
+              <X size={16} />
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center h-full p-16 text-slate-400 dark:text-slate-500 gap-3 font-medium">
           <Loader2 className="animate-spin" size={24} /> Cargando plantillas...
@@ -285,6 +492,12 @@ export default function PanelCorreos() {
               </p>
 
               <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                <button
+                  onClick={() => abrirEnvio(plantilla)}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 py-2 rounded-lg transition-colors"
+                >
+                  <Send size={14} /> Enviar
+                </button>
                 <button
                   onClick={() => abrirEditarPlantilla(plantilla)}
                   className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 py-2 rounded-lg transition-colors"
