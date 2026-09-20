@@ -11,6 +11,7 @@ import Dashboard from "./Dashboard";
 import AdminChoferes from "./AdminChoferes";
 import AdminUnidades from "./AdminUnidades";
 import PanelRentabilidad from "./PanelRentabilidad";
+import PanelAjustesRentabilidad from "./PanelAjustesRentabilidad";
 import MonitorRutas from "./MonitorRutas";
 import PanelDistribucion from "./PanelDistribucion";
 import PanelRespaldo from "./PanelRespaldo";
@@ -108,6 +109,8 @@ export default function AdminPanel({
       {menuActivo === "unidades" && <AdminUnidades />}
 
       {menuActivo === "rentabilidad" && <PanelRentabilidad />}
+
+      {menuActivo === "ajustesRentabilidad" && <PanelAjustesRentabilidad />}
 
       {menuActivo === "respaldo" && (
         <PanelRespaldo usuarioEmail={usuarioEmail} />
