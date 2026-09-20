@@ -12,6 +12,7 @@ import AdminChoferes from "./AdminChoferes";
 import AdminUnidades from "./AdminUnidades";
 import PanelRentabilidad from "./PanelRentabilidad";
 import PanelAjustesRentabilidad from "./PanelAjustesRentabilidad";
+import PanelCorreos from "./PanelCorreos";
 import PanelProgramacionEntregas from "./PanelProgramacionEntregas";
 import MonitorRutas from "./MonitorRutas";
 import PanelDistribucion from "./PanelDistribucion";
@@ -114,6 +115,8 @@ export default function AdminPanel({
       {menuActivo === "ajustesRentabilidad" && <PanelAjustesRentabilidad />}
 
       {menuActivo === "programacionEntregas" && <PanelProgramacionEntregas />}
+
+      {menuActivo === "correos" && <PanelCorreos />}
 
       {menuActivo === "respaldo" && (
         <PanelRespaldo usuarioEmail={usuarioEmail} />
