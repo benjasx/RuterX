@@ -134,6 +134,9 @@ const formatearFechaLarga = (fechaStr: string) => {
   });
 };
 
+const formatearCapacidad = (valor: number | null | undefined) =>
+  valor != null ? Number(valor).toLocaleString("es-MX") : "-";
+
 const esFolioReal = (val: string) => {
   if (!val) return false;
   const str = val.toUpperCase().trim();
@@ -365,6 +368,39 @@ export default function PanelDistribucion() {
       return a.nombre.localeCompare(b.nombre);
     });
   }, [choferesData, estadoPorNombre]);
+
+  // Unidades activas, disponibles ese día y no asignadas a ninguna fila: lo que
+  // queda libre en bodega para programar el reparto (ver modal Personal en Bodega).
+  const unidadesDisponiblesBodega = useMemo(() => {
+    return unidadesActivas
+      .filter(
+        (u: any) =>
+          !disponibilidadPorNumero.has(u.numero) &&
+          !unidadesUsadas.has(u.numero),
+      )
+      .map((u: any) => ({
+        numero: u.numero,
+        tipo: u.tipo,
+        capacidad_kg: u.capacidad_kg,
+        capacidad_m3: u.capacidad_m3,
+      }))
+      .sort((a, b) => a.numero.localeCompare(b.numero, undefined, { numeric: true }));
+  }, [unidadesActivas, disponibilidadPorNumero, unidadesUsadas]);
+
+  // Unidades activas en mantenimiento o fuera de servicio ese día, sin importar
+  // si además están asignadas a una fila (mismo criterio que personalAusente).
+  const unidadesNoDisponiblesBodega = useMemo(() => {
+    return unidadesActivas
+      .filter((u: any) => disponibilidadPorNumero.has(u.numero))
+      .map((u: any) => ({
+        numero: u.numero,
+        tipo: u.tipo,
+        capacidad_kg: u.capacidad_kg,
+        capacidad_m3: u.capacidad_m3,
+        motivo: disponibilidadPorNumero.get(u.numero) as string,
+      }))
+      .sort((a, b) => a.numero.localeCompare(b.numero, undefined, { numeric: true }));
+  }, [unidadesActivas, disponibilidadPorNumero]);
 
   const filasResumen = filas.filter((f) => f.ruta || f.chofer || f.unidad);
   const sumaKgTotal = filasResumen.reduce(
@@ -612,6 +648,21 @@ export default function PanelDistribucion() {
       Teléfono: p.telefono || "-",
     }));
 
+    const dataUnidadesDisponibles = unidadesDisponiblesBodega.map((u) => ({
+      Número: u.numero,
+      Tipo: u.tipo,
+      "Cap. (kg)": u.capacidad_kg,
+      "Cap. (m³)": u.capacidad_m3,
+    }));
+
+    const dataUnidadesNoDisponibles = unidadesNoDisponiblesBodega.map((u) => ({
+      Número: u.numero,
+      Tipo: u.tipo,
+      "Cap. (kg)": u.capacidad_kg,
+      "Cap. (m³)": u.capacidad_m3,
+      Motivo: u.motivo,
+    }));
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(
       workbook,
@@ -622,6 +673,16 @@ export default function PanelDistribucion() {
       workbook,
       XLSX.utils.json_to_sheet(dataAusentes),
       "Personal Ausente",
+    );
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(dataUnidadesDisponibles),
+      "Unidades Bodega",
+    );
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(dataUnidadesNoDisponibles),
+      "Unidades No Disponibles",
     );
     XLSX.writeFile(workbook, `PERSONAL_BODEGA_${fechaSeleccionada}.xlsx`);
   };
@@ -794,7 +855,9 @@ export default function PanelDistribucion() {
               </div>
               <div className="flex items-center gap-2">
                 {(personalDisponibleBodega.length > 0 ||
-                  personalAusente.length > 0) && (
+                  personalAusente.length > 0 ||
+                  unidadesDisponiblesBodega.length > 0 ||
+                  unidadesNoDisponiblesBodega.length > 0) && (
                   <>
                     <button
                       onClick={exportarPersonalBodegaExcel}
@@ -808,6 +871,8 @@ export default function PanelDistribucion() {
                           personalDisponibleBodega,
                           personalAusente,
                           fechaSeleccionada,
+                          unidadesDisponiblesBodega,
+                          unidadesNoDisponiblesBodega,
                         )
                       }
                       className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors text-xs"
@@ -835,7 +900,7 @@ export default function PanelDistribucion() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                 <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 text-center">
                   <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
                     Personal Disponible
@@ -850,6 +915,22 @@ export default function PanelDistribucion() {
                   </p>
                   <p className="text-3xl font-black text-orange-700 dark:text-orange-300 mt-1">
                     {personalAusente.length}
+                  </p>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl p-4 text-center">
+                  <p className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
+                    Unidades Disponibles
+                  </p>
+                  <p className="text-3xl font-black text-blue-700 dark:text-blue-300 mt-1">
+                    {unidadesDisponiblesBodega.length}
+                  </p>
+                </div>
+                <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-center">
+                  <p className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">
+                    Unidades No Disponibles
+                  </p>
+                  <p className="text-3xl font-black text-amber-700 dark:text-amber-300 mt-1">
+                    {unidadesNoDisponiblesBodega.length}
                   </p>
                 </div>
               </div>
@@ -933,6 +1014,110 @@ export default function PanelDistribucion() {
                           </td>
                           <td className="p-3 border border-slate-300 dark:border-slate-600 text-center font-mono">
                             {p.telefono || "-"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <div className="mt-8">
+                <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-3">
+                  Unidades Disponibles
+                </h3>
+                {unidadesDisponiblesBodega.length === 0 ? (
+                  <p className="text-center text-slate-500 dark:text-slate-400 font-bold normal-case py-4">
+                    No hay unidades disponibles para este día.
+                  </p>
+                ) : (
+                  <table className="w-full text-left border-collapse border-2 border-slate-800">
+                    <thead>
+                      <tr className="bg-slate-800 text-white text-xs uppercase tracking-wider">
+                        <th className="p-3 border border-slate-700 w-16">
+                          #
+                        </th>
+                        <th className="p-3 border border-slate-700">Tipo</th>
+                        <th className="p-3 border border-slate-700 text-center w-32">
+                          Cap. (kg)
+                        </th>
+                        <th className="p-3 border border-slate-700 text-center w-32">
+                          Cap. (m³)
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-[12px] font-bold text-slate-700 dark:text-slate-200">
+                      {unidadesDisponiblesBodega.map((u, i) => (
+                        <tr
+                          key={u.numero}
+                          className={i % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-900"}
+                        >
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 whitespace-nowrap">
+                            {u.numero}
+                          </td>
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 uppercase">
+                            {u.tipo}
+                          </td>
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center">
+                            {formatearCapacidad(u.capacidad_kg)}
+                          </td>
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center">
+                            {formatearCapacidad(u.capacidad_m3)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <div className="mt-8">
+                <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-3">
+                  Unidades No Disponibles
+                </h3>
+                {unidadesNoDisponiblesBodega.length === 0 ? (
+                  <p className="text-center text-slate-500 dark:text-slate-400 font-bold normal-case py-4">
+                    No hay unidades en mantenimiento o fuera de servicio para este día.
+                  </p>
+                ) : (
+                  <table className="w-full text-left border-collapse border-2 border-slate-800">
+                    <thead>
+                      <tr className="bg-slate-700 text-white text-xs uppercase tracking-wider">
+                        <th className="p-3 border border-slate-600 w-16">
+                          #
+                        </th>
+                        <th className="p-3 border border-slate-600">Tipo</th>
+                        <th className="p-3 border border-slate-600 text-center w-28">
+                          Cap. (kg)
+                        </th>
+                        <th className="p-3 border border-slate-600 text-center w-28">
+                          Cap. (m³)
+                        </th>
+                        <th className="p-3 border border-slate-600 text-center w-36">
+                          Motivo
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-[12px] font-bold text-slate-700 dark:text-slate-200">
+                      {unidadesNoDisponiblesBodega.map((u, i) => (
+                        <tr
+                          key={u.numero}
+                          className={i % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-900"}
+                        >
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 whitespace-nowrap">
+                            {u.numero}
+                          </td>
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 uppercase">
+                            {u.tipo}
+                          </td>
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center">
+                            {formatearCapacidad(u.capacidad_kg)}
+                          </td>
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center">
+                            {formatearCapacidad(u.capacidad_m3)}
+                          </td>
+                          <td className="p-3 border border-slate-300 dark:border-slate-600 text-center text-amber-600 dark:text-amber-400">
+                            {u.motivo}
                           </td>
                         </tr>
                       ))}

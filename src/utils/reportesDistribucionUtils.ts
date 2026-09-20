@@ -301,9 +301,73 @@ const ordenarPorPuesto = <T extends { puesto: "Chofer" | "Auxiliar"; nombre: str
     return a.nombre.localeCompare(b.nombre);
   });
 
+type UnidadBodega = {
+  numero: string;
+  tipo: string;
+  capacidad_kg: number;
+  capacidad_m3: number;
+};
+type UnidadNoDisponibleBodega = UnidadBodega & { motivo: string };
+
+const ordenarPorNumero = <T extends { numero: string }>(lista: T[]) =>
+  [...lista].sort((a, b) =>
+    a.numero.localeCompare(b.numero, undefined, { numeric: true }),
+  );
+
+const formatearCapacidad = (valor: number | null | undefined) =>
+  valor != null ? Number(valor).toLocaleString("es-MX") : "-";
+
+// Recuadro de resumen (conteo grande + etiqueta) usado en la fila de
+// "PERSONAL DISPONIBLE BODEGA" / "PERSONAL AUSENTE" / unidades.
+const recuadroResumen = (
+  titulo: string,
+  valor: number,
+  colorTexto: string,
+  fillColor: string,
+  colorBorde: string,
+) => ({
+  table: {
+    widths: ["*"],
+    body: [
+      [
+        {
+          stack: [
+            {
+              text: titulo,
+              fontSize: 8,
+              bold: true,
+              color: colorTexto,
+              alignment: "center",
+            },
+            {
+              text: valor.toString(),
+              fontSize: 20,
+              bold: true,
+              color: colorTexto,
+              alignment: "center",
+              margin: [0, 2, 0, 0],
+            },
+          ],
+        },
+      ],
+    ],
+  },
+  fillColor,
+  layout: {
+    hLineWidth: () => 1,
+    vLineWidth: () => 1,
+    hLineColor: () => colorBorde,
+    vLineColor: () => colorBorde,
+    paddingTop: () => 8,
+    paddingBottom: () => 8,
+  },
+});
+
 // 🚀 Personal (choferes/auxiliares) disponible en bodega: no asignado a
 // ninguna ruta ese día y sin ausencia vigente. `ausentes` son quienes tienen
 // vacaciones/incapacidad/permiso/descanso/falta/inactivo ese mismo día.
+// `unidadesDisponibles`/`unidadesNoDisponibles`: mismo criterio para unidades
+// (ver specs/04-gestion-unidades.md); las dadas de baja no llegan a esta función.
 export const exportarPersonalBodegaPDF = async (
   personal: { nombre: string; puesto: "Chofer" | "Auxiliar"; telefono: string }[],
   ausentes: {
@@ -313,6 +377,8 @@ export const exportarPersonalBodegaPDF = async (
     motivo: string;
   }[],
   fechaSeleccionada: string,
+  unidadesDisponibles: UnidadBodega[] = [],
+  unidadesNoDisponibles: UnidadNoDisponibleBodega[] = [],
 ) => {
   const pdfMake = (window as any).pdfMake;
   if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
@@ -321,6 +387,8 @@ export const exportarPersonalBodegaPDF = async (
 
   const personalOrdenado = ordenarPorPuesto(personal);
   const ausentesOrdenados = ordenarPorPuesto(ausentes);
+  const unidadesDisponiblesOrdenadas = ordenarPorNumero(unidadesDisponibles);
+  const unidadesNoDisponiblesOrdenadas = ordenarPorNumero(unidadesNoDisponibles);
 
   const bodyDataDisponibles = personalOrdenado.map((p, index) => {
     const esPar = index % 2 === 0;
@@ -344,6 +412,35 @@ export const exportarPersonalBodegaPDF = async (
       { text: p.telefono || "-", style: "tdCenter", fillColor: bgFila },
     ];
   });
+
+  const bodyDataUnidadesDisponibles = unidadesDisponiblesOrdenadas.map(
+    (u, index) => {
+      const esPar = index % 2 === 0;
+      const bgFila = esPar ? "#ffffff" : "#f8fafc";
+
+      return [
+        { text: u.numero || "-", style: "td", fillColor: bgFila },
+        { text: u.tipo || "-", style: "td", fillColor: bgFila },
+        { text: formatearCapacidad(u.capacidad_kg), style: "tdCenter", fillColor: bgFila },
+        { text: formatearCapacidad(u.capacidad_m3), style: "tdCenter", fillColor: bgFila },
+      ];
+    },
+  );
+
+  const bodyDataUnidadesNoDisponibles = unidadesNoDisponiblesOrdenadas.map(
+    (u, index) => {
+      const esPar = index % 2 === 0;
+      const bgFila = esPar ? "#ffffff" : "#f8fafc";
+
+      return [
+        { text: u.numero || "-", style: "td", fillColor: bgFila },
+        { text: u.tipo || "-", style: "td", fillColor: bgFila },
+        { text: formatearCapacidad(u.capacidad_kg), style: "tdCenter", fillColor: bgFila },
+        { text: formatearCapacidad(u.capacidad_m3), style: "tdCenter", fillColor: bgFila },
+        { text: u.motivo || "-", style: "tdCenter", fillColor: bgFila },
+      ];
+    },
+  );
 
   const documentDefinition = {
     pageOrientation: "portrait",
@@ -369,83 +466,23 @@ export const exportarPersonalBodegaPDF = async (
         style: "sectionTitle",
       },
 
-      // Resumen: personal disponible vs. ausente
+      // Resumen: personal disponible/ausente
       {
         columns: [
-          {
-            table: {
-              widths: ["*"],
-              body: [
-                [
-                  {
-                    stack: [
-                      {
-                        text: "PERSONAL DISPONIBLE",
-                        fontSize: 8,
-                        bold: true,
-                        color: "#047857",
-                        alignment: "center",
-                      },
-                      {
-                        text: personal.length.toString(),
-                        fontSize: 20,
-                        bold: true,
-                        color: "#047857",
-                        alignment: "center",
-                        margin: [0, 2, 0, 0],
-                      },
-                    ],
-                  },
-                ],
-              ],
-            },
-            fillColor: "#ecfdf5",
-            layout: {
-              hLineWidth: () => 1,
-              vLineWidth: () => 1,
-              hLineColor: () => "#a7f3d0",
-              vLineColor: () => "#a7f3d0",
-              paddingTop: () => 8,
-              paddingBottom: () => 8,
-            },
-          },
-          {
-            table: {
-              widths: ["*"],
-              body: [
-                [
-                  {
-                    stack: [
-                      {
-                        text: "PERSONAL AUSENTE",
-                        fontSize: 8,
-                        bold: true,
-                        color: "#c2410c",
-                        alignment: "center",
-                      },
-                      {
-                        text: ausentes.length.toString(),
-                        fontSize: 20,
-                        bold: true,
-                        color: "#c2410c",
-                        alignment: "center",
-                        margin: [0, 2, 0, 0],
-                      },
-                    ],
-                  },
-                ],
-              ],
-            },
-            fillColor: "#fff7ed",
-            layout: {
-              hLineWidth: () => 1,
-              vLineWidth: () => 1,
-              hLineColor: () => "#fed7aa",
-              vLineColor: () => "#fed7aa",
-              paddingTop: () => 8,
-              paddingBottom: () => 8,
-            },
-          },
+          recuadroResumen(
+            "PERSONAL DISPONIBLE",
+            personal.length,
+            "#047857",
+            "#ecfdf5",
+            "#a7f3d0",
+          ),
+          recuadroResumen(
+            "PERSONAL AUSENTE",
+            ausentes.length,
+            "#c2410c",
+            "#fff7ed",
+            "#fed7aa",
+          ),
         ],
         columnGap: 15,
         margin: [0, 0, 0, 20],
@@ -499,6 +536,89 @@ export const exportarPersonalBodegaPDF = async (
                   { text: "Teléfono", style: "th", alignment: "center" },
                 ],
                 ...bodyDataAusentes,
+              ],
+            },
+            layout: "lightHorizontalLines",
+            margin: [0, 0, 0, 20],
+          },
+
+      // Unidades: hoja aparte del personal (ver specs/04-gestion-unidades.md),
+      // con su propio resumen de conteos.
+      {
+        columns: [
+          recuadroResumen(
+            "UNIDADES DISPONIBLES",
+            unidadesDisponibles.length,
+            "#1d4ed8",
+            "#eff6ff",
+            "#bfdbfe",
+          ),
+          recuadroResumen(
+            "UNIDADES NO DISPONIBLES",
+            unidadesNoDisponibles.length,
+            "#b45309",
+            "#fffbeb",
+            "#fde68a",
+          ),
+        ],
+        columnGap: 15,
+        margin: [0, 0, 0, 20],
+        pageBreak: "before",
+      },
+      {
+        text: "UNIDADES DISPONIBLES",
+        style: "sectionTitle",
+      },
+      unidadesDisponibles.length === 0
+        ? {
+            text: "No hay unidades disponibles para este día.",
+            italics: true,
+            color: "#64748b",
+            margin: [0, 10, 0, 20],
+          }
+        : {
+            table: {
+              headerRows: 1,
+              widths: [30, "*", 80, 80],
+              body: [
+                [
+                  { text: "#", style: "th" },
+                  { text: "Tipo", style: "th" },
+                  { text: "Cap. (kg)", style: "th", alignment: "center" },
+                  { text: "Cap. (m³)", style: "th", alignment: "center" },
+                ],
+                ...bodyDataUnidadesDisponibles,
+              ],
+            },
+            layout: "lightHorizontalLines",
+            margin: [0, 0, 0, 20],
+          },
+
+      // Sección de unidades en mantenimiento o fuera de servicio
+      {
+        text: "UNIDADES NO DISPONIBLES",
+        style: "sectionTitle",
+      },
+      unidadesNoDisponibles.length === 0
+        ? {
+            text: "No hay unidades en mantenimiento o fuera de servicio para este día.",
+            italics: true,
+            color: "#64748b",
+            margin: [0, 10, 0, 0],
+          }
+        : {
+            table: {
+              headerRows: 1,
+              widths: [30, "*", 70, 70, 90],
+              body: [
+                [
+                  { text: "#", style: "th" },
+                  { text: "Tipo", style: "th" },
+                  { text: "Cap. (kg)", style: "th", alignment: "center" },
+                  { text: "Cap. (m³)", style: "th", alignment: "center" },
+                  { text: "Motivo", style: "th", alignment: "center" },
+                ],
+                ...bodyDataUnidadesNoDisponibles,
               ],
             },
             layout: "lightHorizontalLines",

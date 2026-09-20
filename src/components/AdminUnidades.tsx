@@ -7,13 +7,17 @@ import {
   agregarUnidadFirebase,
   actualizarUnidadFirebase,
 } from "../firebase/unidadesService";
-import { obtenerMantenimientosFirebase } from "../firebase/mantenimientosUnidadesService";
+import {
+  obtenerMantenimientosFirebase,
+  actualizarMantenimientoFirebase,
+} from "../firebase/mantenimientosUnidadesService";
 import { disponibilidadEfectiva } from "../utils/unidadesUtils";
 import PanelMantenimientosUnidades from "./PanelMantenimientosUnidades";
 import {
   notificarExito,
   notificarError,
   notificarAdvertencia,
+  confirmar,
 } from "../utils/notificaciones";
 import {
   Car,
@@ -28,7 +32,35 @@ import {
   ChevronRight,
   Wrench,
   Truck,
+  FileText,
+  CheckCircle2,
 } from "lucide-react";
+
+// Fecha de ayer en formato YYYY-MM-DD, para cerrar un mantenimiento "hoy"
+// (fecha_fin queda en el último día en que la unidad SÍ estuvo en mantenimiento).
+const ayerStr = (): string => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toLocaleDateString("sv-SE");
+};
+
+const formatearCapacidad = (valor: number | null | undefined) =>
+  valor != null ? Number(valor).toLocaleString("es-MX") : "-";
+
+// FUNCIÓN EXTERNA PARA OBTENER EL LOGO EN BASE64 (mismo patrón que AdminChoferes.tsx)
+const obtenerLogoBase64Local = async (path: string) => {
+  try {
+    const response = await fetch(path);
+    const blob = await response.blob();
+    return new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    return null;
+  }
+};
 
 const ITEMS_POR_PAGINA = 10;
 
@@ -62,6 +94,7 @@ export default function AdminUnidades() {
   const [capacidadM3, setCapacidadM3] = useState<number | "">("");
   const [estado, setEstado] = useState("Disponible");
   const [motivoFueraServicio, setMotivoFueraServicio] = useState("");
+  const [motivoBaja, setMotivoBaja] = useState("");
 
   const [busqueda, setBusqueda] = useState("");
   const [filtroDisponibilidad, setFiltroDisponibilidad] = useState("Todas");
@@ -111,15 +144,21 @@ export default function AdminUnidades() {
     ),
   }));
 
-  const unidadesFiltradas = unidadesConDisponibilidad.filter((u: any) => {
-    const coincideNumero = (u.numero || "")
-      .toLowerCase()
-      .includes(busqueda.toLowerCase());
-    const coincideDisponibilidad =
-      filtroDisponibilidad === "Todas" ||
-      u._disponibilidad === filtroDisponibilidad;
-    return coincideNumero && coincideDisponibilidad;
-  });
+  const unidadesFiltradas = unidadesConDisponibilidad
+    .filter((u: any) => {
+      const coincideNumero = (u.numero || "")
+        .toLowerCase()
+        .includes(busqueda.toLowerCase());
+      const coincideDisponibilidad =
+        filtroDisponibilidad === "Todas" ||
+        u._disponibilidad === filtroDisponibilidad;
+      return coincideNumero && coincideDisponibilidad;
+    })
+    .sort((a: any, b: any) =>
+      (a.numero || "").localeCompare(b.numero || "", undefined, {
+        numeric: true,
+      }),
+    );
 
   useEffect(() => {
     setPaginaActual(1);
@@ -140,6 +179,7 @@ export default function AdminUnidades() {
     setCapacidadM3("");
     setEstado("Disponible");
     setMotivoFueraServicio("");
+    setMotivoBaja("");
   };
 
   const agregarMutation = useMutation({
@@ -161,6 +201,36 @@ export default function AdminUnidades() {
     },
     onError: () => notificarError("Error al actualizar la unidad."),
   });
+
+  // Cierra hoy un mantenimiento en curso (ej. la unidad se reparó antes de lo
+  // previsto), para que vuelva a aparecer disponible de inmediato.
+  const finalizarMantenimientoMutation = useMutation({
+    mutationFn: (mantenimientoId: string) =>
+      actualizarMantenimientoFirebase(mantenimientoId, {
+        fecha_fin: ayerStr(),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mantenimientosUnidades"] });
+      notificarExito("Mantenimiento finalizado. La unidad ya está disponible.");
+    },
+    onError: () => notificarError("Error al finalizar el mantenimiento."),
+  });
+
+  const handleFinalizarMantenimiento = async (unidad: any) => {
+    const mantenimientoActivo = mantenimientos.find(
+      (m: any) =>
+        m.unidad_id === unidad.id &&
+        m.fecha_inicio <= hoyStr &&
+        hoyStr <= m.fecha_fin,
+    );
+    if (!mantenimientoActivo) return;
+
+    const ok = await confirmar({
+      mensaje: `¿Finalizar hoy el mantenimiento de la unidad ${unidad.numero}? Quedará disponible para asignarse a una ruta.`,
+      textoConfirmar: "Finalizar",
+    });
+    if (ok) finalizarMantenimientoMutation.mutate(mantenimientoActivo.id);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,6 +258,7 @@ export default function AdminUnidades() {
       estado,
       motivo_fuera_servicio:
         estado === "Fuera de servicio" ? motivoFueraServicio.trim() : "",
+      motivo_baja: estado === "Baja" ? motivoBaja.trim() : "",
     };
 
     if (editingId) {
@@ -205,13 +276,179 @@ export default function AdminUnidades() {
     setCapacidadM3(u.capacidad_m3 ?? "");
     setEstado(u.estado || "Disponible");
     setMotivoFueraServicio(u.motivo_fuera_servicio || "");
+    setMotivoBaja(u.motivo_baja || "");
   };
 
-  const unidadesOrdenadas = [...unidadesPaginadas].sort((a: any, b: any) =>
-    (a.numero || "").localeCompare(b.numero || "", undefined, {
-      numeric: true,
-    }),
-  );
+  // Exporta el directorio completo de unidades (respeta búsqueda/filtro
+  // activos) con su disponibilidad actual, sin importar la fecha de una ruta.
+  const exportarPDF = async () => {
+    const pdfMake = (window as any).pdfMake;
+    if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
+
+    const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
+
+    const conteoPorDisponibilidad = unidadesFiltradas.reduce(
+      (acc: Record<string, number>, u: any) => {
+        acc[u._disponibilidad] = (acc[u._disponibilidad] || 0) + 1;
+        return acc;
+      },
+      {},
+    );
+
+    const bodyData = unidadesFiltradas.map((u: any, index: number) => {
+      const esPar = index % 2 === 0;
+      const bgFila = esPar ? "#ffffff" : "#f8fafc";
+      return [
+        { text: u.numero || "-", style: "td", fillColor: bgFila },
+        { text: u.tipo || "-", style: "td", fillColor: bgFila },
+        {
+          text:
+            u.capacidad_kg != null
+              ? Number(u.capacidad_kg).toLocaleString("es-MX")
+              : "-",
+          style: "tdCenter",
+          fillColor: bgFila,
+        },
+        {
+          text:
+            u.capacidad_m3 != null
+              ? Number(u.capacidad_m3).toLocaleString("es-MX")
+              : "-",
+          style: "tdCenter",
+          fillColor: bgFila,
+        },
+        { text: u._disponibilidad, style: "tdCenter", fillColor: bgFila },
+      ];
+    });
+
+    const documentDefinition = {
+      pageOrientation: "portrait",
+      pageMargins: [30, 30, 30, 30],
+      content: [
+        {
+          columns: [
+            logoBase64
+              ? { image: logoBase64, width: 70 }
+              : { text: "CIR", bold: true, fontSize: 18 },
+            {
+              text: `DIRECTORIO DE UNIDADES\n${new Date().toLocaleDateString("es-MX")}`,
+              style: "mainTitle",
+              alignment: "right",
+              margin: [0, 5, 0, 0],
+            },
+          ],
+          margin: [0, 0, 0, 20],
+        },
+        {
+          table: {
+            widths: ["*", "*", "*", "*", "*"],
+            body: [
+              [
+                {
+                  text: "RESUMEN DE FLOTA",
+                  colSpan: 5,
+                  style: "thResumen",
+                  alignment: "center",
+                },
+                {},
+                {},
+                {},
+                {},
+              ],
+              [
+                {
+                  text: `Total: ${unidadesFiltradas.length}`,
+                  style: "tdResumenBold",
+                  alignment: "center",
+                },
+                {
+                  text: `Disponibles: ${conteoPorDisponibilidad["Disponible"] || 0}`,
+                  style: "tdResumen",
+                  alignment: "center",
+                },
+                {
+                  text: `En mantenimiento: ${conteoPorDisponibilidad["En mantenimiento"] || 0}`,
+                  style: "tdResumen",
+                  alignment: "center",
+                },
+                {
+                  text: `Fuera de servicio: ${conteoPorDisponibilidad["Fuera de servicio"] || 0}`,
+                  style: "tdResumen",
+                  alignment: "center",
+                },
+                {
+                  text: `Baja: ${conteoPorDisponibilidad["Baja"] || 0}`,
+                  style: "tdResumen",
+                  alignment: "center",
+                },
+              ],
+            ],
+          },
+          layout: {
+            hLineWidth: () => 0.5,
+            vLineWidth: () => 0,
+            hLineColor: () => "#e2e8f0",
+            paddingTop: () => 6,
+            paddingBottom: () => 6,
+          },
+          margin: [0, 0, 0, 25],
+        },
+        {
+          table: {
+            headerRows: 1,
+            widths: [40, "*", 55, 55, 75],
+            body: [
+              [
+                { text: "#", style: "th" },
+                { text: "TIPO", style: "th" },
+                { text: "CAP. (KG)", style: "th", alignment: "center" },
+                { text: "CAP. (M³)", style: "th", alignment: "center" },
+                { text: "DISPONIBILIDAD", style: "th", alignment: "center" },
+              ],
+              ...bodyData,
+            ],
+          },
+          layout: "lightHorizontalLines",
+        },
+      ],
+      styles: {
+        mainTitle: { fontSize: 13, bold: true, color: "#0f172a" },
+        thResumen: {
+          bold: true,
+          fontSize: 10,
+          fillColor: "#f1f5f9",
+          color: "#0f172a",
+          margin: [4, 4],
+        },
+        tdResumen: { fontSize: 10, color: "#334155", margin: [4, 4] },
+        tdResumenBold: {
+          fontSize: 10,
+          bold: true,
+          color: "#0f172a",
+          margin: [4, 4],
+        },
+        th: {
+          bold: true,
+          fontSize: 8.5,
+          fillColor: "#0f172a",
+          color: "#ffffff",
+          margin: [4, 4],
+        },
+        td: { fontSize: 8, color: "#334155", margin: [4, 4] },
+        tdCenter: {
+          fontSize: 8,
+          color: "#334155",
+          alignment: "center",
+          margin: [4, 4],
+        },
+      },
+    };
+
+    const fecha = new Date().toLocaleDateString("sv-SE");
+    pdfMake
+      .createPdf(documentDefinition)
+      .download(`Directorio_Unidades_${fecha}.pdf`);
+  };
 
   return (
     <div className="w-full bg-slate-50/50 dark:bg-slate-900/50 p-6 rounded-xl flex flex-col h-full overflow-y-auto custom-scrollbar">
@@ -227,6 +464,15 @@ export default function AdminUnidades() {
             programados.
           </p>
         </div>
+
+        {pestana === "unidades" && (
+          <button
+            onClick={exportarPDF}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors"
+          >
+            <FileText size={16} /> Reporte PDF
+          </button>
+        )}
       </div>
 
       {/* BARRA DE PESTAÑAS */}
@@ -375,6 +621,21 @@ export default function AdminUnidades() {
                 </div>
               )}
 
+              {estado === "Baja" && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                    Motivo de baja (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={motivoBaja}
+                    onChange={(e) => setMotivoBaja(e.target.value)}
+                    placeholder="Ej. Donada a Matriz"
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-800 dark:text-slate-100"
+                  />
+                </div>
+              )}
+
               <div className="pt-2 flex flex-col gap-2">
                 <button
                   type="submit"
@@ -488,7 +749,7 @@ export default function AdminUnidades() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
-                    {unidadesOrdenadas.map((u: any) => (
+                    {unidadesPaginadas.map((u: any) => (
                       <tr
                         key={u.id}
                         className="hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition-colors group"
@@ -500,15 +761,15 @@ export default function AdminUnidades() {
                           {u.tipo}
                         </td>
                         <td className="p-4 text-center text-slate-600 dark:text-slate-300">
-                          {u.capacidad_kg}
+                          {formatearCapacidad(u.capacidad_kg)}
                         </td>
                         <td className="p-4 text-center text-slate-600 dark:text-slate-300">
-                          {u.capacidad_m3}
+                          {formatearCapacidad(u.capacidad_m3)}
                         </td>
                         <td className="p-4 text-center">
                           <span
                             className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full tracking-wider border ${claseDisponibilidadBadge(u._disponibilidad)}`}
-                            title={u.motivo_fuera_servicio || undefined}
+                            title={u.motivo_fuera_servicio || u.motivo_baja || undefined}
                           >
                             {u._disponibilidad}
                           </span>
@@ -522,6 +783,15 @@ export default function AdminUnidades() {
                             >
                               <Edit2 size={18} />
                             </button>
+                            {u._disponibilidad === "En mantenimiento" && (
+                              <button
+                                onClick={() => handleFinalizarMantenimiento(u)}
+                                className="p-2 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors"
+                                title="Finalizar mantenimiento (reparada antes de tiempo)"
+                              >
+                                <CheckCircle2 size={18} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

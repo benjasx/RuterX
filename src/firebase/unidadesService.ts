@@ -23,6 +23,7 @@ export const agregarUnidadFirebase = async (datosUnidad: {
       capacidad_m3: datosUnidad.capacidad_m3,
       estado: "Disponible",
       motivo_fuera_servicio: "",
+      motivo_baja: "",
       fecha_creacion: serverTimestamp(),
     });
     return docRef.id;
@@ -49,7 +50,7 @@ export const obtenerUnidadesFirebase = async () => {
   }
 };
 
-// 3. Actualizar datos de una unidad (datos, estado, motivo_fuera_servicio)
+// 3. Actualizar datos de una unidad (datos, estado, motivo_fuera_servicio, motivo_baja)
 export const actualizarUnidadFirebase = async (id: string, data: any) => {
   const docRef = doc(db, "unidades", id);
   await updateDoc(docRef, data);

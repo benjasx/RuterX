@@ -1,7 +1,7 @@
 # 04 — Gestión de Unidades (Vehículos, Disponibilidad y Mantenimientos)
 
 **Estado:** Aprobado
-**Depende de:** Ninguno
+**Depende de:** Spec 03 (amplía el modal "Personal en Bodega")
 **Fecha:** 2026-09-19
 
 **Objetivo:** Agregar un panel "Unidades" (accesible para admin, jefe de reparto y embarques) donde se dan de alta los vehículos con su tipo y capacidades, se controla su disponibilidad (disponible / en mantenimiento / fuera de servicio) y se programan sus mantenimientos, reemplazando la lista estática de números de unidad que hoy usa la tabla de asignación de rutas y los demás selects de unidad de la app.
@@ -20,16 +20,25 @@ No existe ninguna colección de Firestore para unidades. Este spec introduce esa
 
 **Dentro:**
 
-- Colección Firestore nueva `unidades`: `numero` (texto libre, único), `tipo` (texto libre, ej. "Fotón", "Isuzu"), `capacidad_kg` (número), `capacidad_m3` (número), `estado` (`"Disponible"` / `"Fuera de servicio"` / `"Baja"`, manual, default `"Disponible"`), `motivo_fuera_servicio` (texto libre, opcional).
+- Colección Firestore nueva `unidades`: `numero` (texto libre, único), `tipo` (texto libre, ej. "Fotón", "Isuzu"), `capacidad_kg` (número), `capacidad_m3` (número), `estado` (`"Disponible"` / `"Fuera de servicio"` / `"Baja"`, manual, default `"Disponible"`), `motivo_fuera_servicio` (texto libre, opcional), `motivo_baja` (texto libre, opcional, ej. "Donada a Matriz", "Vendida").
 - Colección Firestore nueva `mantenimientosUnidades`: historial completo (pasados, actuales y futuros) de mantenimientos programados por unidad, con `unidad_id`, `unidad_numero` (denormalizado), `tipo` (`"Preventivo"` / `"Correctivo"`), `descripcion`, `taller` (opcional), `costo` (opcional), `fecha_inicio` y `fecha_fin` (rango de días).
 - Panel nuevo "Unidades" (`AdminUnidades.tsx`), sub-vista `"unidades"` en el sidebar, visible para `admin`, `jefeReparto` y `embarques` (permiso nuevo `permisos.unidades`), con las mismas acciones disponibles para los tres roles.
-- Dentro del panel: formulario para dar de alta una unidad (número, tipo, capacidad en kg, capacidad en m³); tabla de unidades con su disponibilidad efectiva (badge: Disponible / En mantenimiento / Fuera de servicio / Baja); acción para editar los datos de una unidad; acción para alternar manualmente "Fuera de servicio" ↔ "Disponible" (con motivo de texto libre opcional); acción para dar de baja una unidad (baja lógica); acción para programar un mantenimiento nuevo y ver/editar/eliminar el historial de mantenimientos de esa unidad.
+- Dentro del panel: formulario para dar de alta una unidad (número, tipo, capacidad en kg, capacidad en m³); tabla de unidades **ordenada por número** (orden numérico, no alfabético puro, aplicado antes de paginar) con su disponibilidad efectiva (badge: Disponible / En mantenimiento / Fuera de servicio / Baja); acción para editar los datos de una unidad; acción para alternar manualmente "Fuera de servicio" ↔ "Disponible" (con motivo de texto libre opcional); acción para dar de baja una unidad (baja lógica); acción para programar un mantenimiento nuevo y ver/editar/eliminar el historial de mantenimientos de esa unidad.
+- En la tabla de unidades, cuando la disponibilidad efectiva de hoy es "En mantenimiento", aparece un botón "Finalizar mantenimiento" que cierra el mantenimiento en curso (fija su `fecha_fin` en el día de ayer) para que la unidad se muestre "Disponible" de inmediato, sin esperar a que llegue la `fecha_fin` originalmente programada. Caso de uso: la unidad se reparó antes de lo previsto.
+- Botón "Reporte PDF" en la pestaña "Unidades" que exporta el directorio completo de unidades (respetando la búsqueda/filtro de disponibilidad activos en pantalla) con su disponibilidad **actual** (calculada para hoy, no para una fecha de reparto específica), en orientación **portrait** con un resumen de conteos por disponibilidad (Total/Disponibles/En mantenimiento/Fuera de servicio/Baja), siguiendo el patrón de `exportarPDF` en `AdminChoferes.tsx` (adaptado a portrait, a diferencia de ese reporte que es landscape). Nombre de archivo: `Directorio_Unidades_<fecha>.pdf`.
 - Disponibilidad calculada automáticamente con una función `disponibilidadEfectiva` (mismo patrón que `estadoEfectivo` de `vacacionesUtils.ts`): si el `estado` manual es `"Fuera de servicio"` o `"Baja"`, ese es el resultado; si no, y existe un mantenimiento cuyo rango `fecha_inicio`–`fecha_fin` cubre la fecha evaluada, el resultado es `"En mantenimiento"`; si no, `"Disponible"`.
 - El panel de Unidades escucha cambios en vivo con `onSnapshot` sobre `unidades` y `mantenimientosUnidades` (mismo patrón que el listener de `AltasClientes.tsx`), sincronizando la caché de TanStack Query sin mostrar ningún toast — varias personas (admin/jefe/embarques) pueden tener el panel abierto a la vez y ver los cambios de las demás al instante.
 - Reemplazo de `LISTA_UNIDADES` por datos reales de Firestore en los cuatro lugares donde se usa hoy: `PanelDistribucion.tsx`, `ModalAsignarDespacho.tsx`, `ModalFinalizarViaje.tsx` y `MapaRutero.tsx`. En los tres últimos, el select solo lista los números de unidades activas (`estado !== "Baja"`), sin más cambio de comportamiento.
 - En `PanelDistribucion.tsx` (tabla de asignación de rutas), además de excluir las unidades dadas de baja, el select "UNID" deshabilita (mismo patrón visual que ya usa para ocupadas, ej. "(OC)") las unidades cuya disponibilidad efectiva para la `fechaSeleccionada` no sea `"Disponible"`, mostrando una etiqueta corta del motivo (ej. "(MANTO)" / "(F. SERV.)").
 - Reglas de Firestore para `unidades` y `mantenimientosUnidades`: lectura y escritura para `esPersonalAutorizado()` (admin, jefeReparto, embarques), igual patrón que `distribucion_diaria`.
 - Validación: no se puede guardar una unidad con un `numero` que ya exista en otra unidad activa (comparación exacta tras recortar espacios, sin distinguir mayúsculas/minúsculas).
+- **Ampliación del modal "Personal en Bodega"** (`specs/03-disponibilidad-personal-bodega.md`, en `PanelDistribucion.tsx`): al final de ese mismo modal, debajo de la tabla "Personal Ausente", se agregan dos tablas espejo para unidades, con el mismo criterio de fecha (`fechaSeleccionada`) que ya usa el resto del modal:
+  - **Unidades Disponibles:** unidades activas (`estado !== "Baja"`) cuya disponibilidad efectiva ese día es `"Disponible"` y que no están asignadas a ninguna fila de la tabla de distribución ese día (`unidadesUsadas`). Columnas: Número, Tipo, Capacidad (kg), Capacidad (m³). Mensaje si está vacía: "No hay unidades disponibles para este día."
+  - **Unidades No Disponibles:** unidades activas cuya disponibilidad efectiva ese día es `"En mantenimiento"` o `"Fuera de servicio"`, sin importar si además están asignadas a una fila (mismo criterio que "Personal Ausente", independiente de `unidadesUsadas`). Columnas: Número, Tipo, Capacidad (kg), Capacidad (m³), Motivo. Mensaje si está vacía: "No hay unidades en mantenimiento o fuera de servicio para este día."
+  - Las unidades dadas de baja (`estado === "Baja"`) no aparecen en ninguna de las dos tablas: quedan fuera de esta vista por completo.
+  - El recuadro de resumen del modal pasa de 2 a 4 recuadros en la misma fila: "Personal Disponible" (verde), "Personal Ausente" (naranja), "Unidades Disponibles" (azul) y "Unidades No Disponibles" (ámbar), cada uno con su conteo.
+  - Ambas tablas son de solo lectura (igual que "Personal Ausente"): no tienen botones de acción; para editar una unidad, cambiar su disponibilidad o programar un mantenimiento se usa el panel "Unidades" ya implementado en este mismo spec.
+  - Los botones "Excel" y "PDF" ya existentes en ese modal (`exportarPersonalBodegaExcel`, `exportarPersonalBodegaPDF`) se amplían para incluir también estas dos tablas: dos hojas más en el Excel ("Unidades Bodega", "Unidades No Disponibles") y dos secciones más en el PDF (con su propio resumen de conteos), sin cambiar el nombre del archivo (`PERSONAL_BODEGA_<fecha>.xlsx`/`.pdf`).
 
 **Fuera de alcance (para otro spec si hace falta):**
 
@@ -42,6 +51,8 @@ No existe ninguna colección de Firestore para unidades. Este spec introduce esa
 - No se lleva historial de kilometraje, combustible, ni documentos (tarjeta de circulación, seguro, verificación) de la unidad.
 - No se valida que los rangos de fechas de dos mantenimientos de la misma unidad no se traslapen.
 - No se modifica la estructura de `filas`/`viajes`: el campo `unidad`/`unidad_utilizada` sigue guardando el número de unidad como string, igual que hoy.
+- Las tablas de unidades del modal "Personal en Bodega" no tienen acciones (editar, cambiar disponibilidad, programar mantenimiento); son de solo lectura.
+- No se renombra el modal ni el botón "Personal en Bodega", ni el título en pantalla/PDF ("PERSONAL DISPONIBLE EN BODEGA"); las tablas de unidades se agregan como secciones adicionales al final del mismo modal y reporte.
 
 ## Datos
 
@@ -55,6 +66,7 @@ type Unidad = {
   capacidad_m3: number; // requerido
   estado: "Disponible" | "Fuera de servicio" | "Baja"; // manual, default "Disponible"
   motivo_fuera_servicio?: string; // opcional, solo relevante si estado === "Fuera de servicio"
+  motivo_baja?: string; // opcional, solo relevante si estado === "Baja" (ej. "Donada a Matriz")
 };
 
 // Colección "mantenimientosUnidades"
@@ -74,6 +86,18 @@ type MantenimientoUnidad = {
 // - unidad.estado === "Fuera de servicio" | "Baja" → ese valor
 // - si no, y hay un mantenimiento con fecha_inicio <= hoy <= fecha_fin → "En mantenimiento"
 // - si no → "Disponible"
+
+// Derivados en memoria dentro de PanelDistribucion.tsx, para las nuevas
+// tablas del modal "Personal en Bodega" (sin colección ni campo nuevo):
+type UnidadBodega = {
+  numero: string;
+  tipo: string;
+  capacidad_kg: number;
+  capacidad_m3: number;
+};
+type UnidadNoDisponibleBodega = UnidadBodega & {
+  motivo: "En mantenimiento" | "Fuera de servicio";
+};
 ```
 
 ## Plan de implementación
@@ -96,6 +120,14 @@ type MantenimientoUnidad = {
 16. Prueba manual: programar un mantenimiento con un rango de fechas que incluya hoy y confirmar que la unidad se muestra "En mantenimiento" en el panel, y en Distribución Diaria aparece deshabilitada solo para las fechas dentro del rango (una fecha fuera del rango la muestra disponible).
 17. Prueba manual: dar de baja una unidad y confirmar que desaparece de los 4 selects pero sigue visible (marcada "Baja") en el panel de Unidades, con su historial de mantenimientos intacto.
 18. Prueba manual: confirmar que un chofer o un vendedor no ven "Unidades" en el sidebar, y que admin/jefeReparto/embarques sí, con las mismas acciones disponibles para los tres.
+19. En `PanelDistribucion.tsx`: agregar los `useMemo` `unidadesDisponiblesBodega` (unidades activas, disponibilidad efectiva "Disponible" y no presentes en `unidadesUsadas` esa fecha) y `unidadesNoDisponiblesBodega` (unidades activas con disponibilidad efectiva "En mantenimiento" o "Fuera de servicio" esa fecha, con su `motivo`, independiente de `unidadesUsadas`), reutilizando `unidadesActivas` y `disponibilidadPorNumero` ya calculados.
+20. En `PanelDistribucion.tsx`: dentro del modal "Personal en Bodega", ampliar el recuadro de resumen de 2 a 4 columnas (Personal Disponible, Personal Ausente, Unidades Disponibles, Unidades No Disponibles) y agregar las dos tablas nuevas ("Unidades Disponibles" y "Unidades No Disponibles" con columna Motivo) debajo de "Personal Ausente", cada una con su mensaje de lista vacía.
+21. En `PanelDistribucion.tsx`: ampliar `exportarPersonalBodegaExcel` para agregar las hojas "Unidades Bodega" y "Unidades No Disponibles" al mismo workbook.
+22. En `src/utils/reportesDistribucionUtils.ts`: ampliar la firma de `exportarPersonalBodegaPDF` para recibir también `unidadesDisponibles` y `unidadesNoDisponibles`, agregando sus dos recuadros de resumen y sus dos secciones/tablas al documento (mismo patrón que las de personal); actualizar la llamada en `PanelDistribucion.tsx`.
+23. Verificar con `npm run build` que no hay errores de tipos.
+24. Prueba manual: con una fecha que tenga unidades asignadas en `filas`, alguna en mantenimiento (rango vigente ese día), alguna fuera de servicio y alguna dada de baja, confirmar que "Unidades Disponibles" excluye correctamente a las asignadas, en mantenimiento, fuera de servicio y de baja; que "Unidades No Disponibles" muestra exactamente a las de mantenimiento/fuera de servicio con su motivo correcto (sin importar si están asignadas); y que las de baja no aparecen en ninguna tabla.
+25. Prueba manual: cambiar la fecha del filtro y confirmar que ambas tablas y sus conteos en el resumen se recalculan sin recargar la página.
+26. Prueba manual: exportar Excel (4 hojas) y PDF (4 secciones/resúmenes) desde el modal y confirmar que las dos hojas/secciones de unidades coinciden exactamente con las tablas mostradas en pantalla.
 
 Cada paso deja la app compilando y funcional.
 
@@ -114,6 +146,19 @@ Cada paso deja la app compilando y funcional.
 - [ ] En la tabla de asignación de `PanelDistribucion.tsx`, el select "UNID" deshabilita, para la `fechaSeleccionada`, las unidades en mantenimiento o fuera de servicio ese día (además de las ya ocupadas), mostrando un motivo corto.
 - [ ] En `ModalAsignarDespacho.tsx`, `ModalFinalizarViaje.tsx` y `MapaRutero.tsx`, el select de unidad solo excluye las unidades dadas de baja; no deshabilita por mantenimiento o fuera de servicio.
 - [ ] Se puede editar y eliminar un registro de mantenimiento ya guardado.
+- [ ] El modal "Personal en Bodega" muestra, debajo de "Personal Ausente", las tablas "Unidades Disponibles" y "Unidades No Disponibles" para la `fechaSeleccionada`.
+- [ ] "Unidades Disponibles" solo incluye unidades activas, con disponibilidad efectiva "Disponible" ese día, y no asignadas a ninguna fila de la tabla de distribución ese día.
+- [ ] "Unidades No Disponibles" incluye toda unidad activa en "En mantenimiento" o "Fuera de servicio" ese día, con su motivo correcto, sin importar si también está asignada a una fila.
+- [ ] Ninguna unidad dada de baja aparece en "Unidades Disponibles" ni en "Unidades No Disponibles".
+- [ ] El resumen del modal muestra 4 recuadros con los conteos exactos de Personal Disponible, Personal Ausente, Unidades Disponibles y Unidades No Disponibles, y se actualizan al cambiar la fecha.
+- [ ] Las tablas de unidades del modal son de solo lectura (sin botones de editar/cambiar disponibilidad/programar mantenimiento).
+- [ ] El Excel exportado desde ese modal incluye las hojas "Unidades Bodega" y "Unidades No Disponibles" junto a las de personal.
+- [ ] El PDF exportado desde ese modal incluye las secciones y resúmenes de unidades junto a las de personal.
+- [ ] El directorio de unidades del panel "Unidades" está ordenado por número (orden numérico), incluso al cambiar de página.
+- [ ] El botón "Reporte PDF" del panel "Unidades" descarga `Directorio_Unidades_<fecha>.pdf` con todas las unidades que cumplen la búsqueda/filtro activos, su disponibilidad actual y el resumen de conteos.
+- [ ] Una unidad "En mantenimiento" muestra el botón "Finalizar mantenimiento"; al confirmarlo, su disponibilidad efectiva cambia a "Disponible" en el acto (sin esperar a la `fecha_fin` programada) y queda seleccionable en la tabla de asignación de `PanelDistribucion.tsx` para el día de hoy.
+- [ ] Una unidad "Disponible" o "Fuera de servicio" no muestra el botón "Finalizar mantenimiento".
+- [ ] Al marcar una unidad como "Baja" se puede capturar un motivo de texto libre opcional (ej. "Donada a Matriz"), visible como tooltip sobre el badge "Baja" en el directorio.
 - [ ] `npm run build` pasa sin errores de tipo.
 
 ## Decisiones tomadas
@@ -132,6 +177,20 @@ Cada paso deja la app compilando y funcional.
 - **Filtro de disponibilidad solo en la tabla de asignación de `PanelDistribucion.tsx`:** es la única "tabla de asignación de rutas" que mencionó el usuario; los otros tres selects de unidad solo excluyen bajas, igual que hoy el filtro de choferes ausentes tampoco aplica ahí.
 - **Sin migración automática de los 26 números de `LISTA_UNIDADES`:** decisión explícita del usuario; se prefiere dar de alta cada unidad a mano con sus datos reales (tipo y capacidades) en vez de precargar números vacíos que habría que completar después.
 - **Sin relación entre capacidad de la unidad y peso/volumen de los pedidos de una ruta:** el usuario solo pidió ver la capacidad como dato informativo; un motor de sugerencia de asignación automática queda fuera de este spec.
+- **Ampliar el modal existente de spec 03 en vez de crear una vista nueva:** el usuario pidió explícitamente que apareciera "en la vista de personal en bodega, hasta el final"; reutiliza fecha, layout, patrón de exportación y convenciones visuales ya existentes.
+- **Tabla espejo "Unidades No Disponibles", igual que "Personal Ausente":** decisión explícita del usuario ("al igual que las unidades"), para mantener simetría entre la sección de personal y la de unidades en la misma vista.
+- **Unidades dadas de baja fuera de la vista por completo (ni disponibles ni no disponibles):** una unidad de baja está decomisionada y no es información relevante para planear el reparto del día siguiente, a diferencia de una en mantenimiento o fuera de servicio (que sí son operativamente relevantes de mostrar).
+- **Tablas de unidades de solo lectura:** mismo criterio que "Personal Ausente" (informativo); cualquier cambio a una unidad (editar, disponibilidad, mantenimiento) se hace desde el panel "Unidades" ya implementado en este spec, no desde este modal de solo consulta.
+- **Se incluyen en la exportación Excel/PDF existente, sin cambiar el nombre del archivo:** mismo reporte de "Personal en Bodega" ahora también informa sobre unidades, consistente con que ya exporta ambas tablas de personal juntas en un solo archivo.
+- **En el PDF, las unidades van en hoja aparte (salto de página explícito antes de "UNIDADES DISPONIBLES"), con su propio resumen de conteos:** pedido explícito del usuario, para no mezclar visualmente el reporte de personal con el de unidades en la misma página impresa. En el modal en pantalla no aplica (no hay "páginas"): las 4 tablas se ven en una sola vista continua.
+- **Orden por número aplicado antes de paginar, no después:** el directorio de unidades se ordena sobre `unidadesFiltradas` (la lista completa que cumple búsqueda/filtro) y luego se pagina; ordenar solo los 10 registros ya paginados producía páginas con el orden correcto internamente pero fuera de secuencia entre sí.
+- **Reporte PDF del directorio completo de unidades, separado del reporte de "Personal en Bodega":** pedido explícito del usuario para ver el estado de toda la flota en cualquier momento, no solo el día de una ruta; reutiliza el patrón ya existente de `exportarPDF` en `AdminChoferes.tsx` (resumen de conteos, tabla) en vez de crear una abstracción compartida entre paneles distintos.
+- **Portrait en vez de landscape:** pedido explícito del usuario; a diferencia del directorio de personal (9 columnas), el de unidades solo tiene 5, por lo que cabe cómodo en vertical.
+- **Capacidades con separador de miles (`toLocaleString("es-MX")`) en las cuatro vistas donde se muestran:** directorio en pantalla del panel "Unidades", su PDF, y las tablas "Unidades Disponibles"/"Unidades No Disponibles" del modal "Personal en Bodega" (pantalla y PDF). No se aplicó a la hoja de Excel de "Personal en Bodega" (fuera de lo pedido).
+- **Encabezado "#" en vez de "Número" solo en el PDF del panel "Unidades" y en el modal/PDF de "Personal en Bodega":** el directorio en pantalla del panel "Unidades" conserva la columna "Número" (no se pidió cambiarla ahí).
+- **"Finalizar mantenimiento" ajusta `fecha_fin` a ayer, en vez de agregar un campo `estado` propio al mantenimiento (ej. "Completado"/"En curso"):** mantiene `disponibilidadEfectiva` con una sola fuente de verdad (el rango de fechas); evita un segundo campo que pudiera quedar inconsistente con las fechas del registro. El registro conserva su `fecha_inicio` original, por lo que el historial sigue reflejando cuándo empezó el mantenimiento real.
+- **Sin edición manual de `fecha_fin` como único camino:** aunque ya era posible lograr el mismo resultado editando el mantenimiento desde la pestaña "Mantenimientos", se agrega el atajo "Finalizar mantenimiento" directamente en la tabla de unidades porque es ahí donde el usuario nota que una unidad sigue marcada "En mantenimiento" y quiere resolverlo en un clic, sin tener que ubicar el registro correcto en el historial.
+- **`motivo_baja` como texto libre, no un catálogo cerrado de razones (donación/venta/siniestro/etc.):** pedido explícito del usuario para el caso de "donada a Matriz"; mismo criterio que `motivo_fuera_servicio` y que `tipo` de unidad, ya decidido como texto libre en este spec.
 
 ## Riesgos identificados
 
