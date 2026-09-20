@@ -212,7 +212,9 @@ export default function PanelHistorial() {
   const colorBgMenu = isChofer
     ? "bg-purple-50 dark:bg-purple-950/40 border-purple-100 dark:border-purple-900"
     : "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-900";
-  const colorTextMenu = isChofer ? "text-purple-800 dark:text-purple-300" : "text-emerald-800 dark:text-emerald-300";
+  const colorTextMenu = isChofer
+    ? "text-purple-800 dark:text-purple-300"
+    : "text-emerald-800 dark:text-emerald-300";
   const colorSelectBorder = isChofer
     ? "border-purple-200 dark:border-purple-800 focus:ring-purple-500"
     : "border-emerald-200 dark:border-emerald-800 focus:ring-emerald-500";
@@ -250,7 +252,14 @@ export default function PanelHistorial() {
     <div className="w-full bg-slate-50/50 dark:bg-slate-900/50 p-6 rounded-xl flex flex-col h-full overflow-y-auto custom-scrollbar">
       <div className="mb-6">
         <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
-          <History className={isChofer ? "text-purple-600 dark:text-purple-400" : "text-emerald-600 dark:text-emerald-400"} size={28} />
+          <History
+            className={
+              isChofer
+                ? "text-purple-600 dark:text-purple-400"
+                : "text-emerald-600 dark:text-emerald-400"
+            }
+            size={28}
+          />
           Control de Equidad y Reportes
         </h2>
         <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">
@@ -278,7 +287,9 @@ export default function PanelHistorial() {
       {/* Resumen del rango */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${colorIconTile}`}>
+          <div
+            className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${colorIconTile}`}
+          >
             <ListChecks size={24} />
           </div>
           <div className="min-w-0">
@@ -292,7 +303,9 @@ export default function PanelHistorial() {
         </div>
 
         <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${colorIconTile}`}>
+          <div
+            className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${colorIconTile}`}
+          >
             <Gauge size={24} />
           </div>
           <div className="min-w-0">
@@ -401,7 +414,7 @@ export default function PanelHistorial() {
               disabled={isGenerandoPDF || cargando}
               className={`flex-1 min-w-[160px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm ${isGenerandoPDF || cargando ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed" : "bg-slate-800 hover:bg-slate-900 text-white"}`}
             >
-              <FileText size={18} /> Resumen Maestro
+              <FileText size={18} /> Resumen General
             </button>
           </div>
 
@@ -447,7 +460,10 @@ export default function PanelHistorial() {
         </div>
       ) : datosMostrar.length === 0 ? (
         <div className="p-8 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-800 flex flex-col items-center text-center">
-          <AlertCircle className="text-slate-400 dark:text-slate-500 mb-3" size={40} />
+          <AlertCircle
+            className="text-slate-400 dark:text-slate-500 mb-3"
+            size={40}
+          />
           <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200">
             No hay personal registrado
           </h3>
@@ -478,7 +494,8 @@ export default function PanelHistorial() {
               {datosMostrar.map((personal, index) => {
                 const esLider = index === 0;
                 const porcentaje =
-                  (personal.totalViajes / Math.max(resumen?.maxViajes ?? 1, 1)) *
+                  (personal.totalViajes /
+                    Math.max(resumen?.maxViajes ?? 1, 1)) *
                   100;
                 return (
                   <tr
@@ -507,7 +524,9 @@ export default function PanelHistorial() {
                         <div className="flex-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden min-w-16">
                           <div
                             className={`h-full rounded-full ${personal.totalViajes === 0 ? "bg-red-400" : colorBarra}`}
-                            style={{ width: `${Math.max(porcentaje, personal.totalViajes === 0 ? 100 : 4)}%` }}
+                            style={{
+                              width: `${Math.max(porcentaje, personal.totalViajes === 0 ? 100 : 4)}%`,
+                            }}
                           />
                         </div>
                         <span
