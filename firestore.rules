@@ -83,6 +83,12 @@ service cloud.firestore {
       allow read, write: if esPersonalAutorizado();
     }
 
+    // Plantillas de correo (envío de reimpresión de facturas): solo admin
+    // (ver specs/07-envio-correos.md)
+    match /plantillasCorreo/{docId} {
+      allow read, write: if esAdmin();
+    }
+
     // Ajustes de nómina: solo admin
     match /configuracion/{docId} {
       allow read: if esPersonalAutorizado();
