@@ -1,6 +1,9 @@
 import { obtenerLogoBase64Local } from "./mapaUtils";
 import { notificarAdvertencia } from "./notificaciones";
-import type { RentabilidadViaje } from "./rentabilidadUtils";
+import type {
+  SimulacionRentabilidadInput,
+  SimulacionRentabilidadResultado,
+} from "./rentabilidadUtils";
 
 const fMoneda = (n: number) =>
   new Intl.NumberFormat("es-MX", {
@@ -8,9 +11,9 @@ const fMoneda = (n: number) =>
     currency: "MXN",
   }).format(n);
 
-const fPct = (n: number) => `${n.toFixed(1)}%`;
+const fPct = (n: number | null) => (n === null ? "—" : `${n.toFixed(2)}%`);
 
-// Recuadro de resumen (etiqueta + valor grande), mismo patrón que
+// Recuadro de resumen (etiqueta + valor), mismo patrón que
 // reportesDistribucionUtils.ts (recuadroResumen).
 const recuadroResumen = (
   titulo: string,
@@ -34,7 +37,7 @@ const recuadroResumen = (
             },
             {
               text: valor,
-              fontSize: 16,
+              fontSize: 14,
               bold: true,
               color: colorTexto,
               alignment: "center",
@@ -56,53 +59,32 @@ const recuadroResumen = (
   },
 });
 
-interface ResumenRentabilidad {
-  ventaTotal: number;
-  gastoTotal: number;
-  rentabilidadTotal: number;
-  pctGastoPromedio: number;
-  pctRentabilidadPromedio: number;
-  optimas: number;
-  total: number;
-}
+const filaDesglose = (label: string, valor: string, destacada = false) => [
+  {
+    text: label,
+    style: destacada ? "tdBold" : "td",
+    fillColor: destacada ? "#f8fafc" : "#ffffff",
+  },
+  {
+    text: valor,
+    style: destacada ? "tdBoldRight" : "tdRight",
+    fillColor: destacada ? "#f8fafc" : "#ffffff",
+  },
+];
 
-export const exportarRentabilidadPDF = async (
-  viajes: RentabilidadViaje[],
-  resumen: ResumenRentabilidad,
-  fechaInicio: string,
-  fechaFin: string,
+export const exportarSimulacionRentabilidadPDF = async (
+  input: SimulacionRentabilidadInput,
+  resultado: SimulacionRentabilidadResultado,
+  ruta: string,
+  fecha: string,
 ) => {
   const pdfMake = (window as any).pdfMake;
   if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
 
   const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
 
-  const bodyData = viajes.map((v, index) => {
-    const esPar = index % 2 === 0;
-    const bgFila = esPar ? "#ffffff" : "#f8fafc";
-
-    return [
-      { text: v.fecha, style: "td", fillColor: bgFila },
-      { text: v.ruta || "-", style: "td", fillColor: bgFila },
-      { text: v.chofer || "-", style: "td", fillColor: bgFila },
-      { text: v.unidad || "-", style: "tdCenter", fillColor: bgFila },
-      { text: fMoneda(v.venta), style: "tdRight", fillColor: bgFila },
-      { text: fMoneda(v.gastoOperativo), style: "tdRight", fillColor: bgFila },
-      { text: fPct(v.pctGasto), style: "tdRight", fillColor: bgFila },
-      { text: fMoneda(v.rentabilidad), style: "tdRight", fillColor: bgFila },
-      { text: fPct(v.pctRentabilidad), style: "tdRight", fillColor: bgFila },
-      {
-        text: v.esOptima ? "Óptima" : "No óptima",
-        style: "tdCenter",
-        fillColor: bgFila,
-        color: v.esOptima ? "#047857" : "#be123c",
-        bold: true,
-      },
-    ];
-  });
-
   const documentDefinition = {
-    pageOrientation: "landscape",
+    pageOrientation: "portrait",
     pageMargins: [30, 30, 30, 30],
     content: [
       {
@@ -119,7 +101,7 @@ export const exportarRentabilidadPDF = async (
                 color: "#0f172a",
               },
               {
-                text: "RENTABILIDAD DE RUTAS",
+                text: "SIMULACIÓN DE RENTABILIDAD",
                 fontSize: 11,
                 bold: true,
                 color: "#2563eb",
@@ -132,64 +114,121 @@ export const exportarRentabilidadPDF = async (
         margin: [0, 0, 0, 15],
       },
       {
-        text: `DEL ${fechaInicio} AL ${fechaFin}`,
+        text: `RUTA: ${ruta.toUpperCase()}  ·  ${fecha}`,
         style: "sectionTitle",
       },
       {
         columns: [
           recuadroResumen(
-            "VENTA TOTAL",
-            fMoneda(resumen.ventaTotal),
-            "#1d4ed8",
-            "#eff6ff",
-            "#bfdbfe",
-          ),
-          recuadroResumen(
-            "GASTO OPERATIVO",
-            `${fMoneda(resumen.gastoTotal)} (${fPct(resumen.pctGastoPromedio)})`,
+            "GASTO TOTAL RUTA",
+            fMoneda(resultado.gastoTotalRuta),
             "#b45309",
             "#fffbeb",
             "#fde68a",
           ),
           recuadroResumen(
-            "RENTABILIDAD",
-            `${fMoneda(resumen.rentabilidadTotal)} (${fPct(resumen.pctRentabilidadPromedio)})`,
+            "$/KM",
+            resultado.pesosPorKm !== null ? fMoneda(resultado.pesosPorKm) : "—",
+            "#1d4ed8",
+            "#eff6ff",
+            "#bfdbfe",
+          ),
+          recuadroResumen(
+            "% GASTO VS CONTRIBUCIÓN",
+            fPct(resultado.pctGastoVsContribucion),
             "#047857",
             "#ecfdf5",
             "#a7f3d0",
           ),
           recuadroResumen(
-            "RUTAS ÓPTIMAS",
-            `${resumen.optimas} de ${resumen.total}`,
-            resumen.optimas === resumen.total ? "#047857" : "#b45309",
-            resumen.optimas === resumen.total ? "#ecfdf5" : "#fffbeb",
-            resumen.optimas === resumen.total ? "#a7f3d0" : "#fde68a",
+            "ESTADO",
+            resultado.esOptima === null
+              ? "—"
+              : resultado.esOptima
+                ? "ÓPTIMA"
+                : "NO ÓPTIMA",
+            resultado.esOptima ? "#047857" : "#be123c",
+            resultado.esOptima ? "#ecfdf5" : "#fff1f2",
+            resultado.esOptima ? "#a7f3d0" : "#fecdd3",
           ),
         ],
-        columnGap: 12,
+        columnGap: 10,
         margin: [0, 0, 0, 20],
       },
       {
         table: {
-          headerRows: 1,
-          widths: [60, "*", "*", 40, 60, 65, 45, 60, 55, 55],
+          widths: ["*", 110],
           body: [
-            [
-              { text: "Fecha", style: "th" },
-              { text: "Ruta", style: "th" },
-              { text: "Chofer", style: "th" },
-              { text: "Un", style: "th", alignment: "center" },
-              { text: "Venta", style: "th", alignment: "right" },
-              { text: "Gasto Oper.", style: "th", alignment: "right" },
-              { text: "% Gasto", style: "th", alignment: "right" },
-              { text: "Rentabilidad", style: "th", alignment: "right" },
-              { text: "% Rent.", style: "th", alignment: "right" },
-              { text: "Estado", style: "th", alignment: "center" },
-            ],
-            ...bodyData,
+            filaDesglose("Salario Chofer (día)", fMoneda(resultado.salarioChofer)),
+            filaDesglose(
+              "Salario Ayudante 1 (día)",
+              fMoneda(resultado.salarioAyudante1),
+            ),
+            filaDesglose(
+              "Salario Ayudante 2 (día)",
+              fMoneda(resultado.salarioAyudante2),
+            ),
+            filaDesglose("Viático Chofer", fMoneda(resultado.viaticoChofer)),
+            filaDesglose(
+              "Viático Ayudante 1",
+              fMoneda(resultado.viaticoAyudante1),
+            ),
+            filaDesglose(
+              "Viático Ayudante 2",
+              fMoneda(resultado.viaticoAyudante2),
+            ),
+            filaDesglose("Comisión Chofer", fMoneda(resultado.comisionChofer)),
+            filaDesglose(
+              "Comisión Ayudante",
+              fMoneda(resultado.comisionAyudante),
+            ),
+            filaDesglose(
+              `Gasto Combustible (${input.kilometraje} km × ${fMoneda(input.precioDiesel)})`,
+              fMoneda(resultado.gastoCombustible),
+            ),
+            filaDesglose("Gasto Legal", fMoneda(resultado.gastoLegal)),
+            filaDesglose(
+              "Gasto Mantenimiento",
+              fMoneda(resultado.gastoMantenimiento),
+            ),
+            filaDesglose(
+              "GASTO TOTAL RUTA",
+              fMoneda(resultado.gastoTotalRuta),
+              true,
+            ),
+            filaDesglose(
+              "Venta Programada",
+              fMoneda(resultado.ventaProgramada),
+            ),
+            filaDesglose(
+              "Al Costo/Sin Impuestos",
+              fMoneda(resultado.cantidadAlCosto),
+            ),
+            filaDesglose(
+              "CONTRIBUCIÓN PROMEDIO REAL",
+              fMoneda(resultado.contribucionPromedioReal),
+              true,
+            ),
+            filaDesglose(
+              "Gasto Total vs Al Costo / vs Contribución",
+              `${fPct(resultado.pctGastoVsAlCosto)} / ${fPct(resultado.pctGastoVsContribucion)}`,
+            ),
+            filaDesglose(
+              "CONTRIBUCIÓN REAL DESPUÉS DE GASTOS",
+              fMoneda(resultado.contribucionRealDespuesGastos),
+              true,
+            ),
+            filaDesglose(
+              "Contribución Real vs Al Costo / vs Contribución",
+              `${fPct(resultado.pctContribucionRealVsAlCosto)} / ${fPct(resultado.pctContribucionRealVsContribucion)}`,
+            ),
           ],
         },
-        layout: "lightHorizontalLines",
+        layout: {
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0,
+          hLineColor: () => "#e2e8f0",
+        },
       },
     ],
     footer: (currentPage: number, pageCount: number) => ({
@@ -215,32 +254,26 @@ export const exportarRentabilidadPDF = async (
         fontSize: 11,
         bold: true,
         color: "#0f172a",
-        margin: [0, 0, 0, 6],
+        margin: [0, 0, 0, 10],
       },
-      th: {
-        bold: true,
-        fontSize: 8,
-        fillColor: "#0f172a",
-        color: "#ffffff",
-        margin: [4, 4],
-      },
-      td: { fontSize: 7.5, color: "#334155", margin: [4, 4] },
-      tdCenter: {
-        fontSize: 7.5,
-        color: "#334155",
-        alignment: "center",
-        margin: [4, 4],
-      },
+      td: { fontSize: 9, color: "#334155", margin: [4, 5] },
       tdRight: {
-        fontSize: 7.5,
+        fontSize: 9,
         color: "#334155",
         alignment: "right",
-        margin: [4, 4],
+        margin: [4, 5],
+      },
+      tdBold: { fontSize: 9.5, bold: true, color: "#0f172a", margin: [4, 5] },
+      tdBoldRight: {
+        fontSize: 9.5,
+        bold: true,
+        color: "#0f172a",
+        alignment: "right",
+        margin: [4, 5],
       },
     },
   };
 
-  pdfMake
-    .createPdf(documentDefinition)
-    .download(`Rentabilidad_Rutas_${fechaInicio}_a_${fechaFin}.pdf`);
+  const nombreArchivo = `Rentabilidad_${ruta.replace(/\s+/g, "_")}_${fecha}.pdf`;
+  pdfMake.createPdf(documentDefinition).download(nombreArchivo);
 };
