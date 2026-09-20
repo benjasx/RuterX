@@ -1,6 +1,6 @@
 # 05 — Rentabilidad de Rutas
 
-**Estado:** aprobado
+**Estado:** implementado
 **Depende de:** Ninguno
 **Fecha:** 2026-09-20
 

@@ -29,6 +29,12 @@ const fPct = (n: number | null) => (n === null ? "—" : `${n.toFixed(2)}%`);
 const inputAmarillo =
   "w-full p-2.5 border rounded-lg font-semibold outline-none focus:ring-2 focus:ring-amber-500 transition-shadow bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-slate-800 dark:text-slate-100";
 
+// Muestra el campo vacío cuando el valor es 0: si no, al borrar el "0" para
+// escribir un valor nuevo, Number("") vuelve a dar 0 y React lo muestra de
+// nuevo como "0" antes de que se pueda teclear nada.
+const valorInput = (n: number) => (n === 0 ? "" : n);
+const parseInput = (valor: string) => (valor === "" ? 0 : Number(valor));
+
 // Mismo criterio de normalización/matching que calcularFinanzas en
 // PanelDistribucion.tsx: la tarifa de viático de la ruta más parecida gana.
 const buscarViaticoRuta = (
@@ -220,8 +226,8 @@ export default function PanelRentabilidad() {
               <input
                 type="number"
                 step="0.01"
-                value={viaticoChofer}
-                onChange={(e) => setViaticoChofer(Number(e.target.value))}
+                value={valorInput(viaticoChofer)}
+                onChange={(e) => setViaticoChofer(parseInput(e.target.value))}
                 className={inputAmarillo}
               />
             </div>
@@ -233,8 +239,8 @@ export default function PanelRentabilidad() {
                 type="number"
                 step="0.01"
                 disabled={!ayudante1Va}
-                value={viaticoAyudante1}
-                onChange={(e) => setViaticoAyudante1(Number(e.target.value))}
+                value={valorInput(viaticoAyudante1)}
+                onChange={(e) => setViaticoAyudante1(parseInput(e.target.value))}
                 className={`${inputAmarillo} disabled:opacity-50`}
               />
             </div>
@@ -246,8 +252,8 @@ export default function PanelRentabilidad() {
                 type="number"
                 step="0.01"
                 disabled={!ayudante2Va}
-                value={viaticoAyudante2}
-                onChange={(e) => setViaticoAyudante2(Number(e.target.value))}
+                value={valorInput(viaticoAyudante2)}
+                onChange={(e) => setViaticoAyudante2(parseInput(e.target.value))}
                 className={`${inputAmarillo} disabled:opacity-50`}
               />
             </div>
@@ -258,8 +264,8 @@ export default function PanelRentabilidad() {
               <input
                 type="number"
                 step="0.01"
-                value={kilometraje}
-                onChange={(e) => setKilometraje(Number(e.target.value))}
+                value={valorInput(kilometraje)}
+                onChange={(e) => setKilometraje(parseInput(e.target.value))}
                 className={inputAmarillo}
               />
             </div>
@@ -270,8 +276,8 @@ export default function PanelRentabilidad() {
               <input
                 type="number"
                 step="0.01"
-                value={ventaProgramada}
-                onChange={(e) => setVentaProgramada(Number(e.target.value))}
+                value={valorInput(ventaProgramada)}
+                onChange={(e) => setVentaProgramada(parseInput(e.target.value))}
                 className={inputAmarillo}
               />
             </div>
@@ -282,8 +288,8 @@ export default function PanelRentabilidad() {
               <input
                 type="number"
                 step="0.01"
-                value={precioDiesel}
-                onChange={(e) => setPrecioDiesel(Number(e.target.value))}
+                value={valorInput(precioDiesel)}
+                onChange={(e) => setPrecioDiesel(parseInput(e.target.value))}
                 className={inputAmarillo}
               />
             </div>
