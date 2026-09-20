@@ -3,6 +3,7 @@
 // panel Correos, valida al llamador y despacha el envío real (spec 07).
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { Resend } from "resend";
 
 // Debe coincidir con CORREO_ADMIN en src/utils/roles.ts.
 const CORREO_ADMIN = "admin@ruterx.com";
@@ -71,8 +72,27 @@ export const handler = async (
     return { statusCode: 403, body: JSON.stringify({ error: "Token inválido" }) };
   }
 
-  return {
-    statusCode: 501,
-    body: JSON.stringify({ error: "not implemented" }),
-  };
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const destinatarios = datos.destinatarios
+    .split(",")
+    .map((correo) => correo.trim())
+    .filter(Boolean);
+  const copia = datos.copia
+    .split(",")
+    .map((correo) => correo.trim())
+    .filter(Boolean);
+
+  const { data, error } = await resend.emails.send({
+    from: datos.remitente,
+    to: destinatarios,
+    cc: copia.length > 0 ? copia : undefined,
+    subject: datos.asunto,
+    text: datos.cuerpo,
+  });
+
+  if (error) {
+    return { statusCode: 502, body: JSON.stringify({ error: error.message }) };
+  }
+
+  return { statusCode: 200, body: JSON.stringify({ id: data?.id }) };
 };
