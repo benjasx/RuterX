@@ -181,6 +181,30 @@ export default function PanelAjustesNomina() {
                   className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-200 font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-shadow bg-white dark:bg-slate-800"
                 />
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
+                  Meta de Gasto Operativo (%) (Ej. 40)
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  value={
+                    ajustes.metaGastoOperativoPct !== undefined
+                      ? ajustes.metaGastoOperativoPct
+                      : 40
+                  }
+                  onChange={(e) =>
+                    setAjustes({
+                      ...ajustes,
+                      metaGastoOperativoPct: Number(e.target.value),
+                    })
+                  }
+                  className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-200 font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-shadow bg-white dark:bg-slate-800"
+                />
+              </div>
             </div>
           </div>
 
