@@ -77,6 +77,12 @@ service cloud.firestore {
       allow read, write: if esPersonalAutorizado();
     }
 
+    // Programación de entregas por día: todo el personal autorizado (ver
+    // specs/06-programacion-entregas.md)
+    match /programacionEntregas/{docId} {
+      allow read, write: if esPersonalAutorizado();
+    }
+
     // Ajustes de nómina: solo admin
     match /configuracion/{docId} {
       allow read: if esPersonalAutorizado();
