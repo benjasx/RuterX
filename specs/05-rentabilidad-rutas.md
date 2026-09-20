@@ -1,6 +1,6 @@
 # 05 — Rentabilidad de Rutas
 
-**Estado:** Draft
+**Estado:** Aprobado
 **Depende de:** Ninguno
 **Fecha:** 2026-09-20
 
@@ -132,10 +132,10 @@ Cada paso deja la app compilando y funcional.
 
 ## Riesgos identificados
 
-| Riesgo                                                                                                                                 | Mitigación                                                                                                                                                       |
-| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| El gasto operativo real de una ruta es mayor al reflejado aquí (no incluye salario, combustible, legal ni mantenimiento).             | Riesgo aceptado explícitamente por el usuario en esta primera versión; el panel deja claro en su encabezado/tooltip que el % es solo viático + comisiones, no el costo total de operar la unidad. |
-| Cambiar `metaGastoOperativoPct` reclasifica retroactivamente viajes ya exportados en reportes anteriores (el PDF/Excel viejo no se actualiza solo). | Comportamiento esperado de un dato de solo lectura calculado al vuelo; si se necesita un histórico congelado de la meta usada en cada reporte, queda fuera de este spec. |
+| Riesgo                                                                                                                                              | Mitigación                                                                                                                                                                                        |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| El gasto operativo real de una ruta es mayor al reflejado aquí (no incluye salario, combustible, legal ni mantenimiento).                           | Riesgo aceptado explícitamente por el usuario en esta primera versión; el panel deja claro en su encabezado/tooltip que el % es solo viático + comisiones, no el costo total de operar la unidad. |
+| Cambiar `metaGastoOperativoPct` reclasifica retroactivamente viajes ya exportados en reportes anteriores (el PDF/Excel viejo no se actualiza solo). | Comportamiento esperado de un dato de solo lectura calculado al vuelo; si se necesita un histórico congelado de la meta usada en cada reporte, queda fuera de este spec.                          |
 
 ## Lo que **no** está en este spec
 
