@@ -1,6 +1,6 @@
 # 07 — Envío de Correos con Plantillas (Reimpresión de Facturas)
 
-**Estado:** Borrador
+**Estado:** Aprobado
 **Depende de:** Ninguno
 **Fecha:** 2026-09-20
 
@@ -124,12 +124,12 @@ Cada paso deja el repo compilando (`npm run build`) y, a partir del paso 4, la f
 
 ## Riesgos identificados
 
-| Riesgo                                                                                          | Mitigación                                                                                                                                       |
-| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------|
-| El remitente de una plantilla usa un dominio no verificado en Resend y el envío falla.           | El error real de Resend se muestra con `notificarError`; verificar el dominio en el dashboard de Resend es un paso manual documentado en el plan. |
-| Las credenciales de Firebase Admin o `RESEND_API_KEY` se commitean por error al repo.            | Ambas viven solo como variables de entorno del sitio Netlify, nunca en `.env` de Vite ni en el código versionado; se revisa antes de cada commit. |
-| El sitio de Netlify se cae o cambia de URL sin actualizar `VITE_ENVIAR_CORREO_URL`.               | El envío falla con un error visible (`notificarError`); no hay reintento automático ni fallback, riesgo aceptado dado el tamaño del equipo.       |
-| Alguien con la sesión de admin abierta en un dispositivo compartido podría disparar envíos reales.| Mismo riesgo que cualquier otra acción admin de la app (ej. eliminar datos); no se agrega un segundo factor para este módulo en particular.       |
+| Riesgo                                                                                             | Mitigación                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| El remitente de una plantilla usa un dominio no verificado en Resend y el envío falla.             | El error real de Resend se muestra con `notificarError`; verificar el dominio en el dashboard de Resend es un paso manual documentado en el plan. |
+| Las credenciales de Firebase Admin o `RESEND_API_KEY` se commitean por error al repo.              | Ambas viven solo como variables de entorno del sitio Netlify, nunca en `.env` de Vite ni en el código versionado; se revisa antes de cada commit. |
+| El sitio de Netlify se cae o cambia de URL sin actualizar `VITE_ENVIAR_CORREO_URL`.                | El envío falla con un error visible (`notificarError`); no hay reintento automático ni fallback, riesgo aceptado dado el tamaño del equipo.       |
+| Alguien con la sesión de admin abierta en un dispositivo compartido podría disparar envíos reales. | Mismo riesgo que cualquier otra acción admin de la app (ej. eliminar datos); no se agrega un segundo factor para este módulo en particular.       |
 
 ## Lo que **no** está en este spec
 
