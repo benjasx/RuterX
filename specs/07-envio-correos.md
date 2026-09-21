@@ -1,6 +1,6 @@
 # 07 — Envío de Correos con Plantillas (Reimpresión de Facturas)
 
-**Estado:** Aprobado
+**Estado:** Implementado
 **Depende de:** Ninguno
 **Fecha:** 2026-09-20
 
