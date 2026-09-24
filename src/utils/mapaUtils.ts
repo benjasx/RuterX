@@ -67,7 +67,7 @@ export const LISTA_RUTAS = [
   "JBC - TEPIC",
   "EL SUTRIDOR",
   "JBC - EL SURTIDOR",
-  "SAMANUEGO",
+  "SAMANIEGO",
 ].sort();
 
 // Fórmula Haversine para calcular distancias en línea recta
