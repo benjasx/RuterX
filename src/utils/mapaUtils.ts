@@ -64,6 +64,10 @@ export const LISTA_RUTAS = [
   "San Pedro Lagunillas",
   "Ixtlan - San pedro",
   "Tuxpan - Yago",
+  "JBC - TEPIC",
+  "EL SUTRIDOR",
+  "JBC - EL SURTIDOR",
+  "SAMANUEGO",
 ].sort();
 
 // Fórmula Haversine para calcular distancias en línea recta
