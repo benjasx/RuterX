@@ -1,6 +1,6 @@
 # 08 — Rentabilidad de Rutas (reconstrucción v2)
 
-**Estado:** Draft
+**Estado:** APROBADO
 **Depende de:** Ninguno
 **Fecha:** 2026-09-23
 
@@ -83,7 +83,9 @@ export interface AjustesRentabilidad {
 export const buscarValorPorRuta = (
   rutaNombre: string,
   catalogo: Record<string, number>,
-): number => { /* misma normalización/match por substring que ya usa buscarViaticoRuta hoy */ };
+): number => {
+  /* misma normalización/match por substring que ya usa buscarViaticoRuta hoy */
+};
 
 export interface SimulacionRentabilidadInput {
   unidadId: string;
@@ -182,12 +184,12 @@ Cada paso deja la app compilando y funcional.
 
 ## Riesgos identificados
 
-| Riesgo | Mitigación |
-| --- | --- |
-| Una unidad sin `costoPorKmUnidades` capturado da Gasto Combustible = $0, subestimando el Total Costo. | El campo autocompleta en 0 y sigue siendo editable; es responsabilidad del admin mantenerlo al día cada mes, igual que ya pasa con las comisiones y viáticos. |
-| Una ruta sin `kmPromedioRutas` o `permisoDescargaRutas` capturado da esos valores en $0 silenciosamente. | Mismo criterio que el resto de catálogos por ruta de la app (`viaticosRutas`): valor 0 si no está capturado, editable a mano en cada simulación. |
-| La coincidencia difusa de `buscarValorPorRuta` empareja mal dos rutas con nombres parecidos (ej. "Ixtlan" vs "Ixtlan - Joel Perez"). | Mismo riesgo ya aceptado hoy por `viaticosRutas`; el valor autocompletado sigue siendo editable antes de calcular. |
-| Cambiar `margenPct`/`metaRentablePct`/`metaRevisarPct` reclasifica retroactivamente cualquier PDF/Excel ya exportado. | Comportamiento esperado de una calculadora de solo lectura sobre parámetros configurables, igual que en spec 05. |
+| Riesgo                                                                                                                               | Mitigación                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Una unidad sin `costoPorKmUnidades` capturado da Gasto Combustible = $0, subestimando el Total Costo.                                | El campo autocompleta en 0 y sigue siendo editable; es responsabilidad del admin mantenerlo al día cada mes, igual que ya pasa con las comisiones y viáticos. |
+| Una ruta sin `kmPromedioRutas` o `permisoDescargaRutas` capturado da esos valores en $0 silenciosamente.                             | Mismo criterio que el resto de catálogos por ruta de la app (`viaticosRutas`): valor 0 si no está capturado, editable a mano en cada simulación.              |
+| La coincidencia difusa de `buscarValorPorRuta` empareja mal dos rutas con nombres parecidos (ej. "Ixtlan" vs "Ixtlan - Joel Perez"). | Mismo riesgo ya aceptado hoy por `viaticosRutas`; el valor autocompletado sigue siendo editable antes de calcular.                                            |
+| Cambiar `margenPct`/`metaRentablePct`/`metaRevisarPct` reclasifica retroactivamente cualquier PDF/Excel ya exportado.                | Comportamiento esperado de una calculadora de solo lectura sobre parámetros configurables, igual que en spec 05.                                              |
 
 ## Lo que **no** está en este spec
 
