@@ -70,7 +70,7 @@ export interface AjustesRentabilidad {
   salarioDiarioChofer: number; // sueldo base DIARIO, directo (sin dividir). Default 357.14
   salarioDiarioAyudante: number; // aplica a Auxiliar 1 y 2. Default 278.80
   salarioDiarioVendedor: number; // nuevo. Default 0 (a capturar por el admin)
-  comisionVendedor: number; // % sobre la venta, ej. 0.02 = 2%. Default 0.02
+  comisionVendedor: number; // % sobre el Margen Bruto $ (no sobre la venta directa), ej. 0.02 = 2%. Default 0.02
   margenPct: number; // % de margen fijo usado para Margen Bruto $. Default 0 (a capturar)
   metaRentablePct: number; // Rentabilidad % >= esto -> "RENTABLE". Default 6
   metaRevisarPct: number; // Rentabilidad % >= esto (y < metaRentablePct) -> "REVISAR". Default 5
@@ -112,7 +112,7 @@ export interface SimulacionRentabilidadResultado {
   comisionChofer: number; // ventaProgramada * ajustesNomina.comisionChofer
   comisionAyudante1: number; // ayudante1Va ? ventaProgramada * ajustesNomina.comisionAyudante : 0
   comisionAyudante2: number; // ayudante2Va ? ventaProgramada * ajustesNomina.comisionAyudante : 0
-  comisionVendedor: number; // ventaProgramada * ajustesRentabilidad.comisionVendedor (siempre)
+  comisionVendedor: number; // margenBruto * ajustesRentabilidad.comisionVendedor (siempre; margenBruto = ventaProgramada * margenPct/100)
   gastoCombustible: number; // costoPorKm * kmTrayecto ("KM $")
   permisoDescarga: number;
   totalCosto: number; // suma de las 13 líneas anteriores
@@ -174,6 +174,7 @@ Cada paso deja la app compilando y funcional.
 - **Sueldo base como cifra diaria directa, sin dividir entre 7:** decisión explícita del usuario ("sueldo base es sueldo por día"); aplica igual a Chofer, Ayudante y Vendedor.
 - **Vendedor siempre participa, sin checkbox "va/no va":** decisión explícita del usuario, a diferencia de Ayudante 1/2 que sí son opcionales.
 - **Comisión de Vendedor como variable editable (`comisionVendedor`, default 2%), no una constante fija en código:** mismo patrón que `comisionChofer`/`comisionAyudante`, permite ajustarla sin tocar código.
+- **Corrección post-implementación: Comisión de Vendedor se calcula sobre el Margen Bruto $ (`ventaProgramada × margenPct/100`), no sobre la Venta Programada directa.** La primera implementación de este spec usó `ventaProgramada * comisionVendedor`. El usuario detectó la discrepancia comparando dos resultados de la app contra la fórmula real de su hoja de cálculo (`=C25*2%`, donde `C25` es la celda de Margen Bruto $, no la de Venta); se verificó a mano que `Margen Bruto $ × comisionVendedor` reproduce exactamente ambos resultados reportados. Se corrige la fórmula en `calcularSimulacionRentabilidad`.
 - **Ambos auxiliares cobran comisión (misma tasa `ajustesNomina.comisionAyudante`), solo dentro de este simulador:** decisión explícita del usuario tras revisar la nueva captura; no se toca la regla real de nómina de spec 01 (`pdfNominaService.ts`/`calcularFinanzas`), donde Auxiliar 2 sigue sin comisión.
 - **Modelo de utilidad reemplazado por completo (Margen/Utilidad/Semáforo), no coexistiendo con el modelo de Contribución 40-60 actual:** decisión explícita del usuario; es una reconstrucción del módulo, no una adición.
 - **`margenPct` como parámetro fijo en Ajustes de Rentabilidad, no editable por simulación:** decisión explícita del usuario.

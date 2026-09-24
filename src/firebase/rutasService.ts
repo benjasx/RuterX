@@ -12,7 +12,6 @@ import { db } from "./config";
 export interface Ruta {
   id: string;
   nombre: string;
-  kilometraje?: number;
 }
 
 // Obtener todas las rutas
@@ -21,7 +20,6 @@ export const obtenerRutasFirebase = async (): Promise<Ruta[]> => {
   return snapshot.docs.map((doc) => ({
     id: doc.id,
     nombre: doc.data().nombre as string,
-    kilometraje: doc.data().kilometraje as number | undefined,
   }));
 };
 
@@ -36,10 +34,10 @@ export const agregarRutaFirebase = async (nombre: string) => {
   }
 };
 
-// Actualizar datos de una ruta (ej. kilometraje)
+// Actualizar datos de una ruta
 export const actualizarRutaFirebase = async (
   id: string,
-  datos: Partial<Pick<Ruta, "nombre" | "kilometraje">>,
+  datos: Partial<Pick<Ruta, "nombre">>,
 ) => {
   try {
     await updateDoc(doc(db, "rutas", id), datos);

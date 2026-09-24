@@ -4,19 +4,25 @@ import {
   TrendingUp,
   AlertCircle,
   FileText,
+  FileSpreadsheet,
   Fuel,
   Wallet,
   Percent,
   Target,
 } from "lucide-react";
-import { obtenerRutasFirebase } from "../firebase/rutasService";
+import { obtenerUnidadesFirebase } from "../firebase/unidadesService";
 import { obtenerAjustesNomina } from "../firebase/ajustesNominaService";
 import { obtenerAjustesRentabilidad } from "../firebase/ajustesRentabilidadService";
+import { LISTA_RUTAS } from "../utils/mapaUtils";
 import {
   calcularSimulacionRentabilidad,
+  buscarValorPorRuta,
   type SimulacionRentabilidadInput,
 } from "../utils/rentabilidadUtils";
-import { exportarSimulacionRentabilidadPDF } from "../utils/reportesRentabilidadUtils";
+import {
+  exportarSimulacionRentabilidadPDF,
+  exportarSimulacionRentabilidadExcel,
+} from "../utils/reportesRentabilidadUtils";
 
 const fMoneda = (n: number) =>
   new Intl.NumberFormat("es-MX", {
@@ -35,35 +41,55 @@ const inputAmarillo =
 const valorInput = (n: number) => (n === 0 ? "" : n);
 const parseInput = (valor: string) => (valor === "" ? 0 : Number(valor));
 
-// Mismo criterio de normalización/matching que calcularFinanzas en
-// PanelDistribucion.tsx: la tarifa de viático de la ruta más parecida gana.
-const buscarViaticoRuta = (
-  rutaNombre: string,
-  viaticosRutas: Record<string, number>,
-): number => {
-  if (!rutaNombre) return 0;
-  const normalizar = (s: string) =>
-    s
-      .toUpperCase()
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .trim();
-  const rutaNormalizada = normalizar(rutaNombre);
-  for (const [rutaCatalogo, monto] of Object.entries(viaticosRutas)) {
-    const catNorm = normalizar(rutaCatalogo);
-    if (rutaNormalizada.includes(catNorm) || catNorm.includes(rutaNormalizada)) {
-      return monto;
-    }
-  }
-  return 0;
-};
-
 const hoyStr = () => new Date().toLocaleDateString("sv-SE");
 
+// Cachea en el navegador la simulación en curso (unidad/ruta/campos
+// editables) para no perderla al cambiar de sub-vista del panel admin.
+// No es historial ni se guarda en Firestore — solo el borrador local.
+const LS_BORRADOR = "rentabilidad_borrador";
+
+interface BorradorSimulacion {
+  unidadId: string;
+  ruta: string;
+  ayudante1Va: boolean;
+  ayudante2Va: boolean;
+  costoPorKm: number;
+  kmTrayecto: number;
+  permisoDescarga: number;
+  viaticoChofer: number;
+  viaticoAyudante1: number;
+  viaticoAyudante2: number;
+  ventaProgramada: number;
+}
+
+const cargarBorrador = (): Partial<BorradorSimulacion> => {
+  try {
+    const guardado = localStorage.getItem(LS_BORRADOR);
+    return guardado ? JSON.parse(guardado) : {};
+  } catch {
+    return {};
+  }
+};
+
+const SEMAFORO_LABEL: Record<string, string> = {
+  RENTABLE: "RENTABLE",
+  REVISAR: "REVISAR",
+  NO_RENTABLE: "NO RENTABLE",
+};
+
+// Clases completas y estáticas (Tailwind no genera CSS para clases armadas
+// por interpolación de string).
+const SEMAFORO_ICONO_CLASES: Record<string, string> = {
+  RENTABLE: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400",
+  REVISAR: "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400",
+  NO_RENTABLE: "bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400",
+  default: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400",
+};
+
 export default function PanelRentabilidad() {
-  const { data: rutas = [], isLoading: cargandoRutas } = useQuery({
-    queryKey: ["rutas"],
-    queryFn: obtenerRutasFirebase,
+  const { data: unidades = [], isLoading: cargandoUnidades } = useQuery({
+    queryKey: ["unidades"],
+    queryFn: obtenerUnidadesFirebase,
   });
   const { data: ajustesNomina, isLoading: cargandoNomina } = useQuery({
     queryKey: ["ajustes_nomina"],
@@ -75,57 +101,98 @@ export default function PanelRentabilidad() {
       queryFn: obtenerAjustesRentabilidad,
     });
 
-  const cargando = cargandoRutas || cargandoNomina || cargandoRentabilidad;
+  const cargando = cargandoUnidades || cargandoNomina || cargandoRentabilidad;
 
-  const [rutaId, setRutaId] = useState("");
-  const [ayudante1Va, setAyudante1Va] = useState(true);
-  const [ayudante2Va, setAyudante2Va] = useState(true);
-  const [viaticoChofer, setViaticoChofer] = useState(0);
-  const [viaticoAyudante1, setViaticoAyudante1] = useState(0);
-  const [viaticoAyudante2, setViaticoAyudante2] = useState(0);
-  const [kilometraje, setKilometraje] = useState(0);
-  const [ventaProgramada, setVentaProgramada] = useState(0);
-  const [precioDiesel, setPrecioDiesel] = useState(0);
-  const [precioDieselInicializado, setPrecioDieselInicializado] =
-    useState(false);
+  const [borradorInicial] = useState(cargarBorrador);
+  const [unidadId, setUnidadId] = useState(borradorInicial.unidadId ?? "");
+  const [ruta, setRuta] = useState(borradorInicial.ruta ?? "");
+  const [ayudante1Va, setAyudante1Va] = useState(
+    borradorInicial.ayudante1Va ?? true,
+  );
+  const [ayudante2Va, setAyudante2Va] = useState(
+    borradorInicial.ayudante2Va ?? true,
+  );
+  const [costoPorKm, setCostoPorKm] = useState(borradorInicial.costoPorKm ?? 0);
+  const [kmTrayecto, setKmTrayecto] = useState(borradorInicial.kmTrayecto ?? 0);
+  const [permisoDescarga, setPermisoDescarga] = useState(
+    borradorInicial.permisoDescarga ?? 0,
+  );
+  const [viaticoChofer, setViaticoChofer] = useState(
+    borradorInicial.viaticoChofer ?? 0,
+  );
+  const [viaticoAyudante1, setViaticoAyudante1] = useState(
+    borradorInicial.viaticoAyudante1 ?? 0,
+  );
+  const [viaticoAyudante2, setViaticoAyudante2] = useState(
+    borradorInicial.viaticoAyudante2 ?? 0,
+  );
+  const [ventaProgramada, setVentaProgramada] = useState(
+    borradorInicial.ventaProgramada ?? 0,
+  );
   const [isGenerandoPDF, setIsGenerandoPDF] = useState(false);
+  const [isGenerandoExcel, setIsGenerandoExcel] = useState(false);
 
-  useEffect(() => {
-    if (ajustesRentabilidad && !precioDieselInicializado) {
-      setPrecioDiesel(ajustesRentabilidad.precioDieselDefault);
-      setPrecioDieselInicializado(true);
-    }
-  }, [ajustesRentabilidad, precioDieselInicializado]);
-
-  const rutasOrdenadas = useMemo(
-    () => [...rutas].sort((a, b) => a.nombre.localeCompare(b.nombre)),
-    [rutas],
+  const unidadesOrdenadas = useMemo(
+    () => [...unidades].sort((a, b) => (a.numero || "").localeCompare(b.numero || "")),
+    [unidades],
   );
 
-  const rutaSeleccionada = rutasOrdenadas.find((r) => r.id === rutaId);
+  const unidadSeleccionada = unidadesOrdenadas.find((u) => u.id === unidadId);
 
-  const handleSeleccionarRuta = (id: string) => {
-    setRutaId(id);
-    const ruta = rutasOrdenadas.find((r) => r.id === id);
-    if (!ruta || !ajustesNomina) return;
-    const tarifa = buscarViaticoRuta(ruta.nombre, ajustesNomina.viaticosRutas);
-    setViaticoChofer(tarifa);
-    setViaticoAyudante1(tarifa);
-    setViaticoAyudante2(tarifa);
-    setKilometraje(ruta.kilometraje ?? 0);
+  const handleSeleccionarUnidad = (id: string) => {
+    setUnidadId(id);
+    if (!ajustesRentabilidad) return;
+    setCostoPorKm(ajustesRentabilidad.costoPorKmUnidades[id] ?? 0);
+  };
+
+  const handleSeleccionarRuta = (nombre: string) => {
+    setRuta(nombre);
+    if (!ajustesNomina || !ajustesRentabilidad) return;
+    const tarifaViatico = buscarValorPorRuta(nombre, ajustesNomina.viaticosRutas);
+    setViaticoChofer(tarifaViatico);
+    setViaticoAyudante1(tarifaViatico);
+    setViaticoAyudante2(tarifaViatico);
+    setKmTrayecto(buscarValorPorRuta(nombre, ajustesRentabilidad.kmPromedioRutas));
+    setPermisoDescarga(
+      buscarValorPorRuta(nombre, ajustesRentabilidad.permisoDescargaRutas),
+    );
   };
 
   const input: SimulacionRentabilidadInput = {
-    ruta: rutaSeleccionada?.nombre || "",
-    kilometraje,
+    unidadId,
+    ruta,
+    costoPorKm,
+    kmTrayecto,
+    permisoDescarga,
     viaticoChofer,
     viaticoAyudante1,
     viaticoAyudante2,
     ayudante1Va,
     ayudante2Va,
     ventaProgramada,
-    precioDiesel,
   };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_BORRADOR, JSON.stringify(input));
+    } catch {
+      // localStorage no disponible (modo privado, cuota llena, etc.):
+      // la simulación sigue funcionando, solo no se cachea.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    unidadId,
+    ruta,
+    costoPorKm,
+    kmTrayecto,
+    permisoDescarga,
+    viaticoChofer,
+    viaticoAyudante1,
+    viaticoAyudante2,
+    ayudante1Va,
+    ayudante2Va,
+    ventaProgramada,
+  ]);
 
   const resultado = useMemo(() => {
     if (!ajustesRentabilidad || !ajustesNomina) return null;
@@ -137,15 +204,29 @@ export default function PanelRentabilidad() {
   }, [input, ajustesRentabilidad, ajustesNomina]);
 
   const handleExportarPDF = async () => {
-    if (!resultado || !rutaSeleccionada) return;
+    if (!resultado || !unidadSeleccionada || !ruta) return;
     setIsGenerandoPDF(true);
     await exportarSimulacionRentabilidadPDF(
       input,
       resultado,
-      rutaSeleccionada.nombre,
+      unidadSeleccionada,
+      ruta,
       hoyStr(),
     );
     setIsGenerandoPDF(false);
+  };
+
+  const handleExportarExcel = () => {
+    if (!resultado || !unidadSeleccionada || !ruta) return;
+    setIsGenerandoExcel(true);
+    exportarSimulacionRentabilidadExcel(
+      input,
+      resultado,
+      unidadSeleccionada,
+      ruta,
+      hoyStr(),
+    );
+    setIsGenerandoExcel(false);
   };
 
   if (cargando) {
@@ -159,6 +240,10 @@ export default function PanelRentabilidad() {
     );
   }
 
+  const semaforoIconoClases =
+    SEMAFORO_ICONO_CLASES[resultado?.semaforo ?? "default"] ??
+    SEMAFORO_ICONO_CLASES.default;
+
   return (
     <div className="w-full bg-slate-50/50 dark:bg-slate-900/50 p-6 rounded-xl flex flex-col h-full overflow-y-auto custom-scrollbar">
       <div className="mb-6">
@@ -167,32 +252,59 @@ export default function PanelRentabilidad() {
           Rentabilidad de Rutas
         </h2>
         <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">
-          Selecciona una ruta y ajusta los campos en amarillo para simular su
-          rentabilidad.
+          Selecciona una unidad y una ruta, y ajusta los campos en amarillo
+          para simular su rentabilidad.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Panel izquierdo: selección y campos editables */}
         <div className="space-y-4">
-          <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-              Ruta
-            </label>
-            <select
-              value={rutaId}
-              onChange={(e) => handleSeleccionarRuta(e.target.value)}
-              className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg font-semibold outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
-            >
-              <option value="">Selecciona una ruta...</option>
-              {rutasOrdenadas.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.nombre}
-                </option>
-              ))}
-            </select>
+          <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
+                Unidad
+              </label>
+              <select
+                value={unidadId}
+                onChange={(e) => handleSeleccionarUnidad(e.target.value)}
+                className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg font-semibold outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
+              >
+                <option value="">Selecciona una unidad...</option>
+                {unidadesOrdenadas.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.numero} — {u.tipo}
+                  </option>
+                ))}
+              </select>
+              {unidadSeleccionada && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
+                  Capacidad: {Number(unidadSeleccionada.capacidad_kg).toLocaleString("es-MX")} kg
+                  {" / "}
+                  {Number(unidadSeleccionada.capacidad_m3).toLocaleString("es-MX")} m³
+                </p>
+              )}
+            </div>
 
-            <div className="flex gap-6 mt-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
+                Ruta
+              </label>
+              <select
+                value={ruta}
+                onChange={(e) => handleSeleccionarRuta(e.target.value)}
+                className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg font-semibold outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
+              >
+                <option value="">Selecciona una ruta...</option>
+                {LISTA_RUTAS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-6">
               <label className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300 cursor-pointer">
                 <input
                   type="checkbox"
@@ -219,6 +331,42 @@ export default function PanelRentabilidad() {
               Campos editables
             </h3>
 
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
+                Costo por KM
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={valorInput(costoPorKm)}
+                onChange={(e) => setCostoPorKm(parseInput(e.target.value))}
+                className={inputAmarillo}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
+                Km Trayecto
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={valorInput(kmTrayecto)}
+                onChange={(e) => setKmTrayecto(parseInput(e.target.value))}
+                className={inputAmarillo}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
+                Permiso Descarga
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={valorInput(permisoDescarga)}
+                onChange={(e) => setPermisoDescarga(parseInput(e.target.value))}
+                className={inputAmarillo}
+              />
+            </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
                 Viático Chofer
@@ -259,18 +407,6 @@ export default function PanelRentabilidad() {
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                Kilometraje
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={valorInput(kilometraje)}
-                onChange={(e) => setKilometraje(parseInput(e.target.value))}
-                className={inputAmarillo}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
                 Venta Programada
               </label>
               <input
@@ -278,18 +414,6 @@ export default function PanelRentabilidad() {
                 step="0.01"
                 value={valorInput(ventaProgramada)}
                 onChange={(e) => setVentaProgramada(parseInput(e.target.value))}
-                className={inputAmarillo}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                Precio del Diésel
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={valorInput(precioDiesel)}
-                onChange={(e) => setPrecioDiesel(parseInput(e.target.value))}
                 className={inputAmarillo}
               />
             </div>
@@ -314,10 +438,10 @@ export default function PanelRentabilidad() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase">
-                      Gasto Total Ruta
+                      Total Costo
                     </p>
                     <p className="text-lg font-black text-slate-800 dark:text-slate-100 tabular-nums">
-                      {fMoneda(resultado.gastoTotalRuta)}
+                      {fMoneda(resultado.totalCosto)}
                     </p>
                   </div>
                 </div>
@@ -327,12 +451,10 @@ export default function PanelRentabilidad() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase">
-                      $/km
+                      Gasto Combustible
                     </p>
                     <p className="text-lg font-black text-slate-800 dark:text-slate-100 tabular-nums">
-                      {resultado.pesosPorKm !== null
-                        ? fMoneda(resultado.pesosPorKm)
-                        : "—"}
+                      {fMoneda(resultado.gastoCombustible)}
                     </p>
                   </div>
                 </div>
@@ -342,33 +464,27 @@ export default function PanelRentabilidad() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase">
-                      % Gasto vs Contribución
+                      Rentabilidad %
                     </p>
                     <p className="text-lg font-black text-slate-800 dark:text-slate-100 tabular-nums">
-                      {fPct(resultado.pctGastoVsContribucion)}
+                      {fPct(resultado.rentabilidadPct)}
                     </p>
                   </div>
                 </div>
                 <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-3">
                   <div
-                    className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${
-                      resultado.esOptima
-                        ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400"
-                        : "bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400"
-                    }`}
+                    className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${semaforoIconoClases}`}
                   >
                     <Target size={22} />
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase">
-                      Estado
+                      Semáforo
                     </p>
                     <p className="text-lg font-black text-slate-800 dark:text-slate-100">
-                      {resultado.esOptima === null
+                      {resultado.semaforo === null
                         ? "—"
-                        : resultado.esOptima
-                          ? "Óptima"
-                          : "No óptima"}
+                        : SEMAFORO_LABEL[resultado.semaforo]}
                     </p>
                   </div>
                 </div>
@@ -378,17 +494,22 @@ export default function PanelRentabilidad() {
                 <table className="w-full text-sm">
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                     {[
-                      ["Salario Chofer (día)", fMoneda(resultado.salarioChofer)],
-                      ["Salario Ayudante 1 (día)", fMoneda(resultado.salarioAyudante1)],
-                      ["Salario Ayudante 2 (día)", fMoneda(resultado.salarioAyudante2)],
+                      ["Sueldo Chofer (día)", fMoneda(resultado.salarioChofer)],
+                      ["Sueldo Ayudante 1 (día)", fMoneda(resultado.salarioAyudante1)],
+                      ["Sueldo Ayudante 2 (día)", fMoneda(resultado.salarioAyudante2)],
+                      ["Sueldo Vendedor (día)", fMoneda(resultado.salarioVendedor)],
                       ["Viático Chofer", fMoneda(resultado.viaticoChofer)],
                       ["Viático Ayudante 1", fMoneda(resultado.viaticoAyudante1)],
                       ["Viático Ayudante 2", fMoneda(resultado.viaticoAyudante2)],
                       ["Comisión Chofer", fMoneda(resultado.comisionChofer)],
-                      ["Comisión Ayudante", fMoneda(resultado.comisionAyudante)],
-                      ["Gasto Combustible", fMoneda(resultado.gastoCombustible)],
-                      ["Gasto Legal", fMoneda(resultado.gastoLegal)],
-                      ["Gasto Mantenimiento", fMoneda(resultado.gastoMantenimiento)],
+                      ["Comisión Ayudante 1", fMoneda(resultado.comisionAyudante1)],
+                      ["Comisión Ayudante 2", fMoneda(resultado.comisionAyudante2)],
+                      ["Comisión Vendedor", fMoneda(resultado.comisionVendedor)],
+                      [
+                        `Gasto Combustible (${input.kmTrayecto} km × ${fMoneda(input.costoPorKm)})`,
+                        fMoneda(resultado.gastoCombustible),
+                      ],
+                      ["Permiso Descarga", fMoneda(resultado.permisoDescarga)],
                     ].map(([label, valor]) => (
                       <tr key={label}>
                         <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
@@ -401,10 +522,10 @@ export default function PanelRentabilidad() {
                     ))}
                     <tr className="bg-slate-50 dark:bg-slate-900">
                       <td className="px-4 py-2 font-bold text-slate-700 dark:text-slate-200">
-                        Gasto Total Ruta
+                        TOTAL COSTO
                       </td>
                       <td className="px-4 py-2 text-right font-black text-slate-800 dark:text-slate-100 tabular-nums">
-                        {fMoneda(resultado.gastoTotalRuta)}
+                        {fMoneda(resultado.totalCosto)}
                       </td>
                     </tr>
                     <tr>
@@ -417,61 +538,48 @@ export default function PanelRentabilidad() {
                     </tr>
                     <tr>
                       <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
-                        Al Costo/Sin Impuestos
+                        Margen Bruto $
                       </td>
                       <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-slate-200 tabular-nums">
-                        {fMoneda(resultado.cantidadAlCosto)}
-                      </td>
-                    </tr>
-                    <tr className="bg-slate-50 dark:bg-slate-900">
-                      <td className="px-4 py-2 font-bold text-slate-700 dark:text-slate-200">
-                        Contribución Promedio Real
-                      </td>
-                      <td className="px-4 py-2 text-right font-black text-slate-800 dark:text-slate-100 tabular-nums">
-                        {fMoneda(resultado.contribucionPromedioReal)}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
-                        Gasto Total vs Al Costo / vs Contribución
-                      </td>
-                      <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-slate-200 tabular-nums">
-                        {fPct(resultado.pctGastoVsAlCosto)} /{" "}
-                        {fPct(resultado.pctGastoVsContribucion)}
+                        {fMoneda(resultado.margenBruto)}
                       </td>
                     </tr>
                     <tr className="bg-emerald-50 dark:bg-emerald-950/30">
                       <td className="px-4 py-2 font-bold text-emerald-800 dark:text-emerald-300">
-                        Contribución Real Después de Gastos
+                        UTILIDAD RUTA
                       </td>
                       <td className="px-4 py-2 text-right font-black text-emerald-800 dark:text-emerald-300 tabular-nums">
-                        {fMoneda(resultado.contribucionRealDespuesGastos)}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
-                        Contribución Real vs Al Costo / vs Contribución
-                      </td>
-                      <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-slate-200 tabular-nums">
-                        {fPct(resultado.pctContribucionRealVsAlCosto)} /{" "}
-                        {fPct(resultado.pctContribucionRealVsContribucion)}
+                        {fMoneda(resultado.utilidadRuta)}
                       </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
 
-              <button
-                onClick={handleExportarPDF}
-                disabled={!rutaSeleccionada || isGenerandoPDF}
-                className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm ${
-                  !rutaSeleccionada || isGenerandoPDF
-                    ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
-                    : "bg-slate-800 hover:bg-slate-900 text-white"
-                }`}
-              >
-                <FileText size={18} /> Exportar PDF
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleExportarPDF}
+                  disabled={!unidadSeleccionada || !ruta || isGenerandoPDF}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm ${
+                    !unidadSeleccionada || !ruta || isGenerandoPDF
+                      ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                      : "bg-slate-800 hover:bg-slate-900 text-white"
+                  }`}
+                >
+                  <FileText size={18} /> Exportar PDF
+                </button>
+                <button
+                  onClick={handleExportarExcel}
+                  disabled={!unidadSeleccionada || !ruta || isGenerandoExcel}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm ${
+                    !unidadSeleccionada || !ruta || isGenerandoExcel
+                      ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                      : "bg-emerald-700 hover:bg-emerald-800 text-white"
+                  }`}
+                >
+                  <FileSpreadsheet size={18} /> Exportar Excel
+                </button>
+              </div>
             </>
           )}
         </div>
