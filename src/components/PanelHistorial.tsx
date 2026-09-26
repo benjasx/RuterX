@@ -20,6 +20,8 @@ import {
   generarPDFNominaChoferes,
   generarPDFNominaAyudantes,
   generarPDFResumenGeneral,
+  calcularViaticosViaje,
+  calcularComisionViaje,
 } from "../utils/pdfNominaService";
 
 export default function PanelHistorial() {
@@ -62,10 +64,20 @@ export default function PanelHistorial() {
     listaNegraChoferes,
   } = useMemo(() => {
     const setChoferesHistoricos = new Set<string>();
-    const statsCMap: Record<string, { total: number; ultimaFecha: string }> =
-      {};
-    const statsAMap: Record<string, { total: number; ultimaFecha: string }> =
-      {};
+    const statsVacias = () => ({
+      total: 0,
+      ultimaFecha: "",
+      totalViaticos: 0,
+      totalComisiones: 0,
+    });
+    const statsCMap: Record<
+      string,
+      { total: number; ultimaFecha: string; totalViaticos: number; totalComisiones: number }
+    > = {};
+    const statsAMap: Record<
+      string,
+      { total: number; ultimaFecha: string; totalViaticos: number; totalComisiones: number }
+    > = {};
     const listaViajesFiltrados: any[] = [];
 
     datosCrudos.forEach((registro) => {
@@ -88,9 +100,11 @@ export default function PanelHistorial() {
 
         const c = fila.chofer ? fila.chofer.toUpperCase().trim() : "";
         if (c && c !== "-") {
-          if (!statsCMap[c]) statsCMap[c] = { total: 0, ultimaFecha: "" };
+          if (!statsCMap[c]) statsCMap[c] = statsVacias();
           statsCMap[c].total += 1;
           statsCMap[c].ultimaFecha = fecha;
+          statsCMap[c].totalViaticos += calcularViaticosViaje(fila).chofer;
+          statsCMap[c].totalComisiones += calcularComisionViaje(fila, "CHOFER");
 
           listaViajesFiltrados.push({ fecha, ...fila });
           agregadoAFiltrados = true;
@@ -104,14 +118,21 @@ export default function PanelHistorial() {
             ay !== "-- SIN AUXILIAR --" &&
             ay !== "UNDEFINED"
           ) {
+            const viaticoAuxiliar = calcularViaticosViaje(fila).auxiliar;
+            const comisionAuxiliar = calcularComisionViaje(fila, "AUXILIAR");
+
             if (setChoferesHistoricos.has(ay)) {
-              if (!statsCMap[ay]) statsCMap[ay] = { total: 0, ultimaFecha: "" };
+              if (!statsCMap[ay]) statsCMap[ay] = statsVacias();
               statsCMap[ay].total += 1;
               statsCMap[ay].ultimaFecha = fecha;
+              statsCMap[ay].totalViaticos += viaticoAuxiliar;
+              statsCMap[ay].totalComisiones += comisionAuxiliar;
             } else {
-              if (!statsAMap[ay]) statsAMap[ay] = { total: 0, ultimaFecha: "" };
+              if (!statsAMap[ay]) statsAMap[ay] = statsVacias();
               statsAMap[ay].total += 1;
               statsAMap[ay].ultimaFecha = fecha;
+              statsAMap[ay].totalViaticos += viaticoAuxiliar;
+              statsAMap[ay].totalComisiones += comisionAuxiliar;
             }
 
             if (!agregadoAFiltrados) {
@@ -126,21 +147,78 @@ export default function PanelHistorial() {
       });
     });
 
-    const arrayChoferes = Object.keys(statsCMap)
-      .map((n) => ({
-        nombre: n,
-        totalViajes: statsCMap[n].total,
-        ultimoViaje: statsCMap[n].ultimaFecha,
-      }))
-      .sort((a, b) => a.totalViajes - b.totalViajes);
+    // 🚀 Posiciones 1..N por métrica (menor valor = mejor posición), con
+    // desempate alfabético — nunca hay posiciones compartidas.
+    const asignarPosiciones = <T extends { nombre: string }>(
+      items: T[],
+      valor: (item: T) => number,
+    ): Record<string, number> => {
+      const ordenados = [...items].sort((a, b) => {
+        const diff = valor(a) - valor(b);
+        return diff !== 0 ? diff : a.nombre.localeCompare(b.nombre);
+      });
+      const posiciones: Record<string, number> = {};
+      ordenados.forEach((item, index) => {
+        posiciones[item.nombre] = index + 1;
+      });
+      return posiciones;
+    };
 
-    const arrayAyudantes = Object.keys(statsAMap)
-      .map((n) => ({
-        nombre: n,
-        totalViajes: statsAMap[n].total,
-        ultimoViaje: statsAMap[n].ultimaFecha,
-      }))
-      .sort((a, b) => a.totalViajes - b.totalViajes);
+    // 🚀 Puntaje combinado de equidad: 60% posición por menos viajes + 40%
+    // posición por menor ingreso (viáticos + comisiones). La "prioridad"
+    // final (1 = siguiente en turno) sale de ese puntaje, también con
+    // desempate alfabético.
+    const conPuntajeCombinado = <
+      T extends { nombre: string; totalViajes: number; totalViaticos: number; totalComisiones: number },
+    >(
+      items: T[],
+    ) => {
+      const conIngreso = items.map((p) => ({
+        ...p,
+        ingresoTotal: p.totalViaticos + p.totalComisiones,
+      }));
+      const posicionesViajes = asignarPosiciones(conIngreso, (p) => p.totalViajes);
+      const posicionesIngreso = asignarPosiciones(conIngreso, (p) => p.ingresoTotal);
+      const conPosiciones = conIngreso.map((p) => ({
+        ...p,
+        posicionViajes: posicionesViajes[p.nombre],
+        posicionIngreso: posicionesIngreso[p.nombre],
+        puntajeCombinado:
+          0.6 * posicionesViajes[p.nombre] + 0.4 * posicionesIngreso[p.nombre],
+      }));
+      const posicionesPrioridad = asignarPosiciones(
+        conPosiciones,
+        (p) => p.puntajeCombinado,
+      );
+      return conPosiciones.map((p) => ({
+        ...p,
+        prioridad: posicionesPrioridad[p.nombre],
+      }));
+    };
+
+    const arrayChoferes = conPuntajeCombinado(
+      Object.keys(statsCMap)
+        .map((n) => ({
+          nombre: n,
+          totalViajes: statsCMap[n].total,
+          ultimoViaje: statsCMap[n].ultimaFecha,
+          totalViaticos: statsCMap[n].totalViaticos,
+          totalComisiones: statsCMap[n].totalComisiones,
+        }))
+        .sort((a, b) => a.totalViajes - b.totalViajes),
+    );
+
+    const arrayAyudantes = conPuntajeCombinado(
+      Object.keys(statsAMap)
+        .map((n) => ({
+          nombre: n,
+          totalViajes: statsAMap[n].total,
+          ultimoViaje: statsAMap[n].ultimaFecha,
+          totalViaticos: statsAMap[n].totalViaticos,
+          totalComisiones: statsAMap[n].totalComisiones,
+        }))
+        .sort((a, b) => a.totalViajes - b.totalViajes),
+    );
 
     return {
       estadisticasChoferes: arrayChoferes,

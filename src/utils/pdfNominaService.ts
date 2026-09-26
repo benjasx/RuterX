@@ -63,6 +63,22 @@ export const calcularViaticosViaje = (v: any) => {
   };
 };
 
+// Comisión del viaje por rol. En TLMK/TLMK 2 el chofer cobra un piso de
+// monto × 0.1% si no se capturó comisionChofer, y el auxiliar no cobra.
+export const calcularComisionViaje = (v: any, rol: "CHOFER" | "AUXILIAR") => {
+  const nombreRuta = (v.ruta || "").toUpperCase().trim();
+  const esTLMK = nombreRuta === "TLMK" || nombreRuta === "TLMK 2";
+  const monto = Number(v.totalSumaDinero ?? v.totalMonto) || 0;
+
+  if (rol === "CHOFER") {
+    const comision = Number(v.comisionChofer) || 0;
+    return esTLMK ? (comision > 0 ? comision : monto * 0.001) : comision;
+  }
+
+  const comision = Number(v.comisionAyudante) || 0;
+  return esTLMK ? 0 : comision;
+};
+
 // ============================================================================
 // PDF: REPORTE DE CHOFERES (VERTICAL / RETRATO) - ESTILO CORPORATIVO
 // ============================================================================
@@ -138,27 +154,17 @@ export const generarPDFNominaChoferes = async (
 
       viajesPorChofer[chofer].forEach((v, index) => {
         const rol = v.rolGenerado;
-        const nombreRuta = (v.ruta || "").toUpperCase().trim();
 
         // 🚀 CORREGIDO: Leemos de totalSumaDinero y totalSumaKilos
         const monto = Number(v.totalSumaDinero ?? v.totalMonto) || 0;
         const kg = Number(v.totalSumaKilos ?? v.kgTotal) || 0;
 
         const viaticosViaje = calcularViaticosViaje(v);
-        let viatico = 0;
-        let comision = 0;
-
-        if (rol === "CHOFER") {
-          viatico = viaticosViaje.chofer;
-          comision = Number(v.comisionChofer) || 0;
-          if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") {
-            comision = comision > 0 ? comision : monto * 0.001;
-          }
-        } else {
-          viatico = viaticosViaje.auxiliar;
-          comision = Number(v.comisionAyudante) || 0;
-          if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") comision = 0;
-        }
+        const viatico = rol === "CHOFER" ? viaticosViaje.chofer : viaticosViaje.auxiliar;
+        const comision = calcularComisionViaje(
+          v,
+          rol === "CHOFER" ? "CHOFER" : "AUXILIAR",
+        );
 
         const totalDia = viatico + comision;
 
@@ -522,16 +528,12 @@ export const generarPDFNominaAyudantes = async (
       const tableBody: any[][] = [headerRow];
 
       viajesPorAyudante[ayudante].forEach((v, index) => {
-        const nombreRuta = (v.ruta || "").toUpperCase().trim();
-
         // 🚀 CORREGIDO: Leemos de totalSumaDinero y totalSumaKilos
         const monto = Number(v.totalSumaDinero ?? v.totalMonto) || 0;
         const kg = Number(v.totalSumaKilos ?? v.kgTotal) || 0;
 
         const viatico = calcularViaticosViaje(v).auxiliar;
-        let comision = Number(v.comisionAyudante) || 0;
-
-        if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") comision = 0;
+        const comision = calcularComisionViaje(v, "AUXILIAR");
 
         const totalDia = viatico + comision;
 
@@ -860,21 +862,13 @@ export const generarPDFResumenGeneral = async (
     const c = v.chofer ? v.chofer.toUpperCase().trim() : "";
     const a1 = v.auxiliar1 ? v.auxiliar1.toUpperCase().trim() : "";
     const a2 = v.auxiliar2 ? v.auxiliar2.toUpperCase().trim() : "";
-    const nombreRuta = (v.ruta || "").toUpperCase().trim();
-
-    // 🚀 CORREGIDO: Leemos de totalSumaDinero y totalSumaKilos
-    const monto = Number(v.totalSumaDinero ?? v.totalMonto) || 0;
     const viaticosViaje = calcularViaticosViaje(v);
 
     if (c && c !== "-") {
       if (!totales[c])
         totales[c] = { rol: "CHOFER", viaticos: 0, comisiones: 0 };
       totales[c].viaticos += viaticosViaje.chofer;
-      let comision = Number(v.comisionChofer) || 0;
-      if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") {
-        comision = comision > 0 ? comision : monto * 0.001;
-      }
-      totales[c].comisiones += comision;
+      totales[c].comisiones += calcularComisionViaje(v, "CHOFER");
     }
 
     const procesarAyudante = (ay: string) => {
@@ -888,9 +882,7 @@ export const generarPDFResumenGeneral = async (
           };
         }
 
-        let comision = Number(v.comisionAyudante) || 0;
-        if (nombreRuta === "TLMK" || nombreRuta === "TLMK 2") comision = 0;
-        totales[ay].comisiones += comision;
+        totales[ay].comisiones += calcularComisionViaje(v, "AUXILIAR");
         totales[ay].viaticos += viaticosViaje.auxiliar;
       }
     };
