@@ -41,7 +41,7 @@ const esAuxiliarValido = (nombreRaw: string) => {
 // realmente hicieron la ruta. En Suc.Vallarta (Traspaso) el viático es
 // siempre íntegro para el chofer, sin bolsón ni reparto. En las demás rutas,
 // el residuo de centavos de la división se suma a la parte del chofer.
-const calcularViaticosViaje = (v: any) => {
+export const calcularViaticosViaje = (v: any) => {
   const tarifa = Number(v.viaticoRuta) || 0;
   const nombreRuta = (v.ruta || "").toUpperCase().trim();
 
