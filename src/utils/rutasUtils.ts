@@ -116,6 +116,29 @@ export const calcularRutaOptimaYCarretera = async (clientesValidos: any[]) => {
   };
 };
 
+// Geometría por carretera (OSRM público) entre dos puntos sueltos. Se usa
+// para dibujar el tramo de retorno a la bodega tras la última parada.
+export const calcularRutaCarreteraSimple = async (
+  origen: [number, number],
+  destino: [number, number],
+): Promise<[number, number][] | null> => {
+  try {
+    const coordenadasUrl = `${origen[1]},${origen[0]};${destino[1]},${destino[0]}`;
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordenadasUrl}?overview=full&geometries=geojson`;
+    const response = await fetch(osrmUrl);
+    const data = await response.json();
+    if (data.code?.toLowerCase() === "ok" && data.routes?.length > 0) {
+      return data.routes[0].geometry.coordinates.map(
+        (c: [number, number]) => [c[1], c[0]] as [number, number],
+      );
+    }
+    return null;
+  } catch (error) {
+    console.error("Error OSRM retorno", error);
+    return null;
+  }
+};
+
 // URL del contenedor OSRM local (Docker). Si no está configurada, el motor
 // alterno simplemente no se ofrece en el panel.
 const OSRM_LOCAL_URL = import.meta.env.VITE_OSRM_URL;

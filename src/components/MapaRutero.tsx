@@ -17,6 +17,7 @@ import {
   LISTA_RUTAS,
   crearIconoCliente,
   baseIcon,
+  calcularDistancia,
 } from "../utils/mapaUtils";
 import {
   exportarExcelAdmin,
@@ -26,6 +27,7 @@ import {
 import {
   calcularRutaOptimaYCarretera,
   calcularRutaOptimaOSRM,
+  calcularRutaCarreteraSimple,
   osrmLocalDisponible,
   type NivelPrioridad,
 } from "../utils/rutasUtils";
@@ -60,6 +62,7 @@ import {
   Play,
   AlertCircle,
   Calendar,
+  Route,
 } from "lucide-react";
 
 interface MapaRuteroProps {
@@ -116,6 +119,11 @@ export default function MapaRutero({
   );
   const [cargandoRuta, setCargandoRuta] = useState(false);
   const [osrmDisponible, setOsrmDisponible] = useState(false);
+  // Tramo de retorno a la bodega por carretera (última parada -> base),
+  // se recalcula tanto para admin como para chofer.
+  const [rutaRetornoCarretera, setRutaRetornoCarretera] = useState<
+    [number, number][] | null
+  >(null);
   const [resumenRutaOSRM, setResumenRutaOSRM] = useState<{
     distanciaKm: number;
     duracionMin: number;
@@ -598,6 +606,67 @@ export default function MapaRutero({
     (c) => c.posicion as [number, number],
   );
 
+  const puntoFinalRuta = (
+    (lineaCarreteraADibujar || posicionesLíneaRecta) as [number, number][]
+  )?.slice(-1)[0];
+  const puntoFinalLat = puntoFinalRuta?.[0];
+  const puntoFinalLng = puntoFinalRuta?.[1];
+
+  useEffect(() => {
+    if (puntoFinalLat === undefined || puntoFinalLng === undefined) {
+      setRutaRetornoCarretera(null);
+      return;
+    }
+    if (
+      puntoFinalLat === BASE_XALISCO.lat &&
+      puntoFinalLng === BASE_XALISCO.lng
+    ) {
+      setRutaRetornoCarretera(null);
+      return;
+    }
+    let cancelado = false;
+    calcularRutaCarreteraSimple(
+      [puntoFinalLat, puntoFinalLng],
+      [BASE_XALISCO.lat, BASE_XALISCO.lng],
+    ).then((coords) => {
+      if (!cancelado) setRutaRetornoCarretera(coords);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [puntoFinalLat, puntoFinalLng]);
+
+  const puntosRetorno: [number, number][] = puntoFinalRuta
+    ? rutaRetornoCarretera || [
+        puntoFinalRuta,
+        [BASE_XALISCO.lat, BASE_XALISCO.lng],
+      ]
+    : [];
+
+  const distanciaRutaKm = useMemo(() => {
+    const puntos = (lineaCarreteraADibujar ||
+      posicionesLíneaRecta) as [number, number][];
+    if (!puntos || puntos.length < 2) return null;
+    let total = 0;
+    for (let i = 1; i < puntos.length; i++) {
+      total += calcularDistancia(
+        puntos[i - 1][0],
+        puntos[i - 1][1],
+        puntos[i][0],
+        puntos[i][1],
+      );
+    }
+    for (let i = 1; i < puntosRetorno.length; i++) {
+      total += calcularDistancia(
+        puntosRetorno[i - 1][0],
+        puntosRetorno[i - 1][1],
+        puntosRetorno[i][0],
+        puntosRetorno[i][1],
+      );
+    }
+    return total;
+  }, [lineaCarreteraADibujar, posicionesLíneaRecta, puntosRetorno]);
+
   if ((esAdmin && cargandoClientes) || (!esAdmin && cargandoViajeChofer)) {
     return (
       <div className="flex w-full h-full items-center justify-center bg-slate-50 dark:bg-slate-950">
@@ -796,6 +865,12 @@ export default function MapaRutero({
         >
           <MapUpdater markers={markerPositions} centerCoord={centroMapa} />
           <InvalidarTamanoMapa />
+          {distanciaRutaKm !== null && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-1.5 bg-white dark:bg-slate-800 shadow-md rounded-full px-4 py-1.5 text-sm font-bold text-slate-700 dark:text-slate-100 border border-slate-200 dark:border-slate-600">
+              <Route size={16} className="text-blue-600 dark:text-blue-400" />
+              {distanciaRutaKm.toFixed(1)} km
+            </div>
+          )}
           <LayersControl position="topright">
             <LayersControl.BaseLayer checked name="Calles">
               <TileLayer
@@ -840,6 +915,14 @@ export default function MapaRutero({
               weight={5}
             />
           ) : null}
+          {puntosRetorno.length > 0 && (
+            <Polyline
+              positions={puntosRetorno}
+              color={esRutaFutura ? "#4f46e5" : "#2563eb"}
+              weight={5}
+              dashArray="8 8"
+            />
+          )}
           {clientesADibujar.map((cliente) => (
             <Marker
               key={cliente.id}
