@@ -12,6 +12,8 @@ Hoy `PanelHistorial.tsx` ordena a cada persona (pestaña "Choferes" y pestaña "
 
 El cálculo de viático (reparto del "bolsón" chofer+auxiliares, caso especial de la ruta Suc.Vallarta sin reparto) y de comisión (caso especial de las rutas TLMK/TLMK 2) ya existe y se usa hoy para los PDFs de nómina, en `calcularViaticosViaje` (función interna, no exportada) y en lógica de comisión duplicada tres veces dentro de `src/utils/pdfNominaService.ts`. Este spec reutiliza esa misma lógica (exportándola y extrayendo la parte de comisión a una función propia) en vez de reimplementar el cálculo de ingreso en el panel de equidad.
 
+**Iteración (misma sesión, tras ver el panel implementado):** una vez viendo la tabla con la columna Prioridad en pantalla, el usuario pidió dos cosas más: (1) que la tabla se ordene directamente por Prioridad en vez de por viajes, y (2) un botón para exportar un PDF de programación (Choferes y Auxiliares en hojas separadas, ordenados por Prioridad) para decidir a quién programar primero en la siguiente ruta. Ambos pedidos reemplazan/amplían decisiones que este mismo spec había dejado explícitamente fuera o fijas (ver "Decisiones tomadas").
+
 ## Alcance
 
 **Dentro:**
@@ -22,17 +24,17 @@ El cálculo de viático (reparto del "bolsón" chofer+auxiliares, caso especial 
   - Calcular, dentro de cada pestaña por separado, `ingresoTotal = totalViaticos + totalComisiones`, la posición de cada persona por viajes (`posicionViajes`) y por ingreso (`posicionIngreso`) — ambas ascendentes (menos viajes/menor ingreso = mejor posición), con **desempate alfabético por nombre** y sin posiciones compartidas (ranking 1..N estricto).
   - Calcular `puntajeCombinado = 0.6 × posicionViajes + 0.4 × posicionIngreso` y, a partir de él, `prioridad` (posición final 1..N, mismo criterio de desempate alfabético).
   - El card superior "Siguiente en turno" pasa a mostrar a quien tiene `prioridad === 1` (antes: `datosMostrar[0]`, solo por viajes).
-  - La tabla **conserva su orden actual** (por `totalViajes` ascendente, sin cambios). Se agregan columnas: "Viáticos", "Comisiones", "Ingreso Total" y "Prioridad" (el número de posición final; 1 = siguiente en turno).
-  - El resaltado visual de "líder" (borde ámbar, ícono de estrella, badge "Siguiente turno") deja de ser `index === 0` y pasa a ser la fila cuya `prioridad === 1`, sin importar en qué posición quede dentro de la tabla ordenada por viajes.
-  - Se actualiza el texto del banner informativo ("La tabla calcula los viajes...") para explicar que "Siguiente en turno" ahora combina viajes e ingreso, aunque la tabla se siga mostrando ordenada por viajes.
+  - La tabla pasa a **ordenarse por `prioridad` ascendente** (1 = siguiente en turno, sale primero en la lista) en vez de por `totalViajes`. Se agregan columnas: "Viáticos", "Comisiones", "Ingreso Total" y "Prioridad" (el número de posición final).
+  - El resaltado visual de "líder" (borde ámbar, ícono de estrella, badge "Siguiente turno") sigue siendo la fila cuya `prioridad === 1`; al ordenar la tabla por prioridad, esa fila queda siempre primera.
+  - Se actualiza el texto del banner informativo ("La tabla calcula los viajes...") para explicar que la tabla se ordena por el puntaje combinado (Prioridad), no solo por viajes.
 - El cálculo se sigue haciendo **por separado en cada pestaña**: choferes compiten solo contra choferes, auxiliares solo contra auxiliares — mismo criterio de separación por módulo que ya existe hoy.
+- **Nuevo botón "Programación por Prioridad"** en `PanelHistorial.tsx`, junto a los botones de reporte existentes. Genera un PDF nuevo (`generarPDFProgramacionPrioridad`, en `pdfNominaService.ts`) con **dos hojas**: una para Choferes y otra para Auxiliares, cada una ordenada por `prioridad` ascendente, con columnas **Prioridad / Nombre / Viajes / Ingreso Total** (sin desglose de viáticos/comisiones — para uso rápido al programar la ruta), para el rango de fechas seleccionado. Nombre de archivo: `Programacion_Prioridad_{fechaInicio}.pdf`.
 
 **Fuera de alcance (para otro spec si hace falta):**
 
-- Los PDFs (`Reporte Choferes`, `Reporte Auxiliares`, `Resumen General`): sin cambios de fórmula ni de opciones de orden. El selector "Orden del Resumen Maestro" (`ordenResumen`) sigue igual, sin agregar "Ingreso más alto/bajo".
+- Los PDFs existentes (`Reporte Choferes`, `Reporte Auxiliares`, `Resumen General`): sin cambios de fórmula ni de opciones de orden. El selector "Orden del Resumen Maestro" (`ordenResumen`) sigue igual, sin agregar "Ingreso más alto/bajo". El nuevo PDF "Programación por Prioridad" es un documento aparte, no un reemplazo de estos.
 - Persistir el puntaje o la prioridad en Firestore: se recalcula en cada carga a partir del rango de fechas seleccionado, no se guarda historial de recomendaciones.
 - Hacer el peso 60/40 configurable desde la UI: queda fijo en código.
-- Cambiar el orden por defecto de la tabla (sigue por total de viajes).
 
 ## Datos
 
@@ -64,6 +66,12 @@ export const calcularViaticosViaje = (v: any) => ({
 });
 export const calcularComisionViaje = (v: any, rol: "CHOFER" | "AUXILIAR") =>
   number;
+export const generarPDFProgramacionPrioridad = async (
+  choferes: { nombre: string; totalViajes: number; ingresoTotal: number; prioridad: number }[],
+  auxiliares: { nombre: string; totalViajes: number; ingresoTotal: number; prioridad: number }[],
+  fechaInicio: string,
+  fechaFin: string,
+) => void;
 ```
 
 ## Plan de implementación
@@ -74,36 +82,41 @@ export const calcularComisionViaje = (v: any, rol: "CHOFER" | "AUXILIAR") =>
 4. En el mismo `useMemo`, después de construir `arrayChoferes`/`arrayAyudantes` (que siguen ordenados por `totalViajes` como hoy), calcular `ingresoTotal`, `posicionViajes`, `posicionIngreso`, `puntajeCombinado` y `prioridad` para cada arreglo por separado, con desempate alfabético.
 5. Actualizar el `resumen` memo para que `candidato` sea la persona con `prioridad === 1` en vez de `datosMostrar[0]`.
 6. Actualizar el JSX: nuevas columnas "Viáticos", "Comisiones", "Ingreso Total" y "Prioridad" en la tabla; `esLider` pasa a comparar `personal.prioridad === 1`; texto del card superior y del banner informativo actualizados para reflejar el criterio combinado.
-7. Correr `npm run build` (type-check incluido) y verificar manualmente en el navegador ambas pestañas del panel con datos reales de un rango de fechas.
+7. Cambiar el orden de `datosMostrar`/las tablas de ambas pestañas para que se muestren ordenadas por `prioridad` ascendente en vez de por `totalViajes`.
+8. Crear y exportar `generarPDFProgramacionPrioridad(choferes, auxiliares, fechaInicio, fechaFin)` en `pdfNominaService.ts`: PDF con dos hojas (Choferes y Auxiliares, salto de página entre ambas), cada una ya ordenada por `prioridad` ascendente, columnas Prioridad/Nombre/Viajes/Ingreso Total, mismo estilo pdfMake que los demás reportes del archivo.
+9. Agregar el botón "Programación por Prioridad" en `PanelHistorial.tsx`, junto a los botones de reporte existentes, que llama a la función nueva con `estadisticasChoferes`/`estadisticasAyudantes` y el rango de fechas seleccionado.
+10. Correr `npm run build` (type-check incluido) y verificar manualmente en el navegador ambas pestañas del panel y el PDF nuevo, con datos reales de un rango de fechas.
 
 ## Criterios de aceptación
 
-- [ ] Las pestañas "Choferes" y "Auxiliares" del panel de Equidad siguen mostrando la tabla ordenada por total de viajes ascendente, sin cambios en ese orden.
+- [ ] Las pestañas "Choferes" y "Auxiliares" del panel de Equidad muestran la tabla ordenada por Prioridad ascendente (1 primero).
 - [ ] Cada fila de la tabla muestra las columnas nuevas Viáticos, Comisiones, Ingreso Total y Prioridad, calculadas para el rango de fechas seleccionado.
 - [ ] El viático y la comisión de cada viaje se calculan reutilizando `calcularViaticosViaje` y `calcularComisionViaje` exportados de `pdfNominaService.ts` (bolsón repartido, ruta Suc.Vallarta sin reparto, regla especial TLMK), sin fórmulas nuevas ni duplicadas en `PanelHistorial.tsx`.
 - [ ] La columna "Prioridad" refleja el puntaje combinado (60% posición por viajes + 40% posición por ingreso), donde Prioridad = 1 es el siguiente en turno.
 - [ ] El card superior "Siguiente en turno" muestra el mismo nombre que tiene Prioridad = 1 en la tabla de esa pestaña.
-- [ ] La fila resaltada como líder (borde ámbar, ícono de estrella, badge "Siguiente turno") es la de Prioridad = 1, sin importar en qué posición quede dentro de la tabla ordenada por viajes.
-- [ ] Un empate en viajes o en ingreso entre dos personas se desempata alfabéticamente por nombre antes de asignar la posición.
+- [ ] La fila resaltada como líder (borde ámbar, ícono de estrella, badge "Siguiente turno") es la de Prioridad = 1, y al estar la tabla ordenada por Prioridad queda siempre primera.
+- [ ] Un empate exacto en viajes (o en ingreso) entre dos personas les da la misma `posicionViajes` (o `posicionIngreso`) — no se desempata por nombre. El desempate alfabético solo aplica al calcular la `prioridad` final, si el puntaje combinado también empata exacto.
 - [ ] El cálculo de Choferes y el de Auxiliares son independientes entre sí (cada pestaña compite solo contra su propio grupo).
-- [ ] Los reportes PDF (`Reporte Choferes`, `Reporte Auxiliares`, `Resumen General`) generan exactamente los mismos montos de viáticos y comisiones que antes del cambio.
+- [ ] Los reportes PDF existentes (`Reporte Choferes`, `Reporte Auxiliares`, `Resumen General`) generan exactamente los mismos montos de viáticos y comisiones que antes del cambio.
+- [ ] El botón "Programación por Prioridad" descarga un PDF con una hoja de Choferes y otra de Auxiliares, cada una ordenada por Prioridad ascendente, con columnas Prioridad/Nombre/Viajes/Ingreso Total.
 - [ ] `npm run build` pasa sin errores de TypeScript.
 
 ## Decisiones tomadas
 
 - **Sí:** puntaje combinado (60% viajes / 40% ingreso) reemplaza el badge de "menos viajes" en vez de coexistir con él. El usuario pidió explícitamente que la recomendación combine ambos factores, no dos indicadores sueltos.
 - **Sí:** reutilizar `calcularViaticosViaje` y agregar `calcularComisionViaje` en `pdfNominaService.ts`, en vez de reimplementar el cálculo de ingreso en `PanelHistorial.tsx`. Una sola fuente de verdad evita que el panel de equidad y los PDFs de nómina diverjan en los montos.
-- **Sí:** desempate alfabético al calcular posiciones (ranking 1..N estricto, sin posiciones compartidas). Decisión explícita del usuario; produce un único ganador sin ambigüedad al elegir "el" siguiente en turno.
-- **Sí:** la tabla conserva su orden actual por viajes; solo cambia qué fila se resalta como líder. Decisión explícita del usuario — minimiza el cambio visual y evita reordenar la tabla cada vez que cambian los montos de ingreso.
+- **Sí (revisado en la misma sesión):** `posicionViajes` y `posicionIngreso` usan ranking de competencia con **posiciones compartidas** en empates ("1,1,3"), no desempate alfabético. La versión original desempataba alfabéticamente en las tres posiciones, pero eso hacía que dos personas con el **mismo** total de viajes quedaran en posiciones distintas solo por orden de nombre, y como viajes pesa 60%, ese sesgo alfabético podía ganarle a una diferencia real de ingreso (caso detectado por el usuario: Torres, con menos ingreso que Hernández pero los mismos viajes, salió con peor prioridad). El desempate alfabético se conserva **solo** en la posición final (`prioridad`, a partir de `puntajeCombinado`), para seguir garantizando un único "siguiente en turno" si el puntaje combinado también empata exacto.
+- **Sí (revisado en la misma sesión):** la tabla pasa a ordenarse por Prioridad en vez de por viajes. La decisión original era mantener el orden por viajes; al ver el panel implementado, el usuario pidió explícitamente ordenar por Prioridad para que la fila líder sea siempre la primera y la tabla sirva directamente como lista de programación.
+- **Sí:** se agrega un PDF nuevo y separado ("Programación por Prioridad") en vez de modificar los PDFs de nómina existentes. Mantiene los reportes de nómina (que alimentan pagos reales) intactos y aísla el riesgo de un documento operativo nuevo.
+- **Sí:** el PDF de programación solo muestra Prioridad/Nombre/Viajes/Ingreso Total (sin desglosar viáticos/comisiones). Es una hoja de trabajo para decidir el orden de salida, no un documento de nómina.
 - **No:** no se toca el PDF "Resumen General" (`ordenResumen` sigue con "Viático más alto/bajo", sin agregar "Ingreso más alto/bajo"). Decisión explícita del usuario, queda fuera de alcance.
 - **No:** no se usa normalización min-max ponderada entre viajes e ingreso. El promedio de posiciones no necesita manejar la diferencia de escala entre un conteo de viajes y montos en pesos, y es más fácil de verificar a mano.
 - **No:** el peso 60/40 no es configurable desde la UI. Queda fijo en código; si se necesita ajustar, es un cambio de código, no de configuración en pantalla.
 
 ## Lo que **no** está en este spec
 
-- Cambios en los PDFs de nómina (fórmulas u opciones de orden).
+- Cambios en los PDFs de nómina existentes (`Reporte Choferes`, `Reporte Auxiliares`, `Resumen General`): fórmulas u opciones de orden.
 - Persistencia del puntaje/prioridad en Firestore.
 - Peso configurable (60/40) desde la interfaz.
-- Cambiar el orden por defecto de la tabla del panel de equidad.
 
 Cada uno de estos, si se necesita, va en su propio spec.

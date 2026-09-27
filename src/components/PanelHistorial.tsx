@@ -13,6 +13,7 @@ import {
   Star,
   ListChecks,
   Gauge,
+  ClipboardList,
 } from "lucide-react";
 import { obtenerDistribucionPorRango } from "../firebase/distribucionService"; // 🚀 NUEVO IMPORT
 
@@ -20,6 +21,7 @@ import {
   generarPDFNominaChoferes,
   generarPDFNominaAyudantes,
   generarPDFResumenGeneral,
+  generarPDFProgramacionPrioridad,
   calcularViaticosViaje,
   calcularComisionViaje,
 } from "../utils/pdfNominaService";
@@ -147,9 +149,31 @@ export default function PanelHistorial() {
       });
     });
 
-    // 🚀 Posiciones 1..N por métrica (menor valor = mejor posición), con
-    // desempate alfabético — nunca hay posiciones compartidas.
-    const asignarPosiciones = <T extends { nombre: string }>(
+    // 🚀 Posiciones 1..N por métrica: quienes empatan en el valor comparten
+    // la misma posición (ranking de competencia "1,1,3"), sin sesgo por
+    // nombre. Se usa para viajes e ingreso, las entradas del puntaje
+    // combinado — un empate real en viajes no debe premiar a nadie por
+    // orden alfabético.
+    const asignarPosicionesCompartidas = <T extends { nombre: string }>(
+      items: T[],
+      valor: (item: T) => number,
+    ): Record<string, number> => {
+      const ordenados = [...items].sort((a, b) => valor(a) - valor(b));
+      const posiciones: Record<string, number> = {};
+      let posicionActual = 0;
+      ordenados.forEach((item, index) => {
+        if (index === 0 || valor(item) !== valor(ordenados[index - 1])) {
+          posicionActual = index + 1;
+        }
+        posiciones[item.nombre] = posicionActual;
+      });
+      return posiciones;
+    };
+
+    // 🚀 Posiciones 1..N estrictas, con desempate alfabético — solo para la
+    // prioridad final, donde necesitamos un único "siguiente en turno" aunque
+    // el puntaje combinado empate exacto.
+    const asignarPosicionesConDesempate = <T extends { nombre: string }>(
       items: T[],
       valor: (item: T) => number,
     ): Record<string, number> => {
@@ -166,8 +190,8 @@ export default function PanelHistorial() {
 
     // 🚀 Puntaje combinado de equidad: 60% posición por menos viajes + 40%
     // posición por menor ingreso (viáticos + comisiones). La "prioridad"
-    // final (1 = siguiente en turno) sale de ese puntaje, también con
-    // desempate alfabético.
+    // final (1 = siguiente en turno) sale de ese puntaje, con desempate
+    // alfabético solo si el puntaje combinado también empata exacto.
     const conPuntajeCombinado = <
       T extends { nombre: string; totalViajes: number; totalViaticos: number; totalComisiones: number },
     >(
@@ -177,8 +201,14 @@ export default function PanelHistorial() {
         ...p,
         ingresoTotal: p.totalViaticos + p.totalComisiones,
       }));
-      const posicionesViajes = asignarPosiciones(conIngreso, (p) => p.totalViajes);
-      const posicionesIngreso = asignarPosiciones(conIngreso, (p) => p.ingresoTotal);
+      const posicionesViajes = asignarPosicionesCompartidas(
+        conIngreso,
+        (p) => p.totalViajes,
+      );
+      const posicionesIngreso = asignarPosicionesCompartidas(
+        conIngreso,
+        (p) => p.ingresoTotal,
+      );
       const conPosiciones = conIngreso.map((p) => ({
         ...p,
         posicionViajes: posicionesViajes[p.nombre],
@@ -186,7 +216,7 @@ export default function PanelHistorial() {
         puntajeCombinado:
           0.6 * posicionesViajes[p.nombre] + 0.4 * posicionesIngreso[p.nombre],
       }));
-      const posicionesPrioridad = asignarPosiciones(
+      const posicionesPrioridad = asignarPosicionesConDesempate(
         conPosiciones,
         (p) => p.puntajeCombinado,
       );
@@ -197,28 +227,24 @@ export default function PanelHistorial() {
     };
 
     const arrayChoferes = conPuntajeCombinado(
-      Object.keys(statsCMap)
-        .map((n) => ({
-          nombre: n,
-          totalViajes: statsCMap[n].total,
-          ultimoViaje: statsCMap[n].ultimaFecha,
-          totalViaticos: statsCMap[n].totalViaticos,
-          totalComisiones: statsCMap[n].totalComisiones,
-        }))
-        .sort((a, b) => a.totalViajes - b.totalViajes),
-    );
+      Object.keys(statsCMap).map((n) => ({
+        nombre: n,
+        totalViajes: statsCMap[n].total,
+        ultimoViaje: statsCMap[n].ultimaFecha,
+        totalViaticos: statsCMap[n].totalViaticos,
+        totalComisiones: statsCMap[n].totalComisiones,
+      })),
+    ).sort((a, b) => a.prioridad - b.prioridad);
 
     const arrayAyudantes = conPuntajeCombinado(
-      Object.keys(statsAMap)
-        .map((n) => ({
-          nombre: n,
-          totalViajes: statsAMap[n].total,
-          ultimoViaje: statsAMap[n].ultimaFecha,
-          totalViaticos: statsAMap[n].totalViaticos,
-          totalComisiones: statsAMap[n].totalComisiones,
-        }))
-        .sort((a, b) => a.totalViajes - b.totalViajes),
-    );
+      Object.keys(statsAMap).map((n) => ({
+        nombre: n,
+        totalViajes: statsAMap[n].total,
+        ultimoViaje: statsAMap[n].ultimaFecha,
+        totalViaticos: statsAMap[n].totalViaticos,
+        totalComisiones: statsAMap[n].totalComisiones,
+      })),
+    ).sort((a, b) => a.prioridad - b.prioridad);
 
     return {
       estadisticasChoferes: arrayChoferes,
@@ -227,6 +253,12 @@ export default function PanelHistorial() {
       listaNegraChoferes: setChoferesHistoricos,
     };
   }, [datosCrudos]);
+
+  const fMoneda = (c: number) =>
+    new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+    }).format(c);
 
   useEffect(() => {
     setPersonalPDF("TODOS");
@@ -270,19 +302,31 @@ export default function PanelHistorial() {
     setIsGenerandoPDF(false);
   };
 
+  const handleDescargarProgramacionPrioridad = async () => {
+    setIsGenerandoPDF(true);
+    await generarPDFProgramacionPrioridad(
+      estadisticasChoferes,
+      estadisticasAyudantes,
+      fechaInicio,
+      fechaFin,
+    );
+    setIsGenerandoPDF(false);
+  };
+
   const datosMostrar =
     vistaActiva === "choferes" ? estadisticasChoferes : estadisticasAyudantes;
 
-  // 🚀 Resumen visual: se deriva del mismo arreglo ya ordenado (menor a mayor),
-  // no agrega lógica de negocio nueva.
+  // 🚀 Resumen visual: se deriva del mismo arreglo, no agrega lógica de
+  // negocio nueva. La tabla está ordenada por Prioridad, no por viajes, así
+  // que el máximo de viajes se calcula aparte (no es el último elemento).
   const resumen = useMemo(() => {
     if (datosMostrar.length === 0) return null;
     const suma = datosMostrar.reduce((acc, p) => acc + p.totalViajes, 0);
     return {
       total: datosMostrar.length,
       promedio: suma / datosMostrar.length,
-      candidato: datosMostrar[0],
-      maxViajes: datosMostrar[datosMostrar.length - 1].totalViajes,
+      candidato: datosMostrar.find((p) => p.prioridad === 1) ?? datosMostrar[0],
+      maxViajes: Math.max(...datosMostrar.map((p) => p.totalViajes)),
     };
   }, [datosMostrar]);
 
@@ -327,7 +371,7 @@ export default function PanelHistorial() {
   }
 
   return (
-    <div className="w-full bg-slate-50/50 dark:bg-slate-900/50 p-6 rounded-xl flex flex-col h-full overflow-y-auto custom-scrollbar">
+    <div className="w-full bg-slate-50/50 dark:bg-slate-900/50 p-6 rounded-xl flex flex-col">
       <div className="mb-6">
         <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
           <History
@@ -402,7 +446,7 @@ export default function PanelHistorial() {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase">
-              Siguiente en turno (menos viajes)
+              Siguiente en turno (viajes + ingreso)
             </p>
             <p
               className="text-lg lg:text-xl font-black text-slate-800 dark:text-slate-100 truncate"
@@ -411,7 +455,8 @@ export default function PanelHistorial() {
               {resumen ? resumen.candidato.nombre : "—"}{" "}
               {resumen && (
                 <span className="text-sm text-slate-500 dark:text-slate-400 font-bold tabular-nums">
-                  ({resumen.candidato.totalViajes} viajes)
+                  ({resumen.candidato.totalViajes} viajes ·{" "}
+                  {fMoneda(resumen.candidato.ingresoTotal)})
                 </span>
               )}
             </p>
@@ -494,6 +539,14 @@ export default function PanelHistorial() {
             >
               <FileText size={18} /> Resumen General
             </button>
+
+            <button
+              onClick={handleDescargarProgramacionPrioridad}
+              disabled={isGenerandoPDF || cargando}
+              className={`flex-1 min-w-[180px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm ${isGenerandoPDF || cargando ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed" : "bg-amber-600 hover:bg-amber-700 text-white"}`}
+            >
+              <ClipboardList size={18} /> Programación por Prioridad
+            </button>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-4 bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
@@ -522,13 +575,15 @@ export default function PanelHistorial() {
       <div className="flex items-start gap-2 mb-4 bg-blue-50 dark:bg-blue-950/40 p-3 rounded-lg border border-blue-100 dark:border-blue-900">
         <Info className="text-blue-500 shrink-0 mt-0.5" size={18} />
         <p className="text-sm text-blue-800 dark:text-blue-300">
-          La tabla calcula los viajes basándose{" "}
-          <strong>en el rango de fechas seleccionado arriba</strong>. Los
-          empleados con{" "}
+          La tabla calcula todo basándose{" "}
           <strong>
-            menos viajes ({fechaInicio} al {fechaFin})
+            en el rango de fechas seleccionado arriba ({fechaInicio} al{" "}
+            {fechaFin})
           </strong>{" "}
-          aparecen primero en la lista.
+          y se ordena por <strong>Prioridad</strong>, que combina menos
+          viajes y menor ingreso (viáticos + comisiones). Prioridad 1 es{" "}
+          <strong>quien sigue en turno</strong> y aparece primero en la
+          lista.
         </p>
       </div>
 
@@ -563,6 +618,12 @@ export default function PanelHistorial() {
                 <th className="px-6 py-4 font-bold">
                   Carga de Viajes en el Rango
                 </th>
+                <th className="px-6 py-4 font-bold text-right">Viáticos</th>
+                <th className="px-6 py-4 font-bold text-right">Comisiones</th>
+                <th className="px-6 py-4 font-bold text-right">
+                  Ingreso Total
+                </th>
+                <th className="px-4 py-4 font-bold text-center">Prioridad</th>
                 <th className="px-6 py-4 font-bold text-center">
                   Último Viaje Registrado
                 </th>
@@ -570,7 +631,7 @@ export default function PanelHistorial() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {datosMostrar.map((personal, index) => {
-                const esLider = index === 0;
+                const esLider = personal.prioridad === 1;
                 const porcentaje =
                   (personal.totalViajes /
                     Math.max(resumen?.maxViajes ?? 1, 1)) *
@@ -613,6 +674,22 @@ export default function PanelHistorial() {
                           <Truck size={14} /> {personal.totalViajes} viajes
                         </span>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 text-right text-slate-600 dark:text-slate-300 font-medium text-xs tabular-nums">
+                      {fMoneda(personal.totalViaticos)}
+                    </td>
+                    <td className="px-6 py-4 text-right text-slate-600 dark:text-slate-300 font-medium text-xs tabular-nums">
+                      {fMoneda(personal.totalComisiones)}
+                    </td>
+                    <td className="px-6 py-4 text-right font-bold text-slate-800 dark:text-slate-100 text-xs tabular-nums">
+                      {fMoneda(personal.ingresoTotal)}
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <span
+                        className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black tabular-nums ${esLider ? "bg-amber-400 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"}`}
+                      >
+                        {personal.prioridad}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-center text-slate-600 dark:text-slate-300 font-medium text-xs">
                       <div className="flex justify-center items-center gap-2">

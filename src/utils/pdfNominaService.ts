@@ -1202,3 +1202,152 @@ export const generarPDFResumenGeneral = async (
     })
     .download(`Resumen_General_Nomina_${fechaInicio}.pdf`);
 };
+
+// ============================================================================
+// PDF: PROGRAMACIÓN POR PRIORIDAD (CHOFERES Y AUXILIARES, DOS HOJAS)
+// ============================================================================
+interface PersonaPrioridad {
+  nombre: string;
+  totalViajes: number;
+  ingresoTotal: number;
+  prioridad: number;
+}
+
+export const generarPDFProgramacionPrioridad = async (
+  choferes: PersonaPrioridad[],
+  auxiliares: PersonaPrioridad[],
+  fechaInicio: string,
+  fechaFin: string,
+) => {
+  const pdfMake = (window as any).pdfMake;
+  if (!pdfMake) return notificarAdvertencia("Generador PDF cargando...");
+  const logoBase64 = await obtenerLogoBase64Local("/CIRLogo.png");
+
+  const construirHoja = (
+    titulo: string,
+    personas: PersonaPrioridad[],
+    pageBreak?: "before",
+  ) => {
+    const headerRow: any[] = [
+      { text: "Prioridad", style: "th", alignment: "center" },
+      { text: "Nombre", style: "th" },
+      { text: "Viajes", style: "th", alignment: "right" },
+      { text: "Ingreso Total", style: "th", alignment: "right" },
+    ];
+    const tableBody: any[][] = [headerRow];
+
+    [...personas]
+      .sort((a, b) => a.prioridad - b.prioridad)
+      .forEach((p, index) => {
+        const esPar = index % 2 === 0;
+        const bgFila = esPar ? "#ffffff" : "#f8fafc";
+        tableBody.push([
+          {
+            text: String(p.prioridad),
+            style: "tdCenter",
+            fillColor: bgFila,
+            bold: true,
+          },
+          { text: p.nombre, style: "td", fillColor: bgFila },
+          { text: String(p.totalViajes), style: "tdRight", fillColor: bgFila },
+          {
+            text: fMoneda(p.ingresoTotal),
+            style: "tdRight",
+            fillColor: bgFila,
+            color: "#166534",
+          },
+        ]);
+      });
+
+    return {
+      stack: [
+        {
+          columns: [
+            logoBase64
+              ? { image: logoBase64, width: 60 }
+              : { text: "CIR", bold: true },
+            {
+              stack: [
+                {
+                  text: "PROGRAMACIÓN POR PRIORIDAD",
+                  fontSize: 12,
+                  bold: true,
+                  color: "#0f172a",
+                  alignment: "right",
+                },
+                {
+                  text: `${titulo} · PERIODO: DEL ${fechaInicio} AL ${fechaFin}`,
+                  fontSize: 8,
+                  bold: true,
+                  color: "#64748b",
+                  alignment: "right",
+                  margin: [0, 2, 0, 0],
+                },
+              ],
+              alignment: "right",
+            },
+          ],
+          margin: [0, 0, 0, 15],
+        },
+        personas.length === 0
+          ? { text: "No hay personal registrado en este rango.", italics: true }
+          : {
+              table: {
+                headerRows: 1,
+                widths: ["auto", "*", "auto", "auto"],
+                body: tableBody,
+              },
+              layout: {
+                hLineWidth: (i: number, node: any) =>
+                  i === 0 || i === 1 || i === node.table.body.length ? 1 : 0.5,
+                vLineWidth: () => 0,
+                hLineColor: (i: number, node: any) =>
+                  i === 0 || i === node.table.body.length
+                    ? "#0f172a"
+                    : "#e2e8f0",
+                paddingTop: () => 5,
+                paddingBottom: () => 5,
+                paddingLeft: () => 4,
+                paddingRight: () => 4,
+              },
+            },
+      ],
+      pageBreak,
+    };
+  };
+
+  const contentBlocks = [
+    construirHoja("CHOFERES", choferes),
+    construirHoja("AUXILIARES", auxiliares, "before"),
+  ];
+
+  pdfMake
+    .createPdf({
+      pageOrientation: "portrait",
+      pageMargins: [25, 25, 25, 25],
+      content: contentBlocks,
+      styles: {
+        th: {
+          bold: true,
+          fontSize: 8.5,
+          fillColor: "#0f172a",
+          color: "white",
+          margin: [2, 2],
+        },
+        td: { fontSize: 8, color: "#334155", margin: [2, 2] },
+        tdCenter: {
+          fontSize: 8,
+          color: "#334155",
+          alignment: "center",
+          margin: [2, 2],
+        },
+        tdRight: {
+          fontSize: 8,
+          color: "#334155",
+          alignment: "right",
+          margin: [2, 2],
+        },
+      },
+    })
+    .download(`Programacion_Prioridad_${fechaInicio}.pdf`);
+};
