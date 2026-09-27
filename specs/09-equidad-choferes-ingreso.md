@@ -1,6 +1,6 @@
 # 09 — Equidad de Choferes: puntaje combinado por viajes e ingreso
 
-**Estado:** Aprobado
+**Estado:** Implementado
 **Depende de:** Ninguno
 **Fecha:** 2026-09-26
 
