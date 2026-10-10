@@ -62,3 +62,28 @@
 :root.dark .custom-scrollbar::-webkit-scrollbar-thumb {
   background-color: #475569;
 }
+/* Barra superior temática — src/components/temas/EscenaTema.tsx.
+   Solo se usan con motion-safe: para respetar prefers-reduced-motion. */
+@theme {
+  --animate-flotar: flotar 6s ease-in-out infinite;
+  --animate-parpadear: parpadear 3s ease-in-out infinite;
+
+  @keyframes flotar {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+    50% {
+      translate: 0 -3px;
+    }
+  }
+  @keyframes parpadear {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+}

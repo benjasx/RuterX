@@ -9,6 +9,9 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { alternarTema, modoOscuroActivo } from "../utils/theme";
+import { useMesActual } from "../hooks/useMesActual";
+import { TEMAS_MENSUALES } from "../utils/temasMensuales";
+import EscenaTema from "./temas/EscenaTema";
 
 export type Vista = "admin" | "rutero";
 
@@ -28,10 +31,17 @@ export default function Navbar({
   onToggleColapsarSidebar,
 }: NavbarProps) {
   const [oscuro, setOscuro] = useState(modoOscuroActivo);
+  const mes = useMesActual();
+  const { nombre, barra, elementos } = TEMAS_MENSUALES[mes];
 
   return (
-    <nav className="h-16 shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-6 flex justify-between items-center transition-all duration-300">
-      <div className="flex items-center gap-1 sm:gap-2">
+    <nav
+      className={`relative overflow-hidden h-16 shrink-0 ${barra} border-b px-3 sm:px-6 flex justify-between items-center transition-colors duration-500`}
+    >
+      <EscenaTema elementos={elementos} nombre={nombre} />
+
+      {/* Velo semitransparente: mantiene legibles los controles sobre la escena */}
+      <div className="relative z-10 flex items-center gap-1 sm:gap-2 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm rounded-xl p-1">
         <button
           onClick={onToggleSidebar}
           className="xl:hidden flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-lg transition-all duration-200 shrink-0 cursor-pointer"
@@ -52,7 +62,7 @@ export default function Navbar({
         </button>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-6">
+      <div className="relative z-10 flex items-center gap-2 sm:gap-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm rounded-xl p-1">
         <button
           onClick={() => setOscuro(alternarTema())}
           title={oscuro ? "Modo claro" : "Modo oscuro"}

@@ -1,247 +1,180 @@
 # 11 — Barra superior temática por mes
 
-**Estado:** Aprobado
+**Estado:** Implementado
 **Depende de:** Ninguno
 **Fecha:** 2026-10-10
 
-**Objetivo:** La barra superior del panel (`Navbar.tsx`) cambia automáticamente de color, borde e icono con etiqueta según el mes actual del sistema (p. ej. octubre = Halloween), con transición suave y variantes `dark:` desde el primer día.
+**Objetivo:** La barra superior del panel (`Navbar.tsx`) muestra, según el mes actual del sistema, un fondo degradado con una escena decorativa de ilustraciones SVG propias (calabazas y fantasmas en octubre, cempasúchil y calaveras en noviembre, pinos y copos en diciembre, etc.), sin texto visible, con animación sutil y variantes `dark:`.
+
+> **Historial (2026-10-10, misma sesión):** la v1 (pasos 1–5: color + borde + un icono Lucide con etiqueta de texto) se implementó y el usuario la rechazó por poco visual ("quiero imágenes, que sea llamativo, sin letras, una navbar muy estética"). Esta versión **reemplaza** la v1: se quitan el icono Lucide, la etiqueta y las clases `acento`. Los pasos 6–9 son los del rediseño; los pasos 1–2 (diccionario base y hook de mes) se conservan y se adaptan.
 
 ## Contexto
 
 - El componente real es `src/components/Navbar.tsx` (no existe ningún "TopBar"). Se renderiza una sola vez, en `src/RuterMapas.tsx:226`, dentro del shell del panel (admin/jefe/embarques/vendedor); los choferes ven otra vista, así que no les afecta.
-- Hoy la barra es `bg-white dark:bg-slate-900` con `border-b border-slate-200 dark:border-slate-800` y `transition-all duration-300`. Izquierda: botones de menú (`Menu` en móvil, `PanelLeftClose/Open` en escritorio). Derecha: botón de tema claro/oscuro, chip con el correo y botón "Salir".
-- **El modo oscuro ya existe**: `src/index.css` declara `@custom-variant dark (&:where(.dark, .dark *))` y `src/utils/theme.ts` (`alternarTema`, `modoOscuroActivo`) alterna la clase `.dark`. Por eso el spec no habla de "futuro" modo oscuro: cada tema define su variante `dark:` desde ahora.
-- Tailwind v4 detecta clases escaneando el código fuente como texto: **las clases deben escribirse completas y literales** en el diccionario (nada de `` `bg-${color}-50` ``), o no se generan. Los archivos `.ts` del proyecto se escanean igual que los `.tsx`.
-- Lucide (`lucide-react` 1.25.0) **no tiene un icono "Halloween"**; se usan equivalentes (`Ghost`, `Skull`, `TreePine`, `Crown`, …), todos verificados como existentes en la versión instalada.
+- La barra mide `h-16` (64 px). Izquierda: botones de menú (`Menu` en móvil, `PanelLeftClose/Open` en escritorio). Derecha: botón de tema claro/oscuro, chip con el correo y botón "Salir".
+- **El modo oscuro ya existe**: `src/index.css` declara `@custom-variant dark (&:where(.dark, .dark *))` y `src/utils/theme.ts` alterna la clase `.dark`.
+- Tailwind v4 solo genera clases que ve escritas completas y literales en el código fuente (también en `.ts`): nada de clases construidas con plantillas.
+- No hay fotos ni descargas: las "imágenes" son **ilustraciones vectoriales dibujadas a mano como componentes React SVG** (inline), sin archivos binarios ni dependencias nuevas.
+- Un `<svg>` inline permite `fill-*`/`stroke-*` de Tailwind con variantes `dark:`, y no añade peticiones de red.
 
 ## Alcance
 
 **Dentro:**
 
-- **`src/utils/temasMensuales.ts`** (nuevo): tipo `TemaMensual` y diccionario `TEMAS_MENSUALES` con **los 12 meses** (índice `0–11`, el mismo que devuelve `Date#getMonth()`), cada uno con nombre de temporada, componente de icono de `lucide-react` y clases Tailwind (fondo `-50`, borde, texto de acento, con variantes `dark:`).
-- **`src/hooks/useMesActual.ts`** (nuevo): devuelve el mes activo con `new Date().getMonth()` (hora local del equipo) al montar y lo recalcula al volver a la pestaña (`visibilitychange`), para que una sesión abierta que cruza de mes se actualice sin timers.
+- **`src/components/temas/figuras.tsx`** (nuevo): biblioteca de ~22 figuras SVG pequeñas (viewBox `0 0 64 64`), cada una un componente `({ className }) => <svg …>`: `Calabaza`, `Fantasma`, `Murcielago`, `Luna`, `Estrella`, `Corazon`, `Flor`, `Mariposa`, `Pino`, `Copo`, `Esfera`, `Globo`, `Nube`, `Sol`, `Palmera`, `Ola`, `Banderin` (papel picado), `Calavera` (de azúcar), `Cempasuchil`, `Vela`, `Corona`, `Regalo`, `Lapiz`, `Libro`. Colores con clases `fill-*`/`stroke-*` y variante `dark:` donde haga falta.
+- **`src/components/temas/EscenaTema.tsx`** (nuevo): capa decorativa `absolute inset-0 pointer-events-none` que recibe la lista de `elementos` del tema y coloca cada figura en `left: x%` / `top: y px` con tamaño, rotación y animación opcional. Posiciones en **porcentaje** (no en px) para que la escena escale con cualquier ancho de barra.
+- **`src/utils/temasMensuales.ts`** (reescribir): `TemaMensual` pasa a `{ nombre, barra, elementos }`; se eliminan `Icono` y `acento`. `barra` es un **degradado** (`bg-linear-to-r from-… via-… to-…`) con borde y variantes `dark:`. `elementos` es la composición de la escena del mes, generada por un helper determinista `patron(piezas)` que reparte 24 elementos a lo ancho (figuras de "suelo" apoyadas abajo, de "cielo" colgando arriba y de "medio" centradas; tamaño ×1.25 con variación ±15 %, máx. 60 px).
+- **`src/hooks/useMesActual.ts`**: sin cambios (mes al montar + `visibilitychange`).
+- **`src/index.css`**: animaciones sutiles registradas en `@theme` (`--animate-flotar`, `--animate-parpadear`) con sus `@keyframes`; se usan solo con `motion-safe:` para respetar `prefers-reduced-motion`.
 - **`src/components/Navbar.tsx`** (modificar):
-  - La `<nav>` toma `tema.barra` (fondo + borde) en lugar de `bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800`, y cambia `transition-all duration-300` por `transition-colors duration-500`.
-  - Junto a los botones de menú (grupo izquierdo) aparece un bloque con el icono del tema y su etiqueta (`tema.nombre`), con `tema.acento` como color. La etiqueta se oculta en pantallas `< sm` (solo icono) para no desbordar la barra en móvil.
-  - Icono con `aria-hidden`; la etiqueta tiene `title` con el nombre completo.
-- Se tematizan **solo** fondo, borde y el bloque icono+etiqueta. El botón de tema claro/oscuro, el chip de correo y el botón "Salir" **no cambian** (se conserva su legibilidad y el rojo de "Salir" como acción destructiva).
+  - `<nav>` pasa a `relative overflow-hidden` con `barra` (degradado + borde) y se mantiene `transition-colors duration-500`.
+  - Capa de escena (`<EscenaTema/>`) detrás del contenido; el contenido (`z-10`) conserva exactamente los mismos botones, props y comportamiento.
+  - Cada grupo (izquierdo y derecho) lleva un **velo** semitransparente (`bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm rounded-xl`) para que botones y correo sigan legibles sobre la ilustración.
+  - **Se elimina el bloque icono + etiqueta de texto** de la v1. No hay ningún texto visible del tema.
+  - La capa de escena es `role="img"` con `aria-label` = `tema.nombre` (accesibilidad; no visible).
+- **Composiciones (mes → figuras principales y degradado):**
+
+  | Mes                          | Figuras                                       | Degradado                           |
+  | ---------------------------- | --------------------------------------------- | ----------------------------------- |
+  | Enero (Reyes)                | `Corona`, `Estrella`, `Regalo`                | ámbar → amarillo                    |
+  | Febrero (Amor y Amistad)     | `Corazon`, `Globo`, `Estrella`                | rosa → fucsia                       |
+  | Marzo (Primavera)            | `Flor`, `Mariposa`, `Nube`                    | lima → esmeralda                    |
+  | Abril (Día del Niño)         | `Globo`, `Estrella`, `Nube`, `Sol`            | celeste → amarillo                  |
+  | Mayo (Día de las Madres)     | `Flor`, `Corazon`, `Mariposa`                 | fucsia → rosa                       |
+  | Junio (Verano)               | `Sol`, `Ola`, `Nube`                          | amarillo → naranja                  |
+  | Julio (Vacaciones)           | `Palmera`, `Ola`, `Sol`                       | cian → celeste                      |
+  | Agosto (Regreso a clases)    | `Lapiz`, `Libro`, `Estrella`                  | índigo → celeste                    |
+  | Septiembre (Fiestas Patrias) | `Banderin`, `Estrella`, `Cempasuchil`         | verde → rojo (con blanco al centro) |
+  | Octubre (Halloween)          | `Calabaza`, `Fantasma`, `Murcielago`, `Luna`  | naranja → violeta                   |
+  | Noviembre (Día de Muertos)   | `Cempasuchil`, `Calavera`, `Vela`, `Banderin` | violeta → naranja                   |
+  | Diciembre (Navidad)          | `Pino`, `Copo`, `Esfera`, `Estrella`          | rojo → esmeralda                    |
 
 **Fuera de alcance (para otro spec si hace falta):**
 
+- Fotografías o archivos de imagen (PNG/JPG/WebP) y cualquier descarga de assets externos.
 - Override para pruebas (`?tema=10`) o selector manual de tema por el usuario.
-- Persistir el tema o la preferencia (no hay estado guardado: se deriva del reloj).
+- Persistir el tema o la preferencia (se deriva del reloj).
 - Tematizar otras partes de la app (sidebar, paneles, login, PDFs).
-- Temas por fechas exactas (Navidad solo del 1 al 25, Reyes solo el 6 de enero): el tema es **por mes completo**.
-- Animaciones decorativas (nieve, confeti) o imágenes: solo color e icono.
+- Temas por fechas exactas (Navidad solo del 1 al 25, etc.): el tema es por mes completo.
+- Animaciones marcadas (murciélagos cruzando, copos cayendo) o librerías de animación.
 - Cambiar cómo se alterna el modo oscuro (`utils/theme.ts`).
-- Tests automáticos (el proyecto no tiene test runner).
+- Tests automáticos (no hay test runner).
 
 ## Datos
 
-No hay datos nuevos en Firestore ni en `localStorage`: el tema se deriva en memoria del mes del reloj local del equipo. Estructuras nuevas (en `src/utils/temasMensuales.ts`):
+No hay datos nuevos en Firestore ni en `localStorage`: el tema se deriva en memoria del mes del reloj local. Estructuras (en `src/utils/temasMensuales.ts`):
 
 ```ts
-import type { LucideIcon } from "lucide-react";
-import {
-  Crown,
-  Heart,
-  Flower2,
-  Candy,
-  Gift,
-  Sun,
-  TreePalm,
-  BookOpen,
-  Flag,
-  Ghost,
-  Skull,
-  TreePine,
-} from "lucide-react";
+import type { ComponentType } from "react";
 
-export interface TemaMensual {
-  nombre: string; // etiqueta visible junto al icono
-  Icono: LucideIcon; // componente de lucide-react
-  barra: string; // fondo + borde de la <nav> (con dark:)
-  acento: string; // color del bloque icono + etiqueta (con dark:)
+export interface FiguraProps {
+  className?: string;
 }
 
-// Índice = Date#getMonth() (0 = enero … 11 = diciembre).
-// Las clases van completas y literales para que Tailwind v4 las detecte.
+export interface ElementoEscena {
+  Figura: ComponentType<FiguraProps>;
+  x: number; // posición horizontal en % del ancho de la barra (0–100)
+  y: number; // posición vertical en px desde arriba (puede ser negativa o sobrepasar el borde para "asomar")
+  tam: number; // alto de la figura en px
+  rot?: number; // grados
+  anim?: "flotar" | "parpadear"; // se aplica solo con motion-safe
+  soloEscritorio?: boolean; // oculto por debajo de md para no saturar la barra móvil
+}
+
+export interface TemaMensual {
+  nombre: string; // solo para aria-label (no visible)
+  barra: string; // degradado + borde, con variantes dark: (clases literales)
+  elementos: ElementoEscena[];
+}
+
+// Índice = Date#getMonth() (0 = enero … 11 = diciembre)
 export const TEMAS_MENSUALES: TemaMensual[] = [
-  {
-    nombre: "Día de Reyes",
-    Icono: Crown,
-    barra:
-      "bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-900",
-    acento: "text-amber-800 dark:text-amber-300",
-  },
-  {
-    nombre: "Amor y Amistad",
-    Icono: Heart,
-    barra: "bg-pink-50 border-pink-200 dark:bg-pink-950 dark:border-pink-900",
-    acento: "text-pink-800 dark:text-pink-300",
-  },
-  {
-    nombre: "Primavera",
-    Icono: Flower2,
-    barra: "bg-lime-50 border-lime-200 dark:bg-lime-950 dark:border-lime-900",
-    acento: "text-lime-800 dark:text-lime-300",
-  },
-  {
-    nombre: "Día del Niño",
-    Icono: Candy,
-    barra: "bg-sky-50 border-sky-200 dark:bg-sky-950 dark:border-sky-900",
-    acento: "text-sky-800 dark:text-sky-300",
-  },
-  {
-    nombre: "Día de las Madres",
-    Icono: Gift,
-    barra:
-      "bg-fuchsia-50 border-fuchsia-200 dark:bg-fuchsia-950 dark:border-fuchsia-900",
-    acento: "text-fuchsia-800 dark:text-fuchsia-300",
-  },
-  {
-    nombre: "Verano",
-    Icono: Sun,
-    barra:
-      "bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-900",
-    acento: "text-yellow-800 dark:text-yellow-300",
-  },
-  {
-    nombre: "Vacaciones",
-    Icono: TreePalm,
-    barra: "bg-cyan-50 border-cyan-200 dark:bg-cyan-950 dark:border-cyan-900",
-    acento: "text-cyan-800 dark:text-cyan-300",
-  },
-  {
-    nombre: "Regreso a Clases",
-    Icono: BookOpen,
-    barra:
-      "bg-indigo-50 border-indigo-200 dark:bg-indigo-950 dark:border-indigo-900",
-    acento: "text-indigo-800 dark:text-indigo-300",
-  },
-  {
-    nombre: "Fiestas Patrias",
-    Icono: Flag,
-    barra:
-      "bg-emerald-50 border-emerald-200 dark:bg-emerald-950 dark:border-emerald-900",
-    acento: "text-emerald-800 dark:text-emerald-300",
-  },
-  {
-    nombre: "Halloween",
-    Icono: Ghost,
-    barra:
-      "bg-orange-50 border-orange-200 dark:bg-orange-950 dark:border-orange-900",
-    acento: "text-orange-800 dark:text-orange-300",
-  },
-  {
-    nombre: "Día de Muertos",
-    Icono: Skull,
-    barra:
-      "bg-violet-50 border-violet-200 dark:bg-violet-950 dark:border-violet-900",
-    acento: "text-violet-800 dark:text-violet-300",
-  },
-  {
-    nombre: "Navidad",
-    Icono: TreePine,
-    barra: "bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-900",
-    acento: "text-red-800 dark:text-red-300",
-  },
+  /* 12 temas */
 ];
 ```
 
-Hook de mes (`src/hooks/useMesActual.ts`):
+Animaciones en `src/index.css` (Tailwind v4):
 
-```ts
-import { useEffect, useState } from "react";
-
-// Mes local del equipo (0–11). Se recalcula al volver a la pestaña, por si la sesión
-// estuvo abierta al cruzar de mes. setState con el mismo valor no vuelve a renderizar.
-export const useMesActual = () => {
-  const [mes, setMes] = useState(() => new Date().getMonth());
-
-  useEffect(() => {
-    const actualizar = () => {
-      if (document.visibilityState === "visible") setMes(new Date().getMonth());
-    };
-    document.addEventListener("visibilitychange", actualizar);
-    return () => document.removeEventListener("visibilitychange", actualizar);
-  }, []);
-
-  return mes;
-};
+```css
+@theme {
+  --animate-flotar: flotar 6s ease-in-out infinite;
+  --animate-parpadear: parpadear 3s ease-in-out infinite;
+  @keyframes flotar {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+    50% {
+      translate: 0 -3px;
+    }
+  }
+  @keyframes parpadear {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+}
 ```
 
-Cambios en `Navbar.tsx` (solo las líneas afectadas):
-
-```tsx
-import { useMesActual } from "../hooks/useMesActual";
-import { TEMAS_MENSUALES } from "../utils/temasMensuales";
-// ...
-const mes = useMesActual();
-const { nombre, Icono, barra, acento } = TEMAS_MENSUALES[mes];
-
-<nav
-  className={`h-16 shrink-0 ${barra} border-b px-3 sm:px-6 flex justify-between items-center transition-colors duration-500`}
->
-  <div className="flex items-center gap-1 sm:gap-2">
-    {/* botones de menú existentes, sin cambios */}
-    <span
-      title={nombre}
-      className={`flex items-center gap-2 pl-1 text-sm font-bold ${acento}`}
-    >
-      <Icono size={18} aria-hidden="true" />
-      <span className="hidden sm:inline">{nombre}</span>
-    </span>
-  </div>
-  {/* grupo derecho sin cambios */}
-</nav>;
-```
+Uso en `EscenaTema`: `className={e.anim ? \`motion-safe:animate-${e.anim}\` : ""}`**no se puede** (clase dinámica); se resuelve con un mapa literal`{ flotar: "motion-safe:animate-flotar", parpadear: "motion-safe:animate-parpadear" }`.
 
 ## Flujo de renderizado
 
-1. `Navbar` monta → `useMesActual()` lee `new Date().getMonth()` (índice 0–11, hora local).
-2. `TEMAS_MENSUALES[mes]` entrega `{ nombre, Icono, barra, acento }` (lookup O(1), sin condicionales).
-3. La `<nav>` aplica `barra` y el bloque icono+etiqueta aplica `acento`; las variantes `dark:` se activan solas cuando `<html>` tiene la clase `.dark`.
-4. Si el usuario cambia entre modo claro/oscuro, solo cambian las clases (`transition-colors duration-500` lo suaviza). Si vuelve a la pestaña en otro mes, `visibilitychange` actualiza el estado y la barra transiciona al nuevo tema.
+1. `Navbar` monta → `useMesActual()` devuelve el mes (0–11).
+2. `TEMAS_MENSUALES[mes]` entrega `{ nombre, barra, elementos }`.
+3. `<nav>` aplica `barra` (degradado, borde, `dark:`). `<EscenaTema>` pinta cada elemento en su posición (% / px) con su animación opcional; el contenido real (`z-10`) se dibuja encima con su velo semitransparente.
+4. Cambiar claro/oscuro solo cambia clases (`transition-colors duration-500`); al volver a la pestaña en otro mes, `visibilitychange` actualiza el estado y la escena se reemplaza.
 
 ## Plan de implementación
 
-1. Crear `src/utils/temasMensuales.ts` con `TemaMensual` y los 12 temas de "Datos". `npm run build` debe compilar.
-2. Crear `src/hooks/useMesActual.ts`. `npm run build` debe compilar.
-3. Modificar `Navbar.tsx`: usar el hook y el tema, cambiar clases de la `<nav>` (`transition-colors duration-500`) y añadir el bloque icono+etiqueta en el grupo izquierdo. `npm run build`.
-4. Verificar en el navegador (`npm run dev`) el tema del mes actual en claro y oscuro, y recorrer los 12 temas cambiando temporalmente el valor de `useState(() => new Date().getMonth())` por `0…11` (revertir al terminar).
-5. `npm run build` y revisión en ancho móvil (< 640 px: solo icono, sin desbordar la barra).
+1. _(v1, hecho)_ `src/utils/temasMensuales.ts` con diccionario base de 12 meses.
+2. _(v1, hecho)_ `src/hooks/useMesActual.ts`.
+3. _(v1, hecho)_ `Navbar.tsx` con color + icono + etiqueta. **Se reemplaza en el paso 8.**
+4. _(v1)_ Verificación de clases generadas y contraste.
+5. _(v1)_ Build final.
+6. Crear `src/components/temas/figuras.tsx` con las figuras de octubre, noviembre y diciembre (`Calabaza`, `Fantasma`, `Murcielago`, `Luna`, `Cempasuchil`, `Calavera`, `Vela`, `Banderin`, `Pino`, `Copo`, `Esfera`, `Estrella`), y agregar las animaciones `flotar`/`parpadear` en `src/index.css`. `npm run build` debe compilar.
+7. Completar `figuras.tsx` con el resto (`Corona`, `Regalo`, `Corazon`, `Globo`, `Flor`, `Mariposa`, `Nube`, `Sol`, `Ola`, `Palmera`, `Lapiz`, `Libro`). `npm run build`.
+8. Crear `EscenaTema.tsx`; reescribir `temasMensuales.ts` (nueva interfaz `{ nombre, barra, elementos }`, 12 composiciones y degradados) y adaptar `Navbar.tsx` (capas, velo, `role="img"`/`aria-label`, quitar icono y etiqueta). Los tres cambian juntos porque la interfaz cambia. `npm run build` y ESLint.
+9. Verificación visual con `npm run dev`: los 12 meses (cambiando temporalmente el valor inicial de `useMesActual`, revertir al terminar), claro y oscuro, ancho móvil (< 768 px), y `prefers-reduced-motion` activado. Ajustar posiciones/tamaños de las composiciones según lo que se vea.
 
 ## Criterios de aceptación
 
-- [ ] Con el reloj en octubre, la barra muestra fondo naranja suave (`orange-50`), borde `orange-200` y el icono `Ghost` con la etiqueta "Halloween"; en noviembre, violeta con `Skull` y "Día de Muertos"; en diciembre, rojo con `TreePine` y "Navidad"; en enero, ámbar con `Crown` y "Día de Reyes".
-- [ ] Los 12 índices (0–11) tienen tema definido: ningún mes deja la barra sin estilo ni lanza error.
-- [ ] En modo oscuro cada tema usa su variante `dark:` (fondo `-950`, borde `-900`, texto `-300`) y el texto/icono es legible sobre el fondo.
-- [ ] Alternar claro/oscuro y cambiar de mes anima el cambio de color (sin parpadeo) gracias a `transition-colors`.
-- [ ] Las clases de todos los temas llegan al CSS de producción: `npm run build` y revisar visualmente que los 12 colores se ven (no solo los de mes actual).
-- [ ] El botón de tema claro/oscuro, el chip del correo y el botón "Salir" se ven y funcionan igual que antes.
-- [ ] En ancho < 640 px se muestra solo el icono y la barra no desborda ni genera scroll horizontal.
-- [ ] Al volver a la pestaña tras cruzar de mes (simulable cambiando la fecha del sistema y alternando de pestaña), el tema se actualiza sin recargar.
-- [ ] Ningún cambio en `RuterMapas.tsx`, `utils/theme.ts` ni en las props de `Navbar`.
+- [ ] Los 12 índices (0–11) tienen tema con degradado y 24 elementos en `elementos`; ningún mes deja la barra vacía ni lanza error.
+- [ ] No se muestra ningún texto del tema en la barra (solo `aria-label` en la capa de escena); desaparece la etiqueta/icono Lucide de la v1.
+- [ ] En octubre se ven calabazas, fantasmas, murciélagos y luna; en noviembre, cempasúchil, calaveras, velas y papel picado; en diciembre, pinos, copos, esferas y estrellas; en enero, coronas, estrellas y regalos.
+- [ ] En modo oscuro cada tema usa su variante `dark:` (degradado oscuro, borde oscuro) y las figuras siguen distinguiéndose.
+- [ ] Botón de tema claro/oscuro, chip del correo y "Salir" siguen legibles sobre la escena (velo semitransparente) y funcionan igual que antes.
+- [ ] La escena no intercepta clics (`pointer-events-none`) y no genera scroll horizontal ni desborda la barra (`overflow-hidden`).
+- [ ] En ancho < 768 px los elementos marcados `soloEscritorio` no se muestran y la barra sigue ordenada.
+- [ ] Con `prefers-reduced-motion: reduce` ninguna figura se anima; sin esa preferencia, solo `flotar`/`parpadear` sutiles.
+- [ ] El cambio de tema claro/oscuro anima el color del degradado sin parpadeo (`transition-colors`).
+- [ ] Todas las clases (degradados, `fill-*`, `dark:`) llegan al CSS de producción (se ven los 12 temas en el build, no solo el del mes actual).
+- [ ] Ningún cambio en `RuterMapas.tsx`, `utils/theme.ts` ni en las props de `Navbar`; no se agrega ninguna dependencia en `package.json`.
 - [ ] `npm run build` pasa sin errores de TypeScript.
 
 ## Decisiones tomadas
 
-- **Sí:** los 12 meses tematizados (decisión del usuario, no solo oct–ene). Los 8 temas extra (Amor y Amistad, Primavera, Día del Niño, Día de las Madres, Verano, Vacaciones, Regreso a Clases, Fiestas Patrias) son propuesta de este spec y se pueden cambiar en el diccionario sin tocar el componente.
-- **Sí:** tema por **mes completo**, sin fechas exactas: es lo que se pidió (índice del mes) y evita lógica de calendario.
-- **Sí:** el diccionario es un arreglo de 12 posiciones indexado por `getMonth()` en vez de un `switch`: lookup directo y cada tema queda en una sola línea editable.
-- **Sí:** clases Tailwind completas y literales en el diccionario (Tailwind v4 solo genera lo que ve escrito).
-- **Sí:** se tematizan fondo, borde e icono+etiqueta; el chip de correo y "Salir" quedan fijos (decisión del usuario: la primera opción de alcance). "Salir" conserva su rojo de acción destructiva incluso en diciembre.
+- **Sí (v2):** ilustraciones SVG inline dibujadas como componentes React, en vez de fotos o emojis: livianas, nítidas en cualquier tamaño, adaptables a claro/oscuro con clases `fill-*` y sin dependencias. No hay forma de obtener fotografías desde aquí, y los emojis cambian de aspecto por sistema operativo.
+- **Sí (v2):** escena decorativa sobre degradado (decisión del usuario), con velo semitransparente en los grupos de botones para conservar legibilidad.
+- **Sí (v2):** posiciones en % horizontales y px verticales, en vez de un solo SVG panorámico: la escena escala con cualquier ancho sin recortar elementos en pantallas estrechas.
+- **Sí (v2, tras verlo en pantalla):** composiciones generadas con `patron()` en vez de listas de posiciones escritas a mano. La primera versión (10 elementos sueltos, 22–46 px) se veía dispersa y pálida; el patrón denso de 24 elementos, figuras más grandes y degradados `-200` se acerca a un "papel tapiz" temático. En móvil solo se ven 2 elementos (los que caen en la zona libre entre el menú y los controles).
+- **Sí (v2):** sin texto visible (decisión del usuario); solo `aria-label` oculto para lectores de pantalla.
+- **Sí (v2):** animaciones sutiles con `motion-safe:` (decisión del usuario); solo `translate` y `opacity`, que no provocan reflow.
+- **Sí:** los 12 meses tematizados (decisión del usuario). Los 8 temas fuera de oct–ene son propuesta de este spec y se pueden cambiar en el diccionario.
+- **Sí:** tema por **mes completo**, sin fechas exactas; diccionario como arreglo de 12 posiciones indexado por `getMonth()`.
+- **Sí:** clases Tailwind completas y literales (Tailwind v4 solo genera lo que ve escrito), incluido el mapa de animaciones.
 - **Sí:** `visibilitychange` para refrescar el mes en sesiones largas; sin `setInterval`.
-- **Sí:** `transition-colors duration-500` reemplaza a `transition-all duration-300` en la `<nav>`: solo cambian colores, así que no se necesita transicionar todas las propiedades.
-- **Sí:** `Ghost` representa Halloween y `Skull` Día de Muertos porque Lucide no tiene iconos temáticos con ese nombre.
-- **No:** override `?tema=N` ni selector manual (el usuario eligió la opción sin override).
-- **No:** persistir o configurar el tema desde la UI.
+- **No:** fotos/archivos binarios, override `?tema=N`, selector manual, persistencia, animaciones marcadas.
 - **Nota:** el pedido original hablaba de `spec.md` en la raíz y de "futuro modo oscuro"; se guardó en `specs/11-…` siguiendo la convención del repo y el modo oscuro ya existe, por lo que las variantes `dark:` se incluyen desde ahora.
 
 ## Identified risks
 
-- **Contraste en modo claro con tonos amarillos/lima:** `text-yellow-800` y `text-lime-800` sobre `-50` deben cumplir contraste suficiente; verificar visualmente en Verano y Primavera y, si falla, subir a `-900`.
-- **Dos "rojos" en diciembre:** el fondo `red-50` y el botón "Salir" (rosa/rojo) conviven en la misma barra; si se confunde, cambiar Navidad a un verde (`green`) en el diccionario.
+- **Calidad del dibujo:** las figuras son SVG hechos a mano en código; la calidad visual solo se juzga en pantalla. Por eso el paso 9 incluye ajustar posiciones y tamaños, y es posible que haya que iterar figuras concretas tras verlas.
+- **Legibilidad sobre la escena:** botones y correo viven sobre ilustraciones; el velo semitransparente (`backdrop-blur`) lo mitiga, pero hay que revisar contraste en los 12 temas, claro y oscuro.
+- **Peso y rendimiento:** ~22 figuras inline y hasta ~10 elementos por mes son pocos nodos SVG; las animaciones usan solo `translate`/`opacity`. Riesgo bajo.
+- **`backdrop-blur` en equipos lentos:** puede costar rendimiento en máquinas muy antiguas; si se nota, se cambia por un velo sin blur.
 - **Reloj del equipo:** el mes sale de la hora local del PC; un reloj mal configurado muestra el tema equivocado (sin consecuencias funcionales).
-- **Compatibilidad con el escaneo de Tailwind:** si en el futuro se mueven las clases a un archivo fuera de `src/` o se construyen dinámicamente, dejarán de generarse.
