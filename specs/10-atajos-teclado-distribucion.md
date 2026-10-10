@@ -4,7 +4,9 @@
 **Depende de:** Ninguno
 **Fecha:** 2026-10-10
 
-**Objetivo:** La tabla de Distribución Diaria (`PanelDistribucion.tsx`) se puede operar con el teclado: atajos globales para las acciones de la barra superior, navegación entre celdas con Alt+flechas, atajos para imprimir los documentos de la fila enfocada y un panel de ayuda que lista todos los atajos.
+**Objetivo:** La tabla de Distribución Diaria (`PanelDistribucion.tsx`) se puede operar con el teclado (atajos globales, navegación entre celdas con Alt+flechas, impresión de la fila enfocada y panel de ayuda).
+
+> **Nota (2026-10-10, misma sesión):** se implementó y luego se **descartó** un Auto-save (guardado automático por fila) por su consumo de lecturas/escrituras de Firestore; el usuario prefiere guardar manualmente con `Ctrl+S`. Ver "Decisiones tomadas".
 
 ## Contexto
 
@@ -113,6 +115,7 @@ export const useAtajosDistribucion = (handlers: HandlersAtajos, modalAbierto: bo
 - **Sí:** un solo hook con `keydown` global en `window` en vez de `onKeyDown` en cada celda/botón: un solo punto de registro y limpieza, y funciona desde cualquier foco.
 - **Sí:** cada atajo reutiliza el handler de su botón y su misma condición de visibilidad; no se crean permisos nuevos (el usuario pidió que los use todo el que ve la tabla, sin alterar las restricciones existentes de cada botón).
 - **Sí:** la fila objetivo de Alt+1–4 es la que contiene el foco, no una fila "seleccionada" por clic: no requiere estado de selección nuevo.
+- **No (descartado tras implementarlo):** Auto-save (guardado por fila en `onChange`/`onBlur` con transacciones). Cada cambio costaba 1 lectura + 1 escritura más 1 lectura por cliente con el snapshot abierto, y el proyecto llegó a `resource-exhausted` (cuota de Firestore). El usuario decidió guardar manualmente con `Ctrl+S`/"GUARDAR TODO". Se eliminó todo el código asociado.
 - **No:** atajo de eliminar fila (decisión del usuario).
 - **No:** atajos configurables ni persistidos: el mapa queda fijo en código.
 - **No:** resaltado visual de fila activa: fuera de alcance.

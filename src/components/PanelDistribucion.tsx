@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Calendar,
@@ -18,6 +18,7 @@ import {
   ClipboardList,
   Printer,
   Users,
+  Keyboard,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { getAuth } from "firebase/auth";
@@ -54,6 +55,7 @@ import {
   exportarPaqueteCompletoPDF,
   exportarPersonalBodegaPDF,
 } from "../utils/reportesDistribucionUtils";
+import { useAtajosDistribucion } from "../hooks/useAtajosDistribucion";
 
 const calcularFinanzas = (
   rutaRaw: string,
@@ -173,6 +175,8 @@ export default function PanelDistribucion() {
 
   const [mostrarCaptura, setMostrarCaptura] = useState(false);
   const [mostrarBodega, setMostrarBodega] = useState(false);
+  const [mostrarAyuda, setMostrarAyuda] = useState(false);
+  const inputXlsxRef = useRef<HTMLInputElement>(null);
 
   const { data: choferesData = [], isLoading: cargandoChoferes } = useQuery({
     queryKey: ["choferes"],
@@ -687,6 +691,72 @@ export default function PanelDistribucion() {
     XLSX.writeFile(workbook, `PERSONAL_BODEGA_${fechaSeleccionada}.xlsx`);
   };
 
+  // Atajos de teclado: mismas funciones y mismas condiciones de visibilidad que los botones
+  useAtajosDistribucion(
+    {
+      guardar: guardando ? undefined : handleGuardar,
+      agregarFila,
+      vincularXLSX: tienePermisosEspeciales
+        ? () => inputXlsxRef.current?.click()
+        : undefined,
+      alternarResumen: tienePermisosEspeciales
+        ? () => setMostrarResumen((v) => !v)
+        : undefined,
+      abrirBodega: puedeVerPersonalBodega
+        ? () => setMostrarBodega(true)
+        : undefined,
+      abrirWhatsApp: () => setMostrarCaptura(true),
+      exportarExcel,
+      exportarPDF: () => exportarDistribucionPDF(filas, fechaSeleccionada),
+      imprimirFila: (accion, index) => {
+        const fila = filas[index];
+        if (!fila) return;
+        const exportar = {
+          paquete: exportarPaqueteCompletoPDF,
+          ruta: exportarHojaRutaPDF,
+          mesanine: exportarHojaMesaninePDF,
+          bitacora: exportarBitacoraPDF,
+        }[accion];
+        exportar(fila, fechaSeleccionada);
+      },
+      alternarAyuda: () => setMostrarAyuda((v) => !v),
+      cerrarModal: () => {
+        if (mostrarAyuda) setMostrarAyuda(false);
+        else if (mostrarCaptura) setMostrarCaptura(false);
+        else if (mostrarBodega) setMostrarBodega(false);
+        else setMostrarResumen(false);
+      },
+    },
+    mostrarAyuda || mostrarCaptura || mostrarBodega,
+  );
+
+  // Solo los atajos disponibles para el rol actual (mismas condiciones que los botones)
+  const atajosAyuda: [string, string][] = [
+    ["Ctrl+S", "Guardar todo"],
+    ["Alt+N", "Añadir ruta"],
+    ...(tienePermisosEspeciales
+      ? ([
+          ["Alt+X", "Vincular XLSX"],
+          ["Alt+R", "Generar / Ocultar resumen"],
+        ] as [string, string][])
+      : []),
+    ...(puedeVerPersonalBodega
+      ? ([["Alt+B", "Personal en Bodega"]] as [string, string][])
+      : []),
+    ["Alt+W", "Vista WhatsApp"],
+    ["Alt+E", "EXCEL Gral"],
+    ["Alt+P", "PDF Gral"],
+    ["Alt+1", "Paquete completo de la fila con el cursor"],
+    ["Alt+2", "Hoja de ruta de la fila con el cursor"],
+    ["Alt+3", "Hoja de mesanine de la fila con el cursor"],
+    ["Alt+4", "Bitácora de la fila con el cursor"],
+    ["Alt+← / →", "Celda anterior / siguiente"],
+    ["Alt+↑ / ↓", "Misma columna, fila anterior / siguiente"],
+    ["Enter", "En Emb. Crédito/Contado: baja a la fila siguiente"],
+    ["F1 / Alt+?", "Abrir / cerrar esta ayuda"],
+    ["Esc", "Cerrar el modal o resumen abierto"],
+  ];
+
   if (cargandoChoferes) {
     return (
       <div className="flex w-full h-125 items-center justify-center">
@@ -835,6 +905,52 @@ export default function PanelDistribucion() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL AYUDA DE ATAJOS DE TECLADO */}
+      {mostrarAyuda && (
+        <div
+          className="fixed inset-0 z-99 bg-slate-900/90 flex items-start justify-center p-4 overflow-y-auto backdrop-blur-sm"
+          onClick={() => setMostrarAyuda(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-[95vw] xl:max-w-lg w-full flex flex-col mb-10 mt-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-slate-100 dark:bg-slate-700 p-4 border-b border-slate-300 dark:border-slate-600 flex justify-between items-center rounded-t-2xl">
+              <h3 className="font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <Keyboard
+                  className="text-blue-600 dark:text-blue-400"
+                  size={20}
+                />{" "}
+                Atajos de teclado
+              </h3>
+              <button
+                onClick={() => setMostrarAyuda(false)}
+                className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-100 p-1 rounded"
+                title="Cerrar (Esc)"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <table className="w-full text-sm normal-case">
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                {atajosAyuda.map(([tecla, accion]) => (
+                  <tr key={tecla}>
+                    <td className="p-3 w-36">
+                      <kbd className="font-mono font-bold text-xs bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-slate-800 dark:text-slate-100 whitespace-nowrap">
+                        {tecla}
+                      </kbd>
+                    </td>
+                    <td className="p-3 text-slate-700 dark:text-slate-200">
+                      {accion}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -1159,6 +1275,7 @@ export default function PanelDistribucion() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={agregarFila}
+            title="Añadir ruta (Alt+N)"
             className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200 text-blue-800 dark:text-blue-300 font-bold px-4 py-2.5 rounded-xl transition-colors text-xs border border-blue-200 dark:border-blue-800"
           >
             <Plus size={16} /> Añadir Ruta
@@ -1166,9 +1283,13 @@ export default function PanelDistribucion() {
 
           {/* 🚀 EL BOTÓN "VINCULAR XLSX" AHORA ES VISIBLE PARA EMBARQUES Y ADMIN */}
           {tienePermisosEspeciales && (
-            <label className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer text-xs shadow-md shadow-indigo-600/20">
+            <label
+              title="Vincular XLSX (Alt+X)"
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer text-xs shadow-md shadow-indigo-600/20"
+            >
               <Link2 size={16} /> Vincular XLSX
               <input
+                ref={inputXlsxRef}
                 type="file"
                 accept=".xlsx"
                 onChange={handleVincularBMS}
@@ -1181,6 +1302,7 @@ export default function PanelDistribucion() {
           {tienePermisosEspeciales && (
             <button
               onClick={() => setMostrarResumen(!mostrarResumen)}
+              title="Generar / Ocultar resumen (Alt+R)"
               className={`flex items-center gap-2 font-bold px-4 py-2.5 rounded-xl transition-colors text-xs shadow-md ${mostrarResumen ? "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200" : "bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20"}`}
             >
               <Table size={16} />{" "}
@@ -1193,6 +1315,7 @@ export default function PanelDistribucion() {
           {puedeVerPersonalBodega && (
             <button
               onClick={() => setMostrarBodega(true)}
+              title="Personal en Bodega (Alt+B)"
               className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors shadow-md shadow-teal-600/20 text-xs"
             >
               <Users size={16} /> Personal en Bodega
@@ -1201,6 +1324,7 @@ export default function PanelDistribucion() {
 
           <button
             onClick={() => setMostrarCaptura(true)}
+            title="Vista WhatsApp (Alt+W)"
             className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors shadow-md shadow-purple-600/20 text-xs"
           >
             <Camera size={16} /> Vista WhatsApp
@@ -1208,6 +1332,7 @@ export default function PanelDistribucion() {
 
           <button
             onClick={exportarExcel}
+            title="EXCEL Gral (Alt+E)"
             className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors shadow-md shadow-emerald-600/20 text-xs"
           >
             <Download size={16} /> EXCEL Gral
@@ -1215,14 +1340,24 @@ export default function PanelDistribucion() {
 
           <button
             onClick={() => exportarDistribucionPDF(filas, fechaSeleccionada)}
+            title="PDF Gral (Alt+P)"
             className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-2.5 rounded-xl transition-colors shadow-md shadow-rose-600/20 text-xs"
           >
             <FileText size={16} /> PDF Gral
           </button>
 
           <button
+            onClick={() => setMostrarAyuda(true)}
+            title="Atajos de teclado (F1)"
+            className="flex items-center justify-center bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-black w-10 h-10 rounded-xl transition-colors text-sm"
+          >
+            <Keyboard size={16} />
+          </button>
+
+          <button
             onClick={handleGuardar}
             disabled={guardando}
+            title="Guardar todo (Ctrl+S)"
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-black px-6 py-2.5 rounded-xl transition-colors shadow-md shadow-blue-600/30 text-xs tracking-wider"
           >
             {guardando ? (
@@ -1257,10 +1392,13 @@ export default function PanelDistribucion() {
             {filas.map((fila, index) => (
               <tr
                 key={fila.id || index}
+                data-fila={index}
                 className={`transition-colors ${fila.vinculadoBMS ? "bg-emerald-50/50" : "hover:bg-slate-50 dark:hover:bg-slate-900"}`}
               >
                 <td className="p-2 border-r border-slate-200 dark:border-slate-700">
                   <select
+                    data-fila={index}
+                    data-col={0}
                     value={fila.ruta}
                     onChange={(e) =>
                       actualizarCelda(index, "ruta", e.target.value)
@@ -1277,6 +1415,8 @@ export default function PanelDistribucion() {
                 </td>
                 <td className="p-2 border-r border-slate-200 dark:border-slate-700">
                   <select
+                    data-fila={index}
+                    data-col={1}
                     value={fila.unidad}
                     onChange={(e) =>
                       actualizarCelda(index, "unidad", e.target.value)
@@ -1322,6 +1462,8 @@ export default function PanelDistribucion() {
                 </td>
                 <td className="p-2 border-r border-slate-200 dark:border-slate-700">
                   <select
+                    data-fila={index}
+                    data-col={2}
                     value={fila.chofer}
                     onChange={(e) =>
                       actualizarCelda(index, "chofer", e.target.value)
@@ -1351,6 +1493,8 @@ export default function PanelDistribucion() {
                 </td>
                 <td className="p-2 border-r border-slate-200 dark:border-slate-700">
                   <select
+                    data-fila={index}
+                    data-col={3}
                     value={fila.auxiliar1}
                     onChange={(e) =>
                       actualizarCelda(index, "auxiliar1", e.target.value)
@@ -1380,6 +1524,8 @@ export default function PanelDistribucion() {
                 </td>
                 <td className="p-2 border-r border-slate-200 dark:border-slate-700">
                   <select
+                    data-fila={index}
+                    data-col={4}
                     value={fila.auxiliar2}
                     onChange={(e) =>
                       actualizarCelda(index, "auxiliar2", e.target.value)
@@ -1411,6 +1557,8 @@ export default function PanelDistribucion() {
                 <td className="p-2 border-r border-slate-200 dark:border-slate-700 relative pb-4">
                   <input
                     type="text"
+                    data-fila={index}
+                    data-col={5}
                     value={fila.embarqueCredito}
                     onChange={(e) =>
                       actualizarCelda(index, "embarqueCredito", e.target.value)
@@ -1440,6 +1588,8 @@ export default function PanelDistribucion() {
                 <td className="p-2 border-r border-slate-200 dark:border-slate-700 relative pb-4">
                   <input
                     type="text"
+                    data-fila={index}
+                    data-col={6}
                     value={fila.embarqueContado}
                     onChange={(e) =>
                       actualizarCelda(index, "embarqueContado", e.target.value)
@@ -1472,7 +1622,7 @@ export default function PanelDistribucion() {
                       exportarPaqueteCompletoPDF(fila, fechaSeleccionada)
                     }
                     className="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 p-1 rounded hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-                    title="Imprimir hoja de ruta, mesanine y bitácora en un solo PDF"
+                    title="Imprimir hoja de ruta, mesanine y bitácora en un solo PDF (Alt+1)"
                   >
                     <Printer size={16} />
                   </button>
@@ -1481,7 +1631,7 @@ export default function PanelDistribucion() {
                       exportarHojaRutaPDF(fila, fechaSeleccionada)
                     }
                     className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-950/40"
-                    title="Imprimir hoja de ruta (unidad)"
+                    title="Imprimir hoja de ruta (unidad) (Alt+2)"
                   >
                     <MapPin size={16} />
                   </button>
@@ -1490,7 +1640,7 @@ export default function PanelDistribucion() {
                       exportarHojaMesaninePDF(fila, fechaSeleccionada)
                     }
                     className="text-amber-500 hover:text-amber-700 dark:hover:text-amber-300 p-1 rounded hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                    title="Imprimir hoja de mesanine"
+                    title="Imprimir hoja de mesanine (Alt+3)"
                   >
                     <Layers size={16} />
                   </button>
@@ -1499,7 +1649,7 @@ export default function PanelDistribucion() {
                       exportarBitacoraPDF(fila, fechaSeleccionada)
                     }
                     className="text-teal-600 hover:text-teal-800 dark:hover:text-teal-300 p-1 rounded hover:bg-teal-50 dark:hover:bg-teal-950/40"
-                    title="Imprimir bitácora de facturas y cargas"
+                    title="Imprimir bitácora de facturas y cargas (Alt+4)"
                   >
                     <ClipboardList size={16} />
                   </button>
